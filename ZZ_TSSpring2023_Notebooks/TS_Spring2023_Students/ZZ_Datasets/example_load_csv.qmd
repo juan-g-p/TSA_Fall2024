@@ -1,0 +1,18 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+Place your R script file and your .csv file on the same folder. Save your RScript to that folder (ensure that it really located in that folder).
+
+Then run the code below:
+
+```{r}
+library(readr)
+```
+
+```{r}
+read_csv("spain_unemployment_format.csv")
+```
+

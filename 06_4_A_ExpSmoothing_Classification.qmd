@@ -1,0 +1,57 @@
+---
+title: "06_4_A_ESmoothing_Classification"
+self-contained: true
+self-contained-math: true
+format: html
+editor: source
+params:
+  solutions: false
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+# References
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+
+# Note
+
+This is by no means original material, but rather an expansion on reference \[1\] with some additional notes or remarks.
+
+# General Notation
+
+**ETS:** **E**xponen**T**ial **S**moothing **ETS:** **Error** + **Trend** + **Season**
+
+-   **Error**: can be **additive ("A")** or **multiplicative ("M")**
+-   **Trend**: **None ("N")**, **additive ("A")**, **multiplicative ("M")** or **damped ("Ad" or "Md")**
+-   **Seasonality**: **None ("N")**, **additive ("A")** or **multiplicative ("M")**
+
+If we consider only the combinations of the **trend and seasonal components**, **9 exponential smoothing methods are possible**. These are listed in the Table below:
+
+| Trend component       | Seasonal Component |            |                  |
+|-----------------------|--------------------|------------|------------------|
+|                       | N                  | A          | M                |
+|                       | (None)             | (Additive) | (Multiplicative) |
+| N (None)              | (N, N)             | (N, A)     | (N, M)           |
+| A (Additive)          | (A, N)             | (A, A)     | (A, M)           |
+| Ad (Additive dampled) | (Ad, N)            | (Ad, A)    | (Ad, M)          |
+
+: Classification of exponential smoothing methods. From ref \[1\]
+
+Note that **the table above does not considered models with a multiplicative trend** (a trend that increases with the level of the series). **These models tend to not produce good forecasts.**
+
+| Shorthand | Method                              |
+|-----------|-------------------------------------|
+| (N, N)    | Simple Exponential Smoothing        |
+| (A, N)    | Holt's linear method                |
+| (Ad, N)   | Additive damped trend method        |
+| (A, A)    | Additive Holt-Winters' method       |
+| (A, M)    | Multiplicative Holt-Winters' method |
+| (Ad, M)   | Holt-Winters' damped method         |
+
+: Models names. From ref \[1\]
+
+The following figure details the formulation for the models outlined above:
+
+![Models formulation. From ref \[1\]](figs/pegelstable-1.png){fig-align="center"}

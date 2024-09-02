@@ -1,0 +1,370 @@
+---
+title: "asgmt1_tsgraphs"
+format: html
+editor: visual
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Libraries
+
+```{r}
+library(fpp3)
+```
+
+# Instructions
+
+-   This notebook contains a series of exercises **to be solved individually by each student**.
+
+-   When answering the questions please **stick to the questions asked and respect the limit to the number of words** (use an online word counter or your text processor of choice).
+
+-   **Answering more than what is asked for in the question will not provide additional points**. More often than not, it actually leads to a worse grade since the additional info provided usually shows a lack of understanding of some concepts on the student's part.
+
+-   **Before delivering the assignment** **make sure you are delivering executable code**. To do this (dedicated video on the appendix RStudio Basics)
+
+    1.  Delete all variables in your environment.
+    2.  Restart your R Session.
+    3.  Click on Run -\> Run all
+
+    -   **IMPORTANT:** if the code you deliver is not executable from beginning to end, you will be somewhat penalized in your assignment (depending on the severity of the issue). So please bear this in mind. At university level the least expected is that you deliver executable code.
+
+# 1. (3.3 points)
+
+The PBS dataset included in fpp3 contains Monthly Medicare Australia prescription data. Run `?PBS` on the console for further info.
+
+We would like to focus on the prescriptions with ATC (Anatomical Therapeutic Chemical Index level 2) equal to H02. This group corresponds to corticosteroids for systemic use.
+
+```{r}
+PBS_h02 <- PBS %>%
+  filter(ATC2 == "H02") %>%
+  select(ATC2, Month, Cost, everything()) %>%
+  arrange(Month)
+```
+
+1.  As you can see, after filtering for `ATC2 == H02` there are 4 entries per month corresponding to different combinations of the columns Concession and Type. We would like to add the Cost associated to those 4 entries for every month, to obtain a time series of the total cost per month. Use `index_by()` and `summarise()` to get the total cost per month **(1 point)**
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+h02_monthly <- PBS %>%
+  filter(ATC2 == "H02") %>%
+  index_by(Month) %>%
+  summarise(
+    Cost = sum(Cost)
+  )
+
+h02_monthly
+```
+
+2.  Create and interpret a time-plot with sufficient resolution to visually identify the seasonality **(0.8 points)**
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (max 50. words)
+
+------------------------------------------------------------------------
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  autoplot(Cost) +
+  
+  # We use scale_x_yearmonth() because these are the units of the time index
+  scale_x_yearmonth(date_breaks = "1 year",
+                    minor_breaks = "1 year") +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r, include=params$print_sol}
+# The graph revels yearly seasonality as well as an upwards trend. 
+# Further, the variability in the seasonal pattern seems to be proportional 
+# to the level of the trend.
+# 
+# There is also a noteworthy drop every February.
+```
+
+3.  Create and interpret a seasonal plot and a seasonal subseries plots to identify the evolution of the seasonal component. **(0.8 points)**
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (max 50. words)
+
+------------------------------------------------------------------------
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  gg_season(Cost)
+
+# The graph reveals the underlying upwards trend of the series, 
+# as well as the drop occurring every February.
+```
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  gg_subseries(Cost)
+
+# The trends have been greater in the higher peaking months 
+# like August, September, October, November, December...
+```
+
+4.  Create and interpret ACF plots and lag plots to identify the seasoanlity **(0.8 points)**
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (max 30. words)
+
+------------------------------------------------------------------------
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  gg_lag(Cost, geom='point', lags=1:16)
+```
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  ACF(Cost) %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+# The strong yearly seasonality is clear in the spike of the ACF every 12 lags(). 
+# The lagplots show a separate cluster of points in almost every graph that matches 
+# the large sales in January.
+```
+
+# 2. (3.3 points)
+
+Use the following graph functions: autoplot(), gg_season(), gg_subseries(), gg_lag(), ACF() and explore features of the time series Total Private from the dataset us_employment (loaded with fpp3) (3.3 points)
+
+```{r}
+total_private <- us_employment %>%
+  filter(Title == "Total Private")
+
+total_private
+```
+
+-   2.1 Generate a timeplot that has major ticks every ten years and minor ticks every year **(1.1 points)**
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+total_private %>%
+  autoplot(Employed) +
+  scale_x_yearmonth(breaks = "10 years",
+                    minor_breaks = "1 year")
+```
+
+-   2.2 Use `gg_season()` and `gg_subseries()` to examine the evolution of the seasonal components over time (period of 1 year). That is, generate the graphs and interpret them **(1.1 points)**
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+total_private %>% gg_season()
+```
+
+```{r, include=params$print_sol}
+total_private %>% 
+  gg_subseries(Employed, period="1 year")
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (Max 75 words)
+
+------------------------------------------------------------------------
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+-   2.3 Use `gg_lag()` and `ACF()` to examine the autocorrelation of the series. Again, generate the graphs and interpret them **(1.1 points)**
+
+```{r, include=!params$print_sol}
+total_private %>%
+  gg_lag(Employed, lags = 1:12)
+```
+
+```{r, include=params$print_sol}
+total_private %>% 
+  ACF(Employed, lag_max = 100) %>% 
+  autoplot()
+```
+
+```{r}
+dcmp_components <- 
+total_private %>% 
+  model(
+    STL_dcmp = STL(Employed)
+  ) %>% 
+  components() 
+```
+
+```{r}
+dcmp_components %>% ACF(season_year) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (Max 50. words)
+
+------------------------------------------------------------------------
+
+```{r, include=params$print_sol}
+# In all of these plots, the trend is so dominant that it is hard to see anything else. 
+# In particular the lagplots and correlogram show very strong and positive correlation 
+# between adjacent lags that decay very slowly. The effect of seasonality is much 
+# smaller than the effect of the trend and cannot be perceived by visual inspection 
+# of the correlogram.
+# 
+# We will need to remove the trend to explore other features of the data. 
+# The next chapter (Time Series decomposition) will let us identify the different 
+# components of the time series.
+```
+
+# 3. Stock prices (3.4/10 points)
+
+The GAFA stock prices dataset in the ffp3 package contains historical stock prices from 2014-2018 for Google, Amazon, Facebook and Apple. All prices are in \$USD
+
+## 3.1 Use `group_by()` in combination with `filter()` and `max()` to finde what days correspond to the peak closing price for each of the four stocks in the dataset `gafa_stock` (**0.5 points**)
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+gafa_stock %>%
+  group_by(Symbol) %>%
+  filter(
+    Close == max(Close)
+  )
+```
+
+## 3.2 Amazon Stock Prices
+
+The following code computes the daily changes in Amazon closing stock prices from 2018 onwards:
+
+```{r}
+damzn <- gafa_stock %>%
+  filter(Symbol == "AMZN", year(Date) >= 2018) %>%
+  mutate(trading_day = row_number()) %>%
+  update_tsibble(index = trading_day, regular = TRUE) %>%
+  mutate(diff = difference(Close))
+
+damzn
+```
+
+-   3.2.1 Why does the code above re-index the tsibble? Hint: run `?update_tsibble()` on the console to access the documentation and read about the argument regular (**0.5 points**)
+
+------------------------------------------------------------------------
+
+**Your answer goes here (max 40 words)**
+
+------------------------------------------------------------------------
+
+```{r, include=params$print_sol}
+# Re-indexing the tsibble was necessary because trading days are not regularly spaced
+# due to week-ends, holidays and other events during which the stock market closes.
+# 
+# With row_number() a regular time index is created. This index counts the elapsed trading
+# days.
+```
+
+-   3.2.2 Use the function `lag()` to compute an additional column `diff2` that should be equal to the column `diff`. Hint: you need to compute the first lag of the variable Close to do this. (**0.5 points**)
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+damzn %>%
+  mutate(
+         diff2 = Close - lag(Close, 1), # Compute the lag
+         check = !(diff==diff2) # Column of booleans
+         ) %>% 
+  pull(check) %>% 
+  sum(na.rm = TRUE)
+
+# The fact that the sum is 0 indicates that `diff` and `diff2` match
+# Remember that booleans convert to 1s and 0s, so this is a way of checking it.
+```
+
+-   3.2.3 Create a time plot of the closing prices and a time plot of the differences. These plots must have major ticks every 20 trading days and minor ticks every 10 trading days (**0.5 points**)
+
+```{r, include=params$print_sol}
+major_ticks = seq(0, max(damzn$trading_day), 20)
+minor_ticks = seq(0, max(damzn$trading_day), 10)
+
+damzn %>% 
+  autoplot(Close) +
+  scale_x_continuous(breaks = major_ticks,
+                     minor_breaks = minor_ticks)
+
+damzn %>% 
+  autoplot(diff) +
+  scale_x_continuous(breaks = major_ticks,
+                     minor_breaks = minor_ticks)
+```
+
+-   3.2.4 Create the correlogram of the closing prices and of the differences in prices using the ACF() and autoplot() functions. Depict 100 lags (look at the argument lag_max). **(0.5 points)**
+
+```{r, include=params$print_sol}
+damzn %>% ACF(Close, lag_max=100) %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+damzn %>% ACF(diff, lag_max=100) %>% autoplot()
+```
+
+-   3.2.5 Do the differences in the stock look like white noise? **(0.45 points)**.
+
+------------------------------------------------------------------------
+
+**Your answer goes here** Max 50 words
+
+------------------------------------------------------------------------
+
+```{r, include = params$print_sol}
+# The differences in stock prices appear to be white noise because more than 95%
+# of the autocorrelation coefficients fall within the boundary of negligible
+# autocorrelation.
+# 
+# The two coefficients that exceed it do not do so in a strong manner, that is,
+# the amount by which they exceed the region of negligible ACF is smaller than
+# the region itself.
+```
+
+-   3.2.6 What about the original series `Close`? **(0.45 points)**
+
+------------------------------------------------------------------------
+
+**Your answer goes here** Max 50 words
+
+------------------------------------------------------------------------
+
+```{r, include = params$print_sol}
+# The original series clearly looks much more like a trended series, not white
+# noise. This is clearly visible in the strong and slowly decaying autocorrelation
+# coefficients of the first lags.
+```

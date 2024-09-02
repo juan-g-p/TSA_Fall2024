@@ -1,0 +1,173 @@
+---
+title: "TS_PPLE_2023Spring_Midterm"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: visual
+params:
+  print_sol: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import data
+
+```{r}
+filepath = "./ZZ_Datasets/Spain_Arrivals_Monthly.csv"
+
+sp_arrivals <- readr::read_delim(filepath, delim = ",") %>% 
+            mutate(year = substr(period, 1, 4),
+                   month = substr(period, 6, 8),
+                   ym = make_yearmonth(year = year, month = month),
+                   value = as.numeric(gsub(".", "", value, fixed=TRUE))
+                   ) %>% 
+            select(ym, value) %>% 
+            as_tsibble()
+            
+sp_arrivals
+```
+
+# 1. Basi plots (2 points)
+
+## 1.1 Create a time-plot of the series, adjusting the time grid so that it signals the beginning of every year
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+## 1.2 Looking at the timeplot prior to 2020, what is the seasonal period you would expect? (max. 30 words)
+
+------
+
+YOUR ANSWER GOES HERE (30 words max)
+
+------
+
+## 1.3 Looking at the timeplot, judge briefly the strength of the seasonal vs the trend component:
+
+------
+
+YOUR ANSWER GOES HERE (30 words max)
+
+------
+
+# 2. TS Decomposition (4 points)
+
+## 2.1 X11 Decomposition
+
+### 2.1.1 Perform an X11 Decomposition with default parameters. Depict the decomposition.
+
+Store the resulting components in a variable called `x11_dcmp`. Then depict the decomposition.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+### 2.1.1 Look at the decomposition. Is the result an additive, multiplicative or other type (mixed) decomposition? (30 words max.)
+
+------
+
+YOUR ANSWER GOES HERE (30 words max)
+
+------
+
+### 2.1.2 Check, in fact that the scheme you signaled before (additive, multiplicative...) is indeed followed by combining the individual components to obtain the original time series. Check that the result you obtain is in fact the original time series down to 5 decimal numbers.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+
+## 2.2 Perform an STL decomposition with default arguments. Depict the decomposition.
+
+Store the resulting components in a variable called `STL_defaults`. Then depict the resulting decomposition.
+
+```{r}
+# YOURT CODE GOES HERE
+```
+
+## 2.2.1 If you can, adjust the parameters of the STL decomposition to improve it. Depict the resulting decomposition.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+## 2.2.2 What are the most important limitations of the STL decomposition in general?
+
+------
+
+YOUR ANSWER GOES HERE (30-40 words max)
+
+------
+
+## 2.3 Compare the STL and X11 decompositions in terms of:
+
+1. Variance of their components.
+
+------
+
+YOUR ANSWER GOES HERE (60 words max)
+
+------
+
+2. Autocorrelation of the remainder / irregular component
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+------
+
+YOUR ANSWER GOES HERE (60 words max)
+
+------
+
+3. Conclude if any of the two decompositions is clearly better or not
+
+------
+
+YOUR ANSWER GOES HERE (30-40 words max)
+
+------
+
+# 3. Classical TS Decomposition Algorithm (3 points)
+
+## 3.1 Implementation of the algorithm
+
+Perform the classical decomposition of the time series implementing the algorithm from scratch (that is, do not use the function `classical deomposition()`):
+
+```{r}
+# YOUR CODE GOES HERE
+
+# YOU MAY CREATE ADDITIONAL CODE SNIPPETS
+```
+
+## 3.2 Compare the result of your decomposition to the result of the function `classical_decomposition()`, down to 4 decimals.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+
+# 3.3 Depict the classical decomposition. For this, use `classical_decomposition()` instead of your manual decomposition.
+
+Analyze this decomposition in terms of:
+
+1. Variance of its components.
+2. Autocorrelation of the remainder.
+
+```{r}
+# YOUR CODE GOES HERE
+
+# YOU MAY CREATE ADDITIONAL CODE SNIPPETS
+```
+
+------
+
+YOUR ANSWER GOES HERE (60 words max)
+
+------

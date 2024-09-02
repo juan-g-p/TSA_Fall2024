@@ -1,0 +1,348 @@
+---
+title: "00_A_2_RBasics_Types_Operators"
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# R - Basic data types
+
+R has 6 different data types.
+
+To check the type of a specific object, we may use the functions `class()` or `typeof()`
+
+1.  **character**: text values
+
+```{r}
+student <- "Juan"
+student
+typeof(student)
+```
+
+2.  **integer**: integer nunbers
+
+```{r}
+# Note the L at the end of the number to indicate it should
+# be created as an integer
+an_int <- 9L
+typeof(an_int)
+```
+
+3.  **numeric**: real numbers
+
+```{r}
+# Did not include the L, so it is stores as "numeric" and not integer
+number <- 3
+number
+typeof(number)
+```
+As a side note, double stands for *double precision number*. Explaining this in detail would require us to get into floating point arithmetic, which is beyond the scope of this course. Just know that there are *single precision numbers* and *double precision numbers*.
+
+```{r}
+# Did not include the L, so it is stores as "numeric" and not integer
+number <- 3.5
+number
+typeof(number)
+```
+
+4.  **logical**: to store booleans `TRUE` (1) or `FALSE` (0)
+
+```{r}
+bool <- TRUE
+bool
+typeof(bool)
+```
+
+5.  **complex**: to store complex numbers. We will not use them in our course:
+
+```{r}
+z <- 1 + 4i
+typeof(z)
+```
+
+6.  **Raw**: not discussed in this course.
+
+# Inspecting the type of an object:
+
+To examine the type of an object we may use the function `typeof()`:
+
+```{r}
+typeof("Maria")
+```
+
+```{r}
+class(10) # returns the object kind
+typeof(10) # returns its lower level type
+```
+
+```{r}
+# We will see what lists are later on
+simpsons <- list("Homer", "Marge", "Lisa", "Bart")
+typeof(simpsons)
+```
+
+# Type conversion
+
+The following functions are useful to convert one type into another type (this is not always possible):
+
+-   `as.numeric(x)`: converts `x` to decimal.
+-   `as.integer(x)`: converts `x` to integer.
+-   `as.character(x)`: converts `x` to character.
+-   `as.logical(x)`: converts `x` to boolean.
+
+## Example: booleans to integers
+
+This is actually very important. Keep in mind that:
+
+-   `TRUE` will be converted to `1`
+-   `FALSE` will be converted to `0`
+
+**Never forget this, this convention is not language-specific (it applies to other programming languages)**.
+
+```{r}
+bool1 <- TRUE
+bool2 <- FALSE
+
+# Convert to integers (TRUE = 1, FALSE = 0)
+as.integer(bool1)
+as.integer(bool2)
+```
+
+## Example: decimals to integers
+
+This conversion **truncates the decimal part**, meaning that it removes the decimal part and retains only the integer part. Note that **this is different to rounding**
+
+```{r}
+num <- 10.66
+as_int <- as.integer(num)
+as_int # Decimal part has been truncated
+class(as_int)
+```
+
+# Numerical operators
+
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| Operator          | Description                                                                                                                                 |
++===================+=============================================================================================================================================+
+| \+                | Addition - adds variables on both ends of the operator                                                                                      |
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| \-                | Subtraction - subtracts right hand operand from left hand operand                                                                           |
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| \*                | Multiplication - multiplies values on both ends of the operator                                                                             |
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| /                 | Division - divides left hand operand by right hand operand                                                                                  |
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| %%                | Modulus - divides left hand operand by right hand operand and returns the remainder.                                                        |
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| \*\*              | Exponentiation - returns the left hand operand to the power of the right hand operand                                                       |
+|                   |                                                                                                                                             |
+| (Alternative: \^) |                                                                                                                                             |
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| %/%               | Floor division - divides the left hand operand by the right hand operand and returns the quotient (result of the division without decimals) |
++-------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+
+## Examples
+
+Lets create for variables
+
+```{r}
+a <- 10
+b <- 5
+c <- 6
+```
+
+```{r}
+a + b
+```
+
+```{r}
+a - b
+```
+
+```{r}
+a*b
+```
+
+```{r}
+a / b
+a / c
+```
+
+```{r}
+a ** b
+a ** c
+```
+
+```{r}
+# Another way of expressing exponentiation in R
+a ^ b
+a ^ c
+```
+
+```{r}
+a %% b # 10 / 5 is exactly 2, so there is no remainder
+a %% c # 10 / 6 is 1.6666...7. The remainder is 4 (10 - 6*1 = 4)
+```
+
+```{r}
+# 10 / 5 is exactly 2, so floor division is the same as division
+a %/% b
+
+# 10 / 6 is 1.6666...7. Floor division does away with the decimals,
+# returning the quotient: 1.
+a %/% c 
+```
+
+# Logical operators
+
++-------------+-----------------------------------------------------------------------------+
+| Operator    | Description                                                                 |
++=============+=============================================================================+
+| A & B       | Logical AND - if both A and B are TRUE returns TRUE. Otherwise returns FALSE |
++-------------+-----------------------------------------------------------------------------+
+| A \| B      | Logical OR - if either A or B is TRUE returns TRUE. Otherwise returns FALSE |
++-------------+-----------------------------------------------------------------------------+
+| ! A         | Logical NOT - if A is TRUE (FALSE) it returns FALSE (TRUE)                  |
++-------------+-----------------------------------------------------------------------------+
+
+## Truth table of AND operator
+
+Let us examine this in the following examples
+
+```{r}
+# Behavior of AND operator
+TRUE & TRUE
+FALSE & TRUE
+TRUE & FALSE
+FALSE & FALSE
+```
+
+This is a summary of all possible inputs to the function logical and and is what is called a **truth table of the operator AND** (do not learn it by heart, be sure you understand AND so that you would be able to reconstruct the table):
+
+| A     | B     | A & B |
+|-------|-------|-------|
+| TRUE  | TRUE  | TRUE  |
+| FALSE | TRUE  | FALSE |
+| TRUE  | FALSE | FALSE |
+| FALSE | FALSE | FALSE |
+
+: Truth table of the AND operator ( & )
+
+Finally, it is important to note that we may have a sequence of multiple booleans chained with and operators:
+
+```{r}
+TRUE & FALSE & FALSE
+
+TRUE & TRUE & TRUE
+```
+
+## Truth table of OR operator
+
+Now let us explore the behavior of the function OR in the same manner:
+
+```{r}
+# Behavior of OR operator
+TRUE | TRUE
+FALSE | TRUE
+TRUE | FALSE
+FALSE | FALSE
+```
+
+Again we may summarize this in the so called **truth table of the operator OR** (do not learn it by heart, be sure you understand OR so that you would be able to reconstruct the table):
+
+| A     | B     | A \| B |
+|-------|-------|--------|
+| TRUE  | TRUE  | TRUE   |
+| TRUE  | FALSE | TRUE   |
+| FALSE | TRUE  | TRUE   |
+| FALSE | FALSE | FALSE  |
+
+: Truth table of the OR operator ( \| )
+
+## Example of logical negation
+
+Finally, let us check the behavior of the logical negation:
+
+```{r}
+# ! turns TRUE to FALSE
+! TRUE
+
+# ! turns FALSE to TRUE
+! FALSE
+```
+
+## Rules of boolean algebra
+
+When combining multiple booleans, it is important that you know that boolean algebra satisfies the *commutative*, *associative* and *distributive* properties.
+
+**TODO:** include examples of this.
+
+# Relational operators
+
+Relational operators are used to perform comparison between variables. **Their output is a boolean value**.
+
+| Operator | Description                                                                                       |
+|----------|---------------------------------------------------------------------------------------------------|
+| A \> B   | **Greater than:** returns TRUE if A is greater than B and FALSE otherwise                         |
+| A \< B   | **Lower than:** returns TRUE if A is lower than B and FALSE otherwise                             |
+| A \>= B  | **Greater than or equal to:** returns TRUE if A is greater than or equal to B and FALSE otherwise |
+| A \<= B  | **Lower than:** returns TRUE if A is lower than or equal to B and FALSE otherwise                 |
+| A == B   | **Equal to:** returns TRUE if A is equal to B and FALSE otherwise                                 |
+| a != B   | **Not equal to:** returns TRUE if A is not equal to B and FALSE otherwise                         |
+
+## Some examples
+
+```{r}
+# Greater than
+5 > 6
+5 > 5
+5 > 4
+```
+```{r}
+# Lower than
+5 < 6
+5 < 5
+5 < 4
+```
+
+```{r}
+# Greater than or equal to
+5 >= 6
+5 >= 5
+5 >= 4
+```
+
+```{r}
+# Lower than or equal to
+5 <= 6
+5 <= 5
+5 <= 4
+```
+
+```{r}
+# Equal to
+5 == 6
+5 == 5
+5 == 4
+```
+```{r}
+# Not equal to
+5 != 6
+5 != 5
+5 != 4
+```
+
+## Relational operators and non-numeric types
+
+Importantly note that this operators can be used to compare types other than numbers!. This will be very useful to filter dataframes (see corresponding notebook).
+
+```{r}
+"Paco de Lucia" == "Paco de Lucia"
+"Paco de Lucia" == "Paco DE LUCIA"
+```
+

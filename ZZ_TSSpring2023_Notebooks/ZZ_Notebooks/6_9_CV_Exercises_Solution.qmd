@@ -1,0 +1,408 @@
+---
+title: "6_9_Exercises_Review_Solved"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+```{r setup, warning=FALSE, echo=FALSE}
+library(fpp3)
+```
+
+## Exercise 1 True or False? Explain your answer:
+
+a. Good forecast methods should have normally distributed residuals
+
+```{r, include = params$print_sol}
+# False. Although many good forecasting methods produce normally distributed 
+# residuals this is not required to produce good forecasts. Other forecasting 
+# methods may use other distributions, it is just less common as they can be 
+# more difficult to work with.
+```
+
+b. A model with small residuals will give good forecasts
+
+```{r, include=params$print_sol}
+# False. It is possible to produce a model with small residuals by making a 
+# highly complicated (overfitted) model that fits the data extremely well. 
+# This highly complicated model will often perform very poorly when forecasting new data.
+```
+
+c. The best measure of forecast accuracy is MAPE.
+
+```{r, include=params$print_sol}
+# False. There is no single best measure of accuracy - often you would want to 
+# see a collection of accuracy measures as they can reveal different things about 
+# your residuals. MAPE in particular has some substantial disadvantages - 
+# extreme values can result when yt is close to zero, and it assumes that the 
+# unit being measured has a meaningful zero.
+```
+
+d. If your model doesn't forecast well, you should make it more complicated
+
+```{r, include=params$print_sol}
+# False. There are many reasons why a model may not forecast well, and making the 
+# model more complicated can make the forecasts worse. The model specified should 
+# capture structures that are evident in the data. Although adding terms that are 
+# unrelated to the structures found in the data will improve the model’s residuals, 
+# the forecasting performance of the model will not neccesarily improve. You could
+# be incurring in overfitting
+
+# Adding missing features  relevant to the data (such as including a seasonal 
+# pattern that exists in the data) 
+# should improve forecast performance.
+```
+
+e. Always choose the model with the best forecast accuracy as measured on the test set
+
+```{r, include=params$print_sol}
+# False. There are many measures of forecast accuracy, and the appropriate model is 
+# the one which is best suited to the forecasting task. For instance, you may be 
+# interested in choosing a model which forecasts well for predictions exactly one 
+# year ahead. In this case, using cross-validated accuracy could be a more 
+# useful approach to evaluating accuracy.
+```
+
+## Exercise 2
+
+The dataset `aus_retail` contains retail data for different australian retail industries. Specifically the industries covered are:
+
+```{r}
+aus_retail %>% distinct(Industry)
+```
+We are interested in the industry *Takeaway food services*.
+
+1. Compute the total turnover per month of all australian States combined. Plot the resulting series:
+
+```{r}
+aus_retail
+```
+
+```{r, include=params$print_sol}
+aus_retail %>%
+  filter(Industry == "Takeaway food services") %>%
+  index_by(Month) %>% 
+  summarize(
+    Turnover = sum(Turnover)
+  )
+```
+
+```{r, include = params$print_sol}
+takeaway <- aus_retail %>%
+  filter(Industry == "Takeaway food services")
+
+takeaway <- aus_retail %>%
+  filter(Industry == "Takeaway food services") %>%
+  summarise(Turnover = sum(Turnover))
+
+autoplot(takeaway) + 
+scale_x_yearmonth(date_breaks = "1 year", 
+                  date_minor_breaks = "1 year",
+                  date_labels = "%y-%b") +
+  
+# Flip x-labels by 90 degrees
+theme(axis.text.x = element_text(angle = 90))
+```
+```{r}
+
+```
+
+2. Create a training withholding the last four years as a test set
+
+```{r, include=params$print_sol}
+test_years = 4
+train <- takeaway %>%
+  filter(Month <= max(Month) - test_years * 12)
+
+# Check that the test dataset does indeed contain 4*12 years
+nrow(takeaway) - nrow(train) == 4*12
+```
+
+3. Obtain the optimal value of lambda suggested for a box-cox transformation. Use the whole time-series (not only the training dataset). Create a timeplot showing the result of applying that box-cox transsformation as a well as a log transformation.
+
+```{r, include = params$print_sol}
+lambda <- takeaway %>%
+  features(Turnover, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+
+```{r, include = params$print_sol}
+takeaway %>% autoplot(box_cox(Turnover, lambda))
+takeaway %>% autoplot(log(Turnover))
+```
+
+Examining the transformed graphs does not reveal that any of the two transformations performs better than the other. What is more, graphically it appears as though the log transformation were a bit better at achieving an additive scheme (at evening out the changes of the variance of the seasonal component with the level of the series).
+
+3. Fit the following models to the training dataset and forecast four years into the future with every model:
+
+* `decomposition_model` applying an STL decomposition and a log transformation. Use a drift model for the seasonally adjusted component and a seas. naïve model for the seasonal component.
+* `decomposition_model` applying an STL decomposition and a box-cox transformation with the value of lambda suggested by the guerrero feature.Use a drift model for the seasonally adjusted component and a seas. naïve model for the seasonal component.
+* `decomposition_model` applyting an STL decomposition with no transformation (technically incorrect since data is multiplicative). Use a drift model for the seasonally adjusted component and a seas. naïve model for the seasonal component.
+* `naive` model
+* `mean` model
+* `seasonal naive` model
+* `drift` model
+* `simple exponential smoothing` model
+
+```{r}
+train %>% model(STL(log(Turnover))) %>% components()
+```
+
+
+```{r, include = params$print_sol}
+fit <- train %>%
+  model(
+    decomp_log = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(log(Turnover)),
+                 # Specify model for the seasonally adjusted component
+                 RW(season_adjust ~ drift()),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 ),
+    decomp_bc = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(box_cox(Turnover, lambda)),
+                 # Specify model for the seasonally adjusted component
+                 RW(season_adjust ~ drift()),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 ),
+    decomp = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(Turnover),
+                 # Specify model for the seasonally adjusted component
+                 RW(season_adjust ~ drift()),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 ),
+    naive = NAIVE(Turnover),
+    drift = RW(Turnover ~ drift()),
+    mean = MEAN(Turnover),
+    snaive = SNAIVE(Turnover),
+    SES = ETS(Turnover ~ error("A") + trend("N") + season("N")) 
+  )
+
+fit
+
+fc <- fit %>% forecast(h = "4 years")
+fc
+```
+
+4. Compute the accuracy metrics on:
+
+* The training dataset (use the `accuracy` function on the object `fit`). Order the results from smallest to largest `MASE`. Keep only the following columns: `.model, .type, MAE, RMSE, MAPE, MASE, RMSSE`.
+
+```{r, include = params$print_sol}
+fit %>%
+  accuracy() %>% 
+  arrange(MASE) %>% 
+  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+```
+
+In the above dataset, the column `.type` indicates that we are computing the accuracy metrics based solely on the training dataset. That is, we are computing **accuracy metrics based on the model residuals, not on forecast errors**.
+
+We can see that the scaled errors of snaive modell are equal to one... why? Since we are dealing with seasonal data, the MAE of the seas. naïve model on the training dataset is used to normalize the scaled errors. That is why MASE is 1 here. The same applies to RMSSE, since the squared RMSE of the seas. naïve component is used to scale the squared scaled errors. To understand this in detail, review the first part of session 15.
+
+* The test dataset. Order the results from smallest to largest `MASE`. Keep only the following columns: `.model, .type, MAE, RMSE, MAPE, MASE, RMSSE`.
+
+```{r, include = params$print_sol}
+fc %>% 
+  accuracy(takeaway) %>%
+  arrange(MASE) %>%
+  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+```
+
+We can see that the decomposition model with the box-cox transformation applied works best. Compared to the decomposition model with no transformation applied (which is technically incorrect because it is applying an STL decomposition to a multiplicative scheme), the model with the log transformed variable performs worse. This shows the important role played by the transformation chosen and the fact that the effect of the transformation must not be assessed only visually.
+
+6. Create a timeplot of the forecasts of the best performing model in terms of `MASE`. Three figures are requested:
+
+* The whole time series (train and test datasets) as well as the forecasts
+
+```{r, include = params$print_sol}
+fc %>% 
+  filter(.model == "decomp_bc") %>%
+  autoplot(takeaway)
+```
+* The test dataset along with the forecasts
+
+```{r, include = params$print_sol}
+test <- takeaway %>%
+  filter(Month > max(Month) - test_years * 12)
+
+fc %>% 
+  filter(.model == "decomp_bc") %>%
+  autoplot(test)
+```
+
+* The training dataset and the fitted values
+
+```{r, include = params$print_sol}
+fitted_vals <- fit %>% augment()
+fitted_vals %>% 
+  filter(.model == "decomp_bc") %>%
+  autoplot(Turnover, colour = "gray") +
+  geom_line(aes(y=.fitted), colour = "blue", linetype = "dashed")
+```
+```{r}
+
+```
+
+In the above graphs the model seems to behave really well and capture the subtleties of the series. However, the residuals exhibit stong autocorrelation (next step). This shows that graphical assessment of the series + forecast might be compelling but insufficient to judge the extent to which a model could be improved.
+
+7. Perform an analysis of the residuals of the model that performs best in terms of `MASE`:
+
+```{r, include = params$print_sol}
+fit %>% 
+  select(decomp_bc) %>%
+  gg_tsresiduals()
+```
+```{r}
+
+```
+
+The residuals exhibit a high degree of correlation. This alone indicates that, despite its apparent relative good behavior, the model can be substantially improved. That is: there is information left in the residuals that the model could have included.
+
+## Exercise 3
+
+`tourism` contains quarterly visitor nights (in thousands) from 1998 to 2017 for 76 regions of Australia.
+
+```{r, include=params$print_sol}
+tourism %>% distinct(Purpose)
+```
+1. Extract data from the Gold Coast region using `filter()` and aggregate total overnight trips (sum over `Purpose`) using `summarise()`. Call this new dataset `gc_tourism`. Create a timeplot of `gc_tourism` as well as a correlogram.
+
+```{r, include = params$print_sol}
+gc_tourism <- tourism %>%
+  filter(Region == "Gold Coast") %>%
+  summarize(
+    Trips = sum(Trips)
+  )
+
+gc_tourism
+```
+```{r, include=params$print_sol}
+gc_tourism %>% autoplot()  +
+               scale_x_yearquarter(date_breaks = "1 year",
+                                   # For quarters it is best to manually construct the sequence
+                                   minor_breaks = "1 year") +
+               theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r, include=params$print_sol}
+gc_tourism %>% ACF(Trips) %>% autoplot()
+```
+Examining the timeplot does not reveal any evident seasonality. The series is the combination of 4 subseries and the timeplot pattern does not exhibit a clear regularity.
+
+However the correlogram reveals that this series seems to have a somewhat complex correlogram the one hand it exhibits a yearly seasonal period visible on the spikes at lags 4-8-12....
+
+The negative spikes at 2, 6, 10... are related to midpoints of the seasonal period.
+
+What follows is a more detailed analysis of the seasonality of this series. It is not expected from you at the exam.
+
+---
+
+**Additional analysis, unexpected for the first part of the subject**
+
+To better understand the timeplot, we may inspect the subseries that we that we added using `summarize()` + `sum()`. If we filter for the region Gold Coast, we will have 4 series, one for each `Purpose` of the trip:
+
+```{r}
+gc_tourism_gc <- tourism %>%
+  filter(Region == "Gold Coast")
+
+gc_tourism_gc %>% autoplot(Trips)  +
+                  scale_x_yearquarter(date_breaks = "1 year",
+                                      # For quarters it is best to manually construct the sequence
+                                      minor_breaks = "1 year") +
+                  theme(axis.text.x = element_text(angle = 90))
+
+gc_tourism_gc %>% ACF(Trips) %>% autoplot()
+```
+
+```{r}
+
+```
+
+We see that, of the four time series we have added at the beginning of the exercise, only the subseries for `Purpose == "Holiday"` has a marked seasonality. This can be seen both on the correlogram and on the features table below:
+
+```{r}
+gc_tourism_gc %>%
+  features(Trips, feat_stl) %>% select(Region, State, Purpose, trend_strength, seasonal_strength_year)
+```
+
+In the following table, the column `trend_strength` indicates how strong the trend component of the time series is and the column `seasonal_strength_year` indicates how strong the seasonal component is. Both range from 0 to 1, with 1 indicating strongest.
+
+As a result, the addition of the 4 series to form the initial series of the exercise presents seasonality that is detectable in the correlogram while its overall timeplot does not exhibit such a clear seasonal pattern.
+
+**End of the additional analysis**
+
+---
+
+2. Using `slice()` or `filter()`, create three training sets for this data excluding the last 1, 2 and 3 years.
+
+```{r, include=params$print_sol}
+gc_train_1 <- gc_tourism %>% slice(1:(n() - 4))
+gc_train_2 <- gc_tourism %>% slice(1:(n() - 8))
+gc_train_3 <- gc_tourism %>% slice(1:(n() - 12))
+```
+
+3. Compute **one year** forecasts for each training set using the seasonal naïve method (`SNAIVE()`). Call these `gc_fc_1`, `gc_fc_2` and `gc_fc_3`, respectively. Generate one year forecasts for each model. Create a single timeplot with the time series (train+test sets) and the forecasts produced by the three models
+
+```{r, include=params$print_sol}
+gc_fit <- bind_cols(
+  gc_train_1 %>% model(gc_fc_1 = SNAIVE(Trips)),
+  gc_train_2 %>% model(gc_fc_2 = SNAIVE(Trips)),
+  gc_train_3 %>% model(gc_fc_3 = SNAIVE(Trips))
+)
+
+gc_fc <- bind_cols(
+  gc_train_1 %>% model(gc_fc_1 = SNAIVE(Trips)),
+  gc_train_2 %>% model(gc_fc_2 = SNAIVE(Trips)),
+  gc_train_3 %>% model(gc_fc_3 = SNAIVE(Trips))
+) %>% forecast(h = "1 year")
+```
+
+```{r, include = params$print_sol}
+gc_fc %>% autoplot(gc_tourism)
+```
+
+```{r}
+
+```
+
+4. Use `accuracy()` to compare the test set forecast accuracy(). Compute the accuracy on both the train and test datasets:
+
+* Accuracy metrics based on the training dataset (on the residuals):
+
+```{r, include=params$print_sol}
+gc_fit %>% 
+  accuracy() %>%
+  arrange(MASE) %>%
+  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+```
+We see that for all three models, the MASE and RMSSE is 1. That is because the three models are `SNAIVE` models and their performance is being compared against the performance of a seasonal naive model, since the data is seasonal.
+
+We can see that there is virtually no difference in the performance of the three models, that is, the training dataset does not seem to affect much the performance of the seasonal naive model for this particular dataset
+
+* Accuracy metrics based on the test dataset (forecast errors)
+
+```{r, include=params$print_sol}
+gc_fc %>% 
+  accuracy(gc_tourism) %>%
+  arrange(MASE) %>%
+  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+```
+We can see that, despite the underlying model being the same, the performance varies significantly depending on the train-test split performed. Model 2 performs significantly better, but this is probably chance.
+
+5. What would you do to assess the performance of the model in a more statitically robust manner?
+
+We see that for this particular dataset, the performance of the model varies significantly depending on the test-train split that we perform. To assess the performance of the models in a more statistically robust manner, Cross-validation would be a more sensible approach.
+
+This would generate a series of train-test datsets against which the model would be assessed. The performance of the model along all those datasets would be averaged, resulting in a much more robust metric of the performance we could expect from the model.

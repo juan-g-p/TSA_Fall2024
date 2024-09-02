@@ -1,0 +1,267 @@
+---
+title: "asgmt1_tsgraphs"
+format: html
+editor: visual
+params:
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Libraries
+
+```{r}
+library(fpp3)
+```
+
+# Instructions
+
+-   This notebook contains a series of exercises **to be solved individually by each student**.
+
+-   When answering the questions please **stick to the questions asked and respect the limit to the number of words** (use an online word counter or your text processor of choice).
+
+-   **Answering more than what is asked for in the question will not provide additional points**. More often than not, it actually leads to a worse grade since the additional info provided usually shows a lack of understanding of some concepts on the student's part.
+
+-   **Before delivering the assignment** **make sure you are delivering executable code**. To do this (dedicated video on the appendix RStudio Basics)
+
+    1.  Delete all variables in your environment.
+    2.  Restart your R Session.
+    3.  Click on Run -\> Run all
+
+    -   **IMPORTANT:** if the code you deliver is not executable from beginning to end, you will be somewhat penalized in your assignment (depending on the severity of the issue). So please bear this in mind. At university level the least expected is that you deliver executable code.
+
+# 1. (3.3 points)
+
+The PBS dataset included in fpp3 contains Monthly Medicare Australia prescription data. Run `?PBS` on the console for further info.
+
+We would like to focus on the prescriptions with ATC (Anatomical Therapeutic Chemical Index level 2) equal to H02. This group corresponds to corticosteroids for systemic use.
+
+```{r}
+PBS_h02 <- PBS %>%
+  filter(ATC2 == "H02") %>%
+  select(ATC2, Month, Cost, everything()) %>%
+  arrange(Month)
+```
+
+1.  As you can see, after filtering for `ATC2 == H02` there are 4 entries per month corresponding to different combinations of the columns Concession and Type. We would like to add the Cost associated to those 4 entries for every month, to obtain a time series of the total cost per month. Use `index_by()` and `summarise()` to get the total cost per month **(1 point)**
+
+```{r}
+PBS_month <- PBS_h02  %>%
+  index_by(month = yearmonth(Month)) %>%
+  summarise(monthly_sum = sum(Cost))
+print(PBS_month)
+```
+
+2.  Create and interpret a time-plot with sufficient resolution to visually identify the seasonality **(0.8 points)**
+
+```{r}
+  PBS_month%>%
+  gg_season(monthly_sum, labels = "right") + 
+  labs(y = "$ (millions)",
+       title = "Medicare Australia")
+  
+  autoplot(PBS_month) 
+  ts.plot(PBS_month)
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (max 50. words)
+
+We can observe how for all years from January to February they avoid many costs, but slowly recover them along the year and when reaching December we can compare how past years had lower costs due to probably the lower inflation.
+
+------------------------------------------------------------------------
+
+3.  Create and interpret a seasonal plot and a seasonal subseries plots to identify the evolution of the seasonal component. **(0.8 points)**
+
+```{r}
+  PBS_month %>%
+  gg_subseries(monthly_sum) +
+  labs(
+    y = "$ (millions)",
+    title = "Medicare Australia",
+  )
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (max 50. words)
+
+We can observe how the median relates to the explanation above, how costs decrease in the first month of the year and then increase at a constant rate during the rest of the year.
+
+------------------------------------------------------------------------
+
+4.  Create and interpret ACF plots and lag plots to identify the seasoanlity **(0.8 points)**
+
+```{r}
+PBS_month %>%
+  ACF() %>%
+  autoplot()
+
+
+  PBS_month %>%
+  gg_lag(y = monthly_sum, geom = "point", lags = 1:12) + theme(axis.text.x = element_text(angle = 90))
+
+
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (max 30. words)
+
+Here we can observe the relationship between lagged variables and variables, we can observe how in lag 12 the relationship is the strongest while the weakest could be any of the first 4 or 5 lags since slowly the relationship get stronger as the lag number increases.
+
+------------------------------------------------------------------------
+
+# 2. (3.3 points)
+
+Use the following graph functions: autoplot(), gg_season(), gg_subseries(), gg_lag(), ACF() and explore features of the time series Total Private from the dataset us_employment (loaded with fpp3) (3.3 points)
+
+```{r}
+total_private <- us_employment %>%
+  filter(Title == "Total Private")
+
+total_private
+```
+
+-   2.1 Generate a timeplot that has major ticks every ten years and minor ticks every year **(1.1 points)**
+
+```{r}
+autoplot(total_private) +
+scale_x_yearweek(date_breaks = "10 years",
+                  date_minor_breaks = "1 year") +
+theme(axis.text.x = element_text(angle = 90))
+```
+
+-   2.2 Use `gg_season()` and `gg_subseries()` to examine the evolution of the seasonal components over time (period of 1 year). That is, generate the graphs and interpret them **(1.1 points)**
+
+```{r}
+  total_private %>% gg_season(Employed, period = "1 year") +
+  labs(y="Employement", title="Us_employment")
+  
+  total_private %>% gg_subseries(Employed, period = "1 year") +
+  labs(y = "Employement", title = "Us_employment",
+  )
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (Max 50. words)
+
+We can observed how it has raised slowly but with no huge increments neither during the single months or years.
+
+------------------------------------------------------------------------
+
+-   2.3 Use `gg_lag()` and `ACF()` to examine the autocorrelation of the series. Again, generate the graphs and interpret them **(1.1 points)**
+
+```{r}
+  total_private %>%
+  ACF(y = Employed) %>%
+    autoplot()
+
+  total_private %>%
+  gg_lag(y = Employed, geom = "point", lags = 1:12) + theme(axis.text.x = element_text(angle = 90))
+```
+
+------------------------------------------------------------------------
+
+**Your interpretation goes here** (Max 50. words)
+
+It does not vary much which can also relate to having an autocorrelation nearly being 1, meaning that it has a nearly perfect one.
+
+------------------------------------------------------------------------
+
+# 3. Stock prices (3.4/10 points)
+
+The GAFA stock prices dataset in the ffp3 package contains historical stock prices from 2014-2018 for Google, Amazon, Facebook and Apple. All prices are in \$USD
+
+## 3.1 Use `group_by()` in combination with `filter()` and `max()` to finde what days correspond to the peak closing price for each of the four stocks in the dataset `gafa_stock` (**0.5 points**)
+
+```{r}
+peaks <- gafa_stock %>% group_by(Symbol) %>% filter(Close == max(Close)) %>% select(Symbol, Close)
+print(peaks)
+```
+
+## 3.2 Amazon Stock Prices
+
+The following code computes the daily changes in Amazon closing stock prices from 2018 onwards:
+
+```{r}
+damzn <- gafa_stock %>%
+  filter(Symbol == "AMZN", year(Date) >= 2018) %>%
+  mutate(trading_day = row_number()) %>%
+  update_tsibble(index = trading_day, regular = TRUE) %>%
+  mutate(diff = difference(Close))
+print(damzn)
+```
+
+-   3.2.1 Why does the code above re-index the tsibble? Hint: run `?update_tsibble()` on the console to access the documentation and read about the argument regular (**0.5 points**)
+
+------------------------------------------------------------------------
+
+**Your answer goes here (max 30 words)**
+
+We require to change our index to make it less chaotic and to use the row sequence number so that the intervals are the same.
+
+------------------------------------------------------------------------
+
+-   3.2.2 Use the function `lag()` to compute an additional column `diff2` that should be equal to the column `diff`. Hint: you need to compute the first lag of the variable Close to do this. (**0.5 points**)
+
+```{r}
+damzn %>% add_column(diff2 = lag(damzn$diff))
+```
+
+-   3.2.3 Create a time plot of the closing prices and a time plot of the differences. These plots must have major ticks every 20 trading days and minor ticks every 10 trading days (**0.5 points**)
+
+```{r}
+major_break <- seq(1, max(damzn$trading_day), by = 20)
+minor_break <- seq(1, max(damzn$trading_day), by = 10)
+
+
+damzn %>%
+  autoplot(Close) +
+  scale_x_continuous(breaks = major_break,
+                     minor_breaks = minor_break) + 
+  theme(axis.text.x = element_text(angle = 90))
+
+damzn %>%
+  autoplot(diff) +
+  scale_x_continuous(breaks = major_break,
+                     minor_breaks = minor_break) + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+-   3.2.4 Create the correlogram of the closing prices and of the differences in prices using the ACF() and autoplot() functions. Depict 100 lags (look at the argument lag_max). **(0.5 points)**
+
+```{r}
+damzn %>%
+  ACF(Close, lag_max = 100) %>%
+    autoplot()
+
+
+damzn %>%
+  ACF(diff, lag_max = 100) %>%
+    autoplot()
+```
+
+-   3.2.5 Do the differences in the stock look like white noise? **(0.45 points)**.
+
+------------------------------------------------------------------------
+
+**Your answer goes here** Max 50 words
+
+Since there are 2 spikes that lay outside of the bounds(blue doted lines) it is probably not white noise that we are dealing with.
+
+------------------------------------------------------------------------
+
+-   3.2.6 What about the original series `Close`? **(0.45 points)**
+
+------------------------------------------------------------------------
+
+**Your answer goes here** Max 50 words
+
+No, since the immense majority of the spikes are outside the boundaries(blue doted lines) for being considered as white-noise.
+
+------------------------------------------------------------------------

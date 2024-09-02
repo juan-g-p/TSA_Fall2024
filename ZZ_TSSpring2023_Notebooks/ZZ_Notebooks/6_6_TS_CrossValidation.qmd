@@ -1,0 +1,257 @@
+---
+title: "6_6_TS_CrossValidation"
+format: html
+editor: source
+params:
+  print_sol: false
+  hidden_notes: false
+  hidden_graphs: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+NOTE: the following material not fully original, but rather an extension of reference 1 with comments and other sources to improve the student's understanding:
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+2.  Fable package documentation
+
+-   https://fable.tidyverts.org/index.html
+-   https://fable.tidyverts.org/articles/fable.html
+
+# Packages
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+```
+
+# Time Series Cross-Validation
+
+## Introduction to the concept
+
+Evaluating accuracy on a single test-train split yield results that are very dependent on the particular train-test split we are performing.
+
+To achieve more statistically robust results, we may compute error metrics on many different train-test splits and then average the results obtained for each split. This is what is called `cross-validation`:
+
+Cross-validation applied to time series consists in:
+
+-   Generating a series of train-test splits. **These splits must respect the time-order structure of the data**. Unlike in other areas of ML, where the train-test splits are done based on random sampling, here the time-structure of the data must be respected.
+    -   **Training sets need a minimum size** $\rightarrow$ earliest observations cannot be used as test sets or the training set would be too small.
+    -   The smallest training dataset should be **at least as large as the maximum forecast horizon required**. If possible the smallest training dataset should be bigger than this.
+    -   The **test sets** must be located in time must have **the same length** and the must be placed in time **after the training set**.
+    -   The **training set** shall only contain observations that occurred **prior** to the observations of the test set.
+
+Let us start with a **simple example**, in which the test sets consist in a single observation and a signle forecast horizon h = 1. The diagram below represents this situation
+
+-   Blue observations represent the training sets
+-   Orange observations represent the test sets.
+
+```{r, echo=FALSE, out.width='80%', fig.align="center"}
+knitr::include_graphics('./figs/15_1_Cross_Valid_1.svg')
+```
+
+The forecast accuracy metrics are computed for each combination of test-train dataset and then the overall, cross-validated metrics are computed by averaging these metrics over all the datasets. WE will see a detailed example afterwards
+
+For **multi-step forecasts** (forecasts bey) the same strategy is followed, but this time the test set is at a distance `h` (the forecast horizon) from the train set. Suppose we are interested in models that produce good 4-step-ahead forecasts. The
+
+```{r, echo=FALSE, out.width='80%', fig.align="center"}
+knitr::include_graphics('./figs/15_2_Cross_Valid_2.svg')
+```
+
+In practice we will be interested in analyzing which model perform best for a series of forecast horizons. For this purposes we need train-test splits that look like the example below. With this we could analyze forecast horizons of up to h=4. In addition to analyzing which model performs best for a specific forecast horizon, with the split below we could also analyze which model performs best, on average, over all those forecast horizons.
+
+```{r, echo=FALSE, out.width='80%', fig.align="center"}
+knitr::include_graphics('./figs/15_2_Cross_Valid_3.png')
+```
+
+Let us move to the practical aspects, which shall bring some more clarity to this.
+
+## Function `stretch_tsibble()`
+
+Used in the fablr library to create many training sets to use in a cross-validation context. Arguments:
+
+`stretch_tsibble(.x, .step = 1, .init = 1)`
+
+-   `.x`: tsibble to be split following the time series cross validation strategy.
+-   `.step`: a positive integer for incremental step.
+-   `.init`: a positive integer for an initial size of the training set.
+
+Remember the indications given above about the minimum sizes of the training datasets
+
+## Detailed example of time series cross validation
+
+We will use the data for google stock closing prices on 2015:
+
+```{r}
+google_stock <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) >= 2015) %>%
+  mutate(day = row_number()) %>%
+  update_tsibble(index = day, regular = TRUE)
+```
+
+
+```{r}
+google_2015 <- google_stock %>% filter(year(Date) == 2015)
+```
+
+### Step 1. Create the set of training datasets using `stretch_tsibble()`:
+
+```{r}
+google_2015_tr <- google_2015 %>%
+  stretch_tsibble(.init = 20, .step = 1) %>%
+  relocate(Date, Symbol, .id) # reorder column
+
+google_2015_tr
+
+# Number of training datasets generated
+google_2015_tr %>% pull(.id) %>% max()
+```
+
+As you can see, 233 training datasets have been generated
+
+-   The column `.id` is an identifier for each of the training sets.
+-   Because `.init` was set to 20, the first training set has 20 elements
+-   Becase `.step` was set to 1, the training set is increased one observation at a time
+
+### Step 2: fit the models to be assessed to the training datasets generated before
+
+The following code fits a drift and a mean model to each of the training datasets! (2 x 233 = 466 models!)
+
+```{r}
+google_2015_fit_cv <- google_2015_tr %>%
+                        model(
+                              Drift = RW(Close ~ drift()),
+                              Mean = MEAN(Close)
+                              )
+
+google_2015_fit_cv
+```
+
+The resulting mable has, as expected:
+
+-   233 rows, because there are a total of 233 training datasets (think of each training dataset as a separate time series)
+-   The combination of the columns `Symbol` and `.id` indicate to which training dataset the model has been fit.
+-   The columns `Drift` and `Mean` (used choices for the names) correspond to the models fitted to each of these training datasets-
+
+### Step 3: generate forecasts
+
+Let us thus generateforecasts of a horizon of up to 8 training days for each of those models:
+
+```{r}
+# TSCV accuracy
+google_2015_fc_cv <- google_2015_fit_cv %>% forecast(h = 8)
+
+google_2015_fc_cv
+```
+
+The output of the forecast table (`fable`) is, as expected:
+
+-   8 forecasts for each combination of `Symbol`, `.id` and `.model`. Therefore a total of 8 x 2 x 233 = 3278 point forecasts and their corresponding forecast distributions.
+
+### Step 4: generate cross-validated accuracy metrics:
+
+#### 4.1 Generate accuracy metrics for each combination of model and forecast horizon.
+
+To achieve this, we first need to add an additional column to the foregoing forecast table to identify to which horizon each forecast corresponds. That is, we need a row counter that resets everytime the combination of .id and model changes:
+
+```{r}
+google_2015_fc_cv <- google_2015_fc_cv %>%
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "Close", distribution = Close) %>% 
+  select(h, everything()) # Reorder columns
+
+google_2015_fc_cv
+```
+
+As you can see now the column h identifies to which forecast horizon each forecast corresponds.
+
+Once this has been done, we can use the accuracy() function to compute the metrics for each combination of `.model` and `h` giving it an additional argument as follows:
+
+```{r}
+summary_cv_h <- google_2015_fc_cv %>% 
+  accuracy(google_2015, by = c(".model", "Symbol", "h"))
+
+summary_cv_h
+```
+
+In this case, since we are deailing with a single time series, we could omit the Key identifier of this time series (`Symbol`), but if you have a dataset that contains multiple time series, you will need to include it. So it is there for completion.
+
+Remember that, since we are generating accuracy metrics on test data, we need to provide the original dataset containing both the training and test observations to the accuracy function. We provide **the original dataset prior to applying it the function stretch-tsibble**.
+
+The output above contains, as expected:
+
+-   16 rows, one row for each combination of model and forecast horizon
+-   One column for each of the accuracy metrics computed by accuracy(). We will usually limit ourselves to the ones explained in class.
+
+Each of the rows above is the average error metrics of each of the 233 models fitted for each type for each forecast horizon. For example:
+
+-   The row corresponding to `h = 1` and `model = Drift` contains the average error metrics (MAE, RMSE...) of each of the 233 Drift models that were fitted to each of the 233 training datasets when forecasting one step ahead on their corresponding test datasets.
+-   The row corresponding to `h = 4` and `model = Drift` contains the average error metrics (MAE, RMSE...) of each of the 233 Drift models that were fitted to each of the 233 training datasets when forecasting the value four steps ahead on their corresponding test datasets.
+
+This is a **much more statistically robust method than just performing a single train-test split**.
+
+**Good possible way to choose the best forecasting model**: find the model with the smallest RMSE for the forecast horizon we wish to compute using time series cross-validation. Minimizing RMSE will lead to forecasts on the mean.
+
+```{r}
+summary_cv_h %>% 
+  ggplot(aes(x = h, y = RMSE, color = .model)) +
+  geom_point()
+```
+
+As you can see the graph indicates that the average performance of the drift model over all the train-test splits is much better than that of the mean method for this particular time series for all the forecast horizons analyzed.
+
+#### 4.2 Generate average accuracy metrics over all the forecasting horizons.
+
+Perhaps we are not interested in producing forecasts with a specific horizon, but rather we would like a model that returns the best forecasts averaged over all the horizons.
+
+To attain this, we use again the `accuracy()` function but we do not provide an argument for `by`. It will therefore default to grouping solely by `.model` and the Key identifier of the time series. Let us check this:
+
+```{r}
+google_2015_fc_cv %>% 
+  accuracy(google_2015)
+```
+
+This is equivalent to doing:
+
+```{r}
+google_2015_fc_cv %>% 
+  accuracy(google_2015, by = c(".model", "Symbol"))
+```
+
+The above metrics are the average performance metrics of each of the model types over all the train-test splits and forecast horizons. For example:
+
+-   The row corresponding to the `Drift` contains the error metrics of the drift model averaged over all the 4 forecast horizons and over the 233 train-test splits.
+
+## Exercise cross-validation:
+
+### Task
+
+Perform cross validation on the australian beer production dataset. Use the dataset recent_production created during this lesson and the four benchmark models.
+
+### Step 0. Identify your dataset and think about which variables you need
+
+-   We will work with recent_production, the total dataset, and we will apply `stretch_tsibble()` to this dataset to generate our set of test and training datasets.
+-   For convenience I will select only the varialbes relevant to the analysis
+
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+```
+
+```{r}
+beer_production <- select(recent_production, Quarter, Beer)
+beer_production
+```
+
+### Step 1. Create the set of training datasets using `stretch_tsibble()`
+
+### Step 2: Fit the models
+
+### Step 3: generate the forecasts
+
+### Step 4: generate cross-validated accuracy metrics

@@ -1,0 +1,105 @@
+---
+title: "TS_Ind_Assignment_2_CrossValidation"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+```{r setup, include=FALSE}
+library(fpp3)
+```
+
+## Exercise
+
+For this exercise use the quarterly number of arrivals to Australia from New Zealand, 1981 Q1 – 2012 Q3, from data set `aus_arrivals`.
+
+```{r}
+# Filter data:
+nzarrivals <- aus_arrivals %>% filter(Origin == "NZ")
+nzarrivals
+```
+
+### **a. Make a time-plot of your data. Ensure that the grid indicates at least the end of each seasonal period.**
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+### **b. Create a training set that withholds the last two years of available data for test purposes.**
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+### **c. Fit the following models to your training dataset and create 8-step ahead forecasts:**
+
+* A seasonal naïve method
+* An additive STL decomposition separating the seasonally-adjusted component and the seasonal component using `decomposition_model()`. **Is a transformation necessary?.**
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+### **d. Which model performs better with this particular train-test split?**
+
+Make this analysis in two levels:
+
+1. Performance of the models on average over all forecast horizon.
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+------
+YOUR ANSWER GOES HERE (100 words max)
+------
+
+2. Performance of the models segregated by forecast horizon.
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+------
+YOUR ANSWER GOES HERE (100 words max)
+------
+
+### **e. Perofrm cross-validation instead of using a single training-test set split.**
+
+To perform cross-validation consider the following:
+
+* The smallest training dataset shall contain at least 50 observations.
+* The training datasets shall increase by one observation at a time.
+
+Again, separate in two levels:
+
+1. Performance of the models on average over all forecast horizon.
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+------
+YOUR ANSWER GOES HERE (100 words max)
+------
+
+2. Performance of the models segregated by forecast horizon.
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+------
+YOUR ANSWER GOES HERE (100 words max)
+------
+
+3. Do you come to the same conclusions as with a single train-test split? What is the difference between both approaches?
+
+------
+YOUR ANSWER GOES HERE (100 words max)
+------

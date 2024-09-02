@@ -1,0 +1,384 @@
+---
+title: "6_1_B_Simple_Exponential_Smoothing - Theory"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: false
+---
+
+# References
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+2.  Associated .pdf file *06_1_A_SES_equations.pdf* (very important).
+3.  Associated vide lesson explaining the .pdf file ([Link](https://youtu.be/zlfbuwgfsq4))
+3.  Fable package documentation
+
+-   <https://fable.tidyverts.org/index.html>
+-   <https://fable.tidyverts.org/articles/fable.html>
+
+# Note
+
+This notebook is not original material, but rather based on ref. 1 with notes expanding on some of the concepts contained in the book.
+
+# Libraries
+
+```{r, warning= FALSE, message=FALSE}
+library(fpp3)
+library(patchwork) # to easily place graphs next to each other
+```
+
+# Intro
+
+**Exponential smoothing forecasts, main idea**
+
+- **Mean method**: Constant forecasts. Every observation gets the same weight assigned
+- **Naive method**: Constant forecasts. All the weight assigned to the last observation
+- **Exponential Smoothing:** Also constant forecasts. But uses a weighted average of past observations with weights decaying exponentially as the observations get older (more distant in the past).
+    -   The more recent the observation, the higher its associated weight.
+
+# Simple Exponential Smoothing (SES)
+
+It produces **constant forecasts**. Therefore it is appropriate for data with **no clear trend or seasonal pattern**.
+
+Example:
+
+```{r}
+algeria_economy <- global_economy %>%
+  filter(Country == "Algeria")
+
+algeria_economy %>%
+  autoplot(Exports) +
+  labs(y = "% of GDP", title = "Exports: Algeria")
+```
+
+Data above does not have clear trend or seasonality. Among the benchmark methods, **naïve or mean methods** would be suitable for this data.
+
+## Naïve vs. Average vs. Simple Exponential Smoothing
+
+### Naïve
+
+All future forecasts are equal to the last observed value. **The most recent observation is the only important one**.
+
+$$
+\hat{y}_{T+h|T} = y_{T}
+$$
+
+-   for $h = 1, 2, \dots$
+
+### Mean method
+
+All future forecasts are equal to a simple average of the observed data. **All observations are of equal importance, assigning them equal weights when generating the forecasts**
+
+$$
+\hat{y}_{T+h|T} = \frac1T \sum_{t=1}^T y_t
+$$
+
+-   for $h = 1, 2, \dots$
+
+## Simple Exponential Smoothing
+
+Between the naive and the average approach.
+
+- **Forecasts = weighted averages**.
+- More recent observations have larger weights associated.
+- Uses a geometric progression to obtain the coefficients
+- Weights decrease exponentially the more distant in the past the observations.
+
+$$
+    \hat{y}_{T+1|T} = \alpha y_T + \alpha(1-\alpha) y_{T-1} + \alpha(1-\alpha)^2 y_{T-2}+ \cdots = \sum_{j=0}^{T-1} \alpha(1-\alpha)^j y_{T-j}
+$$
+As you can see, the weights used in simple exponential smoothing follow a geometric progression of ratio $1 - \alpha$. For this succession (see accompanying .pdf and video for further clarity):
+
+1. $a_1 = \alpha \in (0,1]$
+2. $r = (1-\alpha) \in (0,1]$
+3. $a_n = \alpha(1-\alpha)^{n-1}$ (general term of the succesion).
+    * This means that the **coefficients used by simple exponential smoothing decrease exponentially, as desired**.
+4. $S_n = \sum_{j=1}^{n}a_n\rightarrow 1$ if $n \rightarrow \infty$  (sum of the coefficients converges to 1).
+    * The coefficients of simple exponential smoothing add up to 1, as one would expect from a weighted average.
+
+Points 3 and 4 are proved in the separate .pdf. They are fundamental properties of the geometric progression used in SES that you should be able to derive at a university level.
+
+### Flat forecasts of simple exponential smoothing
+
+By design, Simple Exponential Smoothing has a "flat" forecast function. **All forecasts beyond the training data take the same value.**
+
+If $t=T$ is the last point in time of the training data, this means that: 
+
+$$
+\hat{y}_{T+h|T} = \hat{y}_{T+1|T} =  \sum_{j=0}^{T-1} \alpha(1-\alpha)^j y_{T-j} \qquad h=2,3,\dots.
+$$
+
+Therefore, these forecasts will only be suitable if the **time series has no trend or seasonal component**.
+
+The **fitted values** on the other hand **will not be constant**. They will be *one-step ahead forecasts* based on all the preceding datapoints.
+
+### Component form
+
+Together, the *forecast equation* and the *smoothing equation* constitute the **component form of simple exponential smoothing**. This form is completely equivalent to the weigthed average form. In fact it is derived form it, as shown in the separate .pdf and accompanying video.
+
+$$
+\begin{align*}
+  \text{Forecast equation}  && \hat{y}_{t+h|t} & = \ell_{t}\\
+  \text{Smoothing equation} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
+\end{align*}
+$$
+where: 
+
+* $\hat{y}_{t+h|t}$ is the forecast at $t+h$ given everything occurred up to $t$.
+* $\alpha$ is the smoothing parameter of the model.
+* $l_t$ is the level of the time series at time $t$. 
+    * Since fitted values are one-step ahead forecasts on the training data, if we set $h=1$ on the forecast equation we see that $l_t$ is actually $\hat{y}_{t+1|t}$, that is, the fitted value at time $t+1$.
+    * The value of the level at $t=T$ (at the last point where data is available) is therefore $\hat{y}_{T+1|T}$. 
+        * Since SES produces flat forecasts by design, this is equal to $\hat{y}_{T+h|T}$, the flat (constant) forecast of SES.
+
+**IMPORTANT:**
+
+* setting $h=1$ gives the equations for the fitted values (one-step ahead forecasts on the training data).
+* setting $t=T$ (last point for which data is available) gives the true forecasts beyond the trainig data.
+
+The component form is more useful from a computational standpoint. For Simple Exponential Smoothing it might seem unnecessary, but it will be most convenient when more components are added in the trended and seasonal forms of exponential smoothing.
+
+For simple exponential smoothing the component equations can be interpreted as follows:
+
+-   **The forecast equation** shows that the forecast value at time $t+1$ is the estimated level at time $t$ (simply set $h=1$ in the forecast equation):
+
+$$
+\begin{align*}
+\hat{y}_{t+1|t} = l_{t} && \text{(forecast equation for h=1)}
+\end{align*}
+$$
+
+-   **The smoothing equation for the level** (a.k.a level equation) gives the estimated level of the series at time t as a **weighted average between the value of the series at time $t$ (that is, $y_t$) and the level of the time series at $t-1$ (that is, $l_{t-1}$)**. It is a weighted average because the coefficients of $y_t$ and $l_{t-1}$ add up to 1 ($\alpha + (1-\alpha) = 1$):
+
+$$
+l_{t} = \alpha y_{t} + (1 - \alpha)l_{t-1}
+$$
+
+### Finding best values for $l_0$ and $\alpha$ (i.e. fitting the model)
+
+To apply simple exponential smoothing, some values need to be chosen. Specifically:
+
+-   $\alpha$: the smoothing parameter 
+-   $l_0$: the initial value of $l_t$
+
+For more complex exponential smoothing methods there will be more than one smoothing parameter and more than one initial component.
+
+**Choice of parameters**
+
+- Sometimes previous experience guides the choice of these parameters.
+- Usually the observed data is used to estimate them.
+    - The **sum of squared residuals** is minimized to choose these parameters. 
+        - NOTE: the **sum of squared residuals** is usually known as the **sum of squared errors (SSE)**, although technically residuals $\neq$ errors (see the session on fitted values and benchmark models, where we clarified this difference in depth).
+
+$$
+  \text{Residuals} = e_t=y_t - \hat{y}_{t|t-1}
+$$
+
+$$
+\text{SSE} = \sum_{t=1}^T(y_t - \hat{y}_{t|t-1})^2=\sum_{t=1}^Te_t^2.
+$$
+
+For Simple Exponential Smoothing this is a non-linear minimization problem that has no explicit solution. Therefore, it needs to be solved numerically, typically using iteration to choose the values of $\alpha$ and $l_0$ that minimize the SSE. The process could be summarized as follows:
+
+```{r, echo=FALSE, out.width='70%', fig.align="center", fig.cap=""}
+knitr::include_graphics('./figs/ses_fit.png')
+```
+
+You may recall that for Linear Regression there are explicit formulas providing the solution the problem of minimizing the SSE. This is not the case in SES.
+
+**Step 2 of the fitting process above** requires **computing the fitted values given $\alpha$ and $\l_0$ using the component equations.** A separate **excel file** is provided to illustrate this process. The video accompanying this lesson shows how to fill this excel file.
+
+## Model specification in `fable()` - example
+
+As forecasters, we are interested in how to use this model within R. Specifically within the `fpp3` package. This is fairly simple.
+
+### 1. Fitting the model
+
+Exponential Smoothing Methods can be fitted using the `ETS()` function of the `fable` library. `ETS` is an acronym for two things:
+
+1. *E*xponen*T*ial *S*moothing
+2. *Error* - *Trend* - *Season* - this will be useful to write the model formula, as we will see in the examples. It is related to the more elaborate forms of exponential smoothing that include `trend` and `seasonality`.
+
+Two functions are used to fit an ETS() model:
+
+-   **model()** (also from `fable`) trains the specified model definition to a given dataset.
+-   **`ETS()`** returns an ETS model specified by the formula specified via its arguments
+
+The details of these functions can be queried using `?ETS()` or `?model()` in the console, but it is best to examine their use through an example. 
+
+We will resort to the example of the Algerian economy we were dealing with before. For **Simple Exponential Smooting** use **"A", "N" and "N" for the `error()`, `trend()` and `season()` functions respectively**.
+
+```{r}
+# Estimate parameters
+fit <- algeria_economy %>%
+  model(ETS(Exports ~ error("A") + trend("N") + season("N")))
+```
+
+### 2. Computing the fitted values
+
+Once the model has been fitted, we can use `augment()` as usual to examine the fitted values and the residuals:
+
+```{r}
+fitted_vals <- 
+  fit %>% augment() %>% select(Year, Exports, .fitted)
+
+fitted_vals
+```
+
+### 3. Interpreting the parameters
+
+Remember that, when fitting the model, a value for $\alpha$ and $l_{0}$ (initial level) has been internally chosen by minimizing the sum of square errors. These are the model parameters for simple exponential smoothing and can be queried using the function `tidy()` on the model:
+
+```{r}
+# Print out the model parameters
+ses_params <- tidy(fit)
+ses_params
+
+# Store alpha
+alpha <- ses_params$estimate[1]
+```
+
+In this case we have $\alpha = 0.84$ and $l_{t0} = 39.54$.
+
+We can use the parameter $\alpha$ to analyze the distribution of the weights for the different observations. Remember that the weighted average form eq $(1)$:
+
+$$
+    \hat{y}_{T+1|T} = \alpha y_T + \alpha(1-\alpha) y_{T-1} + \alpha(1-\alpha)^2 y_{T-2}+ \cdots = \sum_{j=0}^{T-1} \alpha(1-\alpha)^j y_{T-j} \tag{1}
+$$
+
+The weight (coefficient) associated to the observation $y_{T-j}$ is therefore:
+
+$$
+\alpha(1-\alpha)^j
+$$
+With this formula we may use a for loop through the length of the fitted values to compute the weights associated to each observation:
+
+```{r}
+weights <- vector("double") 
+for (i in seq(1:nrow(fitted_vals))){
+  # Compute the weight associated to each observation
+  weights[[i]] <- alpha*((1-alpha)**(i-1))
+}
+
+# Add this column to the fitted values
+fitted_vals$weight = rev(weights)
+
+# Reverse de order of the dataframe to depict it more clearly
+fitted_vals <- 
+  fitted_vals %>% arrange(desc(Year))
+
+fitted_vals
+```
+
+We can see that the most recent observation gets assigned a weight of $\alpha = 0.8399$. The observation in 2016 a weight of $\alpha(1-\alpha)=0.1344$, the observation in 2015 gets assigned a weight of $\alpha(1-\alpha)^2 = 0.0215$...
+
+In fact, these first three observations together get assigned a weight of:
+
+```{r}
+sum(fitted_vals$weight[1:3]) 
+```
+The remaining difference up to 1 is distributed among the rest of the observations. That is, as expected:
+
+* More recent observations get assigned more weight.
+* Observations more distant in the past get assigned weights that reduce exponentially.
+
+As a final check because, we expect the sum of the weights to be very close to 1 (rememver that the sum of the coefficient tends to 1 for $n$ sufficiently large):
+
+```{r}
+sum(fitted_vals$weight)
+```
+
+### 4. Reconstructing the fitted values using $\alpha$ and $l_0$
+
+Using the component form of the equation and the estimates of $\alpha$ and $l_0$ returned by the model, we can compute the fitted values. This corresponds to step 2 of the last iteration of the minimisation of SSE process used to find appropriate values for $\alpha$ and $l_0$. Let us reproduce the diagram below again:
+
+```{r, echo=FALSE, out.width='70%', fig.align="center", fig.cap=""}
+knitr::include_graphics('./figs/ses_fit.png')
+```
+
+Considering that
+
+-   Fitted values can be understood has 1-step forecasts on the training data $y_{t|t-1}$
+-   The initial level $l_0$ has been chosen by the function minimizing the sum of square errors.
+
+We may substitute $h=1$ in the component form of the equations and use the formulas to compute the fitted values in the table that follows:
+
+```{=tex}
+\begin{align*}
+  \text{Forecast equation}  && \hat{y}_{t+1|t} & = \ell_{t}\\
+  \text{Smoothing equation} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
+\end{align*}
+```
+
+| Year | Time | Observation | Level | Forecast          |
+|:-----|:-----|:------------|:------|:------------------|
+|      | $t$  | $y_t$       | $l_t$ | $\hat{y}_{t|t-1}$ |
+| 1959 | 0    |             | 39.54 |                   |
+| 1960 | 1    | 39.04       | 39.12 | 39.54             |
+| 1961 | 2    | 46.24       | 45.10 | 39.12             |
+| 1962 | 3    | 19.79       | 23.84 | 45.10             |
+| 1963 | 4    | 24.68       | 24.55 | 23.84             |
+| 1964 | 5    | 25.08       | 25.00 | 24.55             |
+| 1965 | 6    | 22.60       | 22.99 | 25.00             |
+| 1966 | 7    | 25.99       | 25.51 | 22.99             |
+| 1967 | 8    | 23.43       | 23.77 | 25.51             |
+|      | ⋮    | ⋮           | ⋮     | ⋮                 |
+| 2014 | 55   | 30.22       | 30.80 | 33.85             |
+| 2015 | 56   | 23.17       | 24.39 | 30.80             |
+| 2016 | 57   | 20.86       | 21.43 | 24.39             |
+| 2017 | 58   | 22.64       | 22.44 | 21.43             |
+
+#### Exercise: use the excel provided in class to compute these tables:
+
+### 5. Computing forecasts
+
+Once the model has been fit, we may produce forecasts with the usual syntax:
+
+```{r}
+# Generate 5 step forecasts
+fc <- fit %>%
+  forecast(h = 5)
+```
+
+```{r}
+fc %>%
+  autoplot(algeria_economy) +
+  geom_line(aes(y = .fitted), col="#D55E00",
+            data = augment(fit)) +
+  labs(y="% of GDP", title="Exports: Algeria") +
+  guides(colour = "none")
+```
+
+We may build a similar table for our forecasts:
+
+| Year | Time | Observation | Level | Forecast                |
+|:-----|:-----|:------------|:------|:------------------------|
+|      | $h$  |             |       | $\hat{y}_{T+h\vert{T}}$ |
+| 2018 | 1    |             |       | 22.44                   |
+| 2019 | 2    |             |       | 22.44                   |
+| 2020 | 3    |             |       | 22.44                   |
+| 2021 | 4    |             |       | 22.44                   |
+| 2022 | 5    |             |       | 22.44                   |
+
+This should further clarify the point that, beyond the training data, forecasts become "flat" for the simple exponential smoothing algorithm. This is the design of the algorithm.
+
+# Summary of SES
+
+* In-between the **naïve** and the **mean** method.
+* **Produces constant (flat) forecasts by design.** That is $\hat{y}_{T+h|T}=\hat{y}_{T+1|T}$
+    * Thus, it may be used for **data with no clear trend or seasonal pattern**
+* More recent observations have larger weights associated to them.
+* Weights decrease exponentially the further in the past an observation is.
+    * This is achieved using a geometric progression to produce the coefficients:
+        1. $a_1 = \alpha \in (0,1]$
+        2. $r = (1-\alpha) \in (0,1]$
+        3. $a_n = \alpha(1-\alpha)^{n-1}$ (general term of the succesion).
+            * This means that the **coefficients used by simple exponential smoothing decrease exponentially, as desired**.
+        4. $S_n = \sum_{j=1}^{n}a_n\rightarrow 1$ if $n \rightarrow \infty$  (sum of the coefficients converges to 1).
+            * The coefficients of simple exponential smoothing add up to 1, as one would expect from a weighted average.
+* Fitting the model requires minimizing the SSE to determine the values of $\alpha$ and $l_{0}$ (model parameters)
+* This optimization is performed automatically by the `fable()` library, with the possibility of tweaking the optimization criteria (this will be seen in the next semester).

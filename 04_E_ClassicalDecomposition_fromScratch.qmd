@@ -1,0 +1,618 @@
+---
+title: "04_E_Classical_Decomposition_fromScratch"
+author: "Juan Garbayo - TS Analysis"
+format: html
+editor: source
+params:
+  print_sol: true
+  print_sol_int: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+NOTE: this material is not original, but rather an extension of the following reference, which is publicly available.
+
+1. Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition. [Link](https://otexts.com/fpp3/)
+
+# Packages
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+```
+
+# Classical decomposition:
+
+It is the starting point for most other methods of time series decomposition. In addition, it is simple enough that it can be easily implemented from scratch, which is something we are going to do in class.
+
+Essentially are 2 variants of classical decomposition:
+
+  * Classical decomposition of **aditive schemes**
+  * Classical decomposition of **multiplicative schemes**
+  
+The algorithm depends on **whether the length seasonal period is even or uneven.** Examples:
+
+* If we have daily data we may consider, for example, a period of one week. That seasonal period would be of length 7 (7 days).
+    * NOTE: For daily data we could also consider other seasonal periods: one month, one quarter... even one year.
+* If we have monthly data, we could consider a yearly seasonal period. That seasonal period would be of length 12 (12 months).
+* If we have quarterly data, we could consider a yearly seasonal period. That seasonal period would be of length 4 (4 quarters).
+* ...
+
+Because the algorithm **approximates the trend with a centered moving average**, the even or uneven nature of the seasonal period is important. See the separate notebook on moving averages, which has an associated video to understand this:
+
+* **Even seasonal period ($m$ even):**  trend approximated by a 2 x $m$ moving average.
+* **Uneven seasonal period $m$:** trend approximated by an $m$ moving average.
+  
+# Additive schemes - classical decomposition
+
+## Step 1 - Estimate trend
+
+$m$: length of the seasonal period.
+
+* If $m$ is an even number, compute the trend-cycle component $T_t$ using 2 x $m$-MA. 
+* If $m$ is an odd number compute the trend-cycle component $T_t$  using an $m$-MA.
+
+**Output**: the **trend component $T_t$**
+
+## Step 2 - Detrended series
+
+Calculate the de-trended series: $D_t = y_t - T_t$
+
+**Output**: the **detrended series $D_t$**
+
+## Step 3 - Compute seasonal component
+
+**Main assumption to compute the seasonal component**: the seasonal component remains constant over time. This is one of the main weaknesses of the classical decomposition.
+
+**Step 3.1.** Average the de-trended values for each component of the season.
+
+* Example: with monthly data the seasonal component for march is the average of all the detrended March values in the data
+  
+* **Output**: a vector of length $m$, with $m$ being the length of the seasonal compoent.
+    * Let us call this vector **$S_{unadj}$** for *unadjusted seasonal component*
+        
+<br>
+    
+**Step 3.2.** Adjust $S_{unadj}$, the output of step 3.1 to ensure that the sum of its **values adds to 0**.
+
+* 3.2.1 Sum all the components of the vector $S_{unadj}$. Lets call this output $a$. This result is the total deviation from 0 we want to correct.
+    
+* 3.2.2 Divide the previous result $a$ by the length of the seasonal period $m$. Then subtract that amount $a/m$ from every component of $S_{unadj}$
+    
+* **Output**: the seasonal component $S$.
+    
+By doing this the seasonal component will not contribute to the mean value of the time series over one period. That is, the average of the seasonal component computed in this manner over one period will be 0. 
+
+$$
+\text{condition imposed:  }\sum_{i=1}^{m} S_i= 0
+$$
+
+As a result, the seasonal component does not contribute to the average of the time series over one period
+
+$$
+\frac{\sum_{i=1}^my_i}{m} = \frac{\sum_{i=1}^m(T_i + S_i + R_i)}{m} \underset{\underset{\sum_{i=1}^mS_i = 0}{\uparrow}}{=} \frac{\sum_{i=1}^m(T_i + R_i)}{m}
+$$
+
+## Step 4 - Compute the remainder component
+
+$R_t = D_t - S_t = y_t - T_t - S_t$ 
+
+## Example: computation using the function `classical_decomposition()`:
+
+```{r}
+# Filter the series and select relevant columns
+us_retail_employment <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+
+# Let us compute the classical decomposition using the function in the feasts library:
+classical_dec <- us_retail_employment %>%
+  
+  # Fit the classical decomposition model specifying an additive scheme
+  model(
+    clas_deic = classical_decomposition(Employed, type = "additive")
+  ) %>%
+  
+  # Extract components from the fitted model
+  components()
+
+select(classical_dec, Month, Employed, trend, seasonal, random)
+```
+
+```{r}
+classical_dec %>% 
+  autoplot()
+```
+
+
+## Example: manual computation implementing the described algorithm.
+
+### Step 1: compute the trend using moving averages
+
+```{r}
+# Compute moving averages to estimate the trend
+# Because the seasonal period is 12, we need a 2x12-MA
+manual_decomposition <- us_retail_employment %>%
+  mutate(
+    
+    `12-MA` = slider::slide_dbl(Employed, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    `2x12-MA` = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+    
+  )
+
+# Plot the computed trend
+manual_decomposition %>%
+  autoplot(Employed, colour = "gray") +
+  geom_line(aes(y = `2x12-MA`), colour = "#D55E00") +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+```
+
+### Step 2 - detrend the time series
+
+```{r}
+# Compute the detrended component:
+manual_decomposition <- 
+  manual_decomposition %>%
+  mutate(
+      detrended = Employed - `2x12-MA`,
+    )
+manual_decomposition %>% autoplot(detrended)
+```
+```{r}
+
+```
+
+This is the resulting detrended component, which contains the seasonal + remainder component: $D_t = y_t - T_t = S_t + R_t$
+
+### Step 3: compute the seasonal component
+
+#### Step 3.1. Compute $S_{unadj}$ averaging the de-trended values for each element of the season:
+
+We will store the result in a separate dataframe called `df_seasonal`. This dataframe will contain 2 columns:
+
+1. An identifier for the number of the month. This identifier will be based solely on the month, disregarding the year. More generally, we need to compute an identifier for each element of the seasonal component.
+    * We will use this identifier to group the data and compute the mean value
+2. `s_unadj`: we compute it averaging the detrended series grouping based on the previously created identifier. For example, with monthly data, the seasonal component for March is the average of all the detrended March values in the data.
+
+We will start by creating the mentioned identifier for each month (disregarding the year) on our dataframe:
+
+```{r}
+manual_decomposition <- 
+  
+  manual_decomposition %>% 
+  
+  # Compute an identifier for each month, regardless
+  # of the year. This will define the subsequent groups
+  mutate(
+    n_month = month(Month)
+  )
+
+manual_decomposition
+```
+
+Now we will use this newly created identifier to compute the averages of the detrended time series for each month regardless of the year. Expressed in more general terms, we are computing the averages of the detrended time series for each element of the seasonal component.
+
+
+```{r}
+df_seasonal <- 
+  
+  manual_decomposition %>%
+  
+  # turn into a tibble to be able to use group_by
+  # without the limitations on a tsibble
+  as_tibble() %>% 
+  
+  # group by the created identifier
+  group_by(n_month) %>%
+  
+  # compute the average seasonal component for every month
+  summarise(
+    s_unadj = mean(detrended, na.rm = TRUE)
+  ) %>%
+  
+  ungroup() %>% 
+  
+  # Turn back into a tsibble
+  as_tsibble(index = n_month)
+
+df_seasonal
+
+#Check the aspect of the obtained unadjusted seasonal component
+df_seasonal %>%
+  
+  autoplot(s_unadj) +
+  
+  scale_x_continuous(breaks = seq(1, 12),
+                     minor_breaks = seq(1, 12)) +
+  
+  geom_point(color = "red")
+```
+```{r}
+
+```
+
+This is the resulting unadjusted seasonal component $S_{unadj}$:
+
+* The first point is the unadjusted value of the seasonal component for January.
+* The second point is the unadjusted value of the seasonal component for February.
+* The third point is the unadjusted value of the seasonal component for March.
+* ...
+
+#### Step 3.2 Adjust the seasonal component
+
+Let us check if the values of the component add up to 0 as we wanted to impose:
+
+```{r}
+#The sum does not add up to 0
+a = sum(df_seasonal$s_unadj)
+a
+```
+
+We can see that the sum is not 0. We will divide the sum by the length of the seasonal component (in this case $m$ = 12) and then distribute this deviation from 0 evenly over the seasonal component.
+
+```{r}
+df_seasonal <- 
+  
+  df_seasonal %>%
+  
+  # Correction so that the sum of the seasoan components is 0
+  mutate(
+        seasonal_c = s_unadj  - a/12
+    ) %>% 
+  
+  # Drop s_unadj since we do not need it anymore.
+  select(n_month, seasonal_c)
+
+sum(df_seasonal$seasonal_c)
+```
+
+As you can see, the seasonal component is now 0. Great. Let us bring the seasonal component back into our original dataset. For this we will use a `left join` operation. Remember that we created previously a column called `n_month` that now will come in handy when doing this join:
+
+```{r}
+# Bring seasonal component into the dataset (I chose to use a "join" statement, very convenient)
+manual_decomposition <- 
+  left_join(manual_decomposition, df_seasonal, by = "n_month")
+
+manual_decomposition
+```
+
+### Step 4: compute the remainder component removing the seasonal component from the detrended series
+
+Now that we have the seasonal component, we obtain the remainder component by subtracting it from the de-trended series.
+
+```{r}
+# Compute remainder component:
+manual_decomposition <- 
+  manual_decomposition %>%
+  mutate(
+        remainder = detrended - seasonal_c
+      )
+
+select(manual_decomposition, Month, `2x12-MA`, seasonal_c, remainder)
+```
+
+### Test result:
+
+We have all the components. We are now going to compute the maximum absolute errors of our manual computation, comparing it with the result provided by the function `classical_decomposition()`
+
+```{r}
+# Evaluation of absolute errors
+max_err_seasonal = max(classical_dec$seasonal - manual_decomposition$seasonal_c, na.rm = TRUE)
+max_err_trend = max(classical_dec$trend - manual_decomposition$`2x12-MA`, na.rm = TRUE)
+max_err_rand = max(classical_dec$random - manual_decomposition$remainder, na.rm = TRUE)
+
+# Compute the max value of all these vectors
+max(c(max_err_seasonal, max_err_trend, max_err_rand))
+```
+
+The result is not 0 but it is sufficiently close to 0 that we can attribute this deviation to numerical errors (particularly given the fact that this error is much smaller than any of the components we want to compute).
+
+### Extra: generate a plot of the components we just created
+
+```{r}
+# As an additional ggplot visualization exercise, below the code to visualize
+# the decomposition we have computed manually
+
+# Define levels for the factor variable to ensure proper ordering
+# in the facet grid figure.
+factor_levels = c("Employed", "trend", "seasonal_c", "remainder")
+
+manual_decomposition_long <- 
+  
+  manual_decomposition %>% 
+
+    # Rename so that the labels are consistent
+    rename(trend = `2x12-MA`) %>% 
+  
+    # Select the columns of interest
+    select(Month, Employed, trend, seasonal_c, remainder) %>% 
+  
+    # Generate long format based on a single variable so that we can
+    # facet_grid following this variable
+    pivot_longer(cols = Employed:remainder, names_to = "component") %>% 
+    
+    # Convert to factor to ensure proper ordering in the figure
+    mutate(
+      component = factor(component, levels=factor_levels)
+    )
+
+# Now generate the graph
+manual_decomposition_long %>% 
+  
+  ggplot(aes(x = Month, y = value)) +
+  
+  geom_line() +
+  
+  # scales = "free_y" so that each component has an adapted y-axis range
+  facet_grid(component ~ ., scales = "free_y")
+```
+
+We can see that it looks just like the decomposition returned by the fable library.
+
+# Multiplicative scheme - classical decomposition
+
+In this case substractions are simply replaced by divisions.
+
+## Step 1 - Estimate trend
+
+$m$: length of the seasonal period.
+
+* If $m$ is an even number, compute the trend-cycle component $T_t$ using 2 x $m$-MA. 
+* If $m$ is an odd number compute the trend-cycle component $T_t$  using an $m$-MA.
+
+## Step 2 - Detrended series
+
+Calculate the de-trended series: $y_t / \hat{T_t}$
+
+## Step 3 - Compute seasonal component
+
+**Main assumption to compute the seasonal component**: the seasonal component remains constant over time. This is one of the main weaknesses of the classical decomposition.
+
+**Step 3.1.** Average the de-trended values for each component of the season.
+
+* Example: with monthly data the seasonal component for march is the average of all the detrended March values in the data
+  
+* **Output**: a vector of length $m$, with $m$ being the length of the seasonal compoent.
+    * Let us call this vector **$S_{unadj}$** for *unadjusted seasonal component*
+        
+<br>
+    
+**Step 3.2.** Adjust $S_{unadj}$, the output of step 3.1 to ensure that the sum of its elements **equals $m$**.
+
+* 3.2.1 Sum all the components of the vector $S_{unadj}$. Lets call this output $a$.
+
+$$
+\sum_{i=1}^mS_{unadj\text{ i}} = a
+$$
+    
+* 3.2.2 Compute the necessary correction $x$ to be performed on $S_{unadj}$ to have a sum equal to $m$:
+
+$$
+\begin{align*}
+\text{Condition we want to attain}: && \sum_{i=1}^m{S_i} = m \\
+\text{Therefore: } && \sum_{i=1}^m{S_i} = \sum_{i=1}^mS_{unadj\text{ i}} + x = a + x = m \\
+\text{Resulting correction x: } && x = m - a = m - \sum_{i=1}^mS_{unadj\text{ i}}
+\end{align*}
+$$
+
+Now we divide $x$ by $m$ and add this quantity to each element of $S_{unadj}$
+    
+* **Output**: the seasonal component $S$. Check at this point that the following condition is fulfilled:
+
+$$
+\text{condition imposed:  }\sum_{i=1}^m{S_i} = m
+$$
+
+By doing this, the sum of the time series over a seasonal period becomes a weighted average of $T_iR_i$:
+
+$$
+\frac{\sum_{i=1}^m(T_i S_i R_i)}{m} = \underbrace{\sum_{i=1}^m\frac{S_i}{m}(T_i R_i) }_{\text{weighted avg.} \\ \text{of } R_iT_i \text{ since } \sum_{i=1}^mS_i/m = 1}
+$$
+
+## Step 4 - Compute the remainder component
+
+$\hat{R} = y_t / T_tS_t = D_t / S_t$
+
+# Exercise 1
+
+Consider the last five years of the Gas data from `aus_production`
+
+```{r}
+gas <- tail(aus_production, 5*4) %>% select(Gas)
+gas
+```
+
+a. Use `classical_decomposition` with `type=multiplicative` to calculate the trend-cycle and seasonal indices
+
+```{r, include = params$print_sol_int}
+# Let us compute the classical decomposition using the function in the feasts library:
+classical_dec <- gas %>%
+  model(
+    classical_decomposition(Gas ~ season(4), type = "multiplicative")
+  ) %>%
+  components()
+
+classical_dec
+```
+
+b. Compute and plot the seasonally adjusted data.
+
+```{r, include=params$print_sol_int}
+classical_dec %>%
+  
+  as_tsibble() %>%
+  
+  autoplot(Gas, colour = "gray") +
+  geom_line(aes(y=season_adjust), colour = "#0072B2") +
+  labs(y = "Gas production (Petajoules)",
+       title = "Australian gas production")
+```
+
+c. Compute manually the classical decomposition of the series (as we did in class, but keep in mind that this scheme is multiplicative and that now the seasonal period is 4 instead of 12).
+
+```{r, include=params$print_sol_int}
+### 1. Compute the trend with a 2x4 MA
+
+# Compute moving averages
+# Because the seasonal period is 12, we need a 2x12-MA
+manual_decomposition <- gas %>%
+  mutate(
+    `4-MA` = slider::slide_dbl(Gas, mean,
+                     .before = 1, .after = 2, .complete = TRUE),
+    `2x4-MA` = slider::slide_dbl(`4-MA`, mean,
+                      .before = 1, .after = 0, .complete = TRUE)
+  )
+
+# Plot the computed trend
+manual_decomposition %>%
+  autoplot(Gas, colour = "gray") +
+  geom_line(aes(y = `2x4-MA`), colour = "#D55E00") +
+  labs(y = "Gas production (Petajoules)",
+       title = "Australian gas production")
+```
+
+```{r, include=params$print_sol_int}
+### 2. Compute the de-trended component:
+
+# Compute the detrended component:
+manual_decomposition <- manual_decomposition %>%
+  mutate(detrended = Gas / `2x4-MA`,
+         n_quarter = quarter(Quarter)) # Add an identifier for the month (used later for a join statement)
+
+manual_decomposition %>% autoplot(detrended)
+```
+
+```{r, include=params$print_sol_int}
+### 3. Compute the seasonal component grouping and averaging the detrended component
+
+res <- manual_decomposition %>%
+  index_by(n_quarter) %>%
+  
+  #Compute seasonal component
+  summarise(
+    seasonal_c = mean(detrended, na.rm = TRUE)
+  ) 
+
+res
+```
+
+```{r, include=params$print_sol_int}
+#Check the aspect of the obtained seasonal component
+res %>%
+  autoplot(seasonal_c)
+```
+
+```{r, include=params$print_sol_int}
+### 4. Correct the seasonal components so that they add to m = 4
+
+m = 4
+sum_dev = m - sum(res$seasonal_c)
+
+res <- res %>%
+  # Correction so that the sum of the seasoan components is 0
+  mutate(seasonal_c = seasonal_c  + sum(sum_dev)/m)
+
+sum(res$seasonal_c)
+```
+
+```{r, include=params$print_sol_int}
+#Check the aspect of the obtained seasonal component
+res %>%
+  autoplot(seasonal_c)
+```
+
+```{r, include=params$print_sol_int}
+# Bring seasonal component into the dataset 
+# (I chose to use a "join" statement, very convenient)
+manual_decomposition <- left_join(manual_decomposition, res, by = "n_quarter")
+manual_decomposition
+```
+
+```{r, include=params$print_sol_int}
+# Compute remainder component:
+manual_decomposition <- manual_decomposition %>%
+  mutate(remainder = detrended / seasonal_c)
+
+select(manual_decomposition, Quarter, Gas, `2x4-MA`, seasonal_c, remainder)
+```
+
+```{r, include = params$print_sol_int}
+# Evaluation of absolute errors
+max_err_seasonal = max(classical_dec$seasonal - manual_decomposition$seasonal_c, na.rm = TRUE)
+max_err_trend = max(classical_dec$trend - manual_decomposition$`2x4-MA`, na.rm = TRUE)
+max_err_rand = max(classical_dec$random - manual_decomposition$remainder, na.rm = TRUE)
+
+max(c(max_err_seasonal, max_err_trend, max_err_rand))
+```
+
+```{r, include = params$print_sol_int, eval = FALSE}
+The errors are small enough for us to consider that we have correctly 
+implemented the algorithm in the function `classical_decomposition()`.
+
+It would be interesting to explore the specific reasons for this deviation, 
+but that is something we will not do.
+```
+
+d. Change one observations to be an outlier (e.g., add 300 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?
+
+```{r, include=params$print_sol_int}
+gas %>%
+  mutate(Gas = if_else(Quarter == yearquarter("2007Q4"), Gas + 300, Gas)) %>%
+  model(decomp = classical_decomposition(Gas, type = "multiplicative")) %>%
+  components() %>%
+  as_tsibble() %>%
+  autoplot(season_adjust) +
+  labs(title = "Seasonally adjusted data", y = "Petajoules")
+```
+
+```{r, include=params$print_sol_int, eval=FALSE}
+* The outlier is more or less in the middle of the series.
+* The trend is approximated using a 2x4-MA. Since the outlier is in the middle 
+of the series, this information is in the region where the moving average can 
+be computed and the information of the outlier is captured by the trend component.
+* The detrended component also inherits the information of the outlier, 
+since it is computed as $y_t/T_t$. 
+* The seasonal component is computed averaging this detrended component and 
+therefore is also affected by the outlier. It will not accurately approximate 
+the seasonal component.
+```
+
+e. Does it make any difference if the outlier is near the end rather than in the middle of the series?
+
+```{r, include=params$print_sol_int, eval=FALSE}
+As a result the seasonally adjusted data still has seasonality, because we have 
+not adequately captured the seasonal component.
+```
+
+e. Does it make any difference if the outlier is near the end rather than in the middle of the series?
+
+```{r, include=params$print_sol_int, eval=FALSE}
+gas %>%
+  mutate(Gas = if_else(Quarter == yearquarter("2010Q2"), Gas + 300, Gas)) %>%
+  model(decomp = classical_decomposition(Gas, type = "multiplicative")) %>%
+  components() %>%
+  as_tsibble() %>%
+  autoplot(season_adjust) +
+  labs(title = "Seasonally adjusted data", y = "Petajoules")
+```
+
+```{r, include=params$print_sol_int, eval=FALSE}
+* The outlier is located at the last point of the series.
+* The trend is approximated using a 2x4-MA. Since the outlier is at the very 
+end of the series, this information is in the region where the 2x4 moving 
+average cannot be computed and the information of the outlier is not captured 
+by the trend component.
+* The detrended component is defined in exactly the same region as the trend 
+approximation, since it is computed as $y_t/T_t$. Therefore the detrended 
+component does not capture the information about the outlier.
+* The seasonal component is computed averaging this detrended component. 
+Therefore it does not inherit information from the outlier. The seasonal 
+component is not affected by the presence of this outlier.
+```
+

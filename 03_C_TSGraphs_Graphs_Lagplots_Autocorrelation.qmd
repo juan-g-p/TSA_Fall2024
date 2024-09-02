@@ -1,0 +1,545 @@
+---
+title: "03_C_TSGraphs_Lagplots_Autocorrelation"
+format: html
+edi?tor: source
+params:
+  print_sol: true
+  print_sol_int: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r}
+#| warning: false
+library(fpp3)
+```
+
+# References
+
+This is not original material but a compilation of the following sources with some additional examples and clarifications introduced by the professor:
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+2.  Additional material provided by the book authors
+
+# Lagged variables and time-plots
+
+Given a time series we can compute its lags by shifting it in time a given number of steps. The lagged variable simply contains past information of the variable, which has been shifted as many steps as indicated by the number of the lag.
+
+As with most things in life, this is better understood with an example:
+
+```{r}
+recent_beer <- aus_production %>%
+  filter(year(Quarter) >= 2000) %>%
+  select(Quarter, Beer)
+
+recent_beer
+```
+
+With this code, we generate the lagged values of the time series corresponding to the variable *Beer*:
+
+```{r}
+for (i in seq(1, 4)) {
+  lag_name = paste0("Beer_lag", as.character(i))
+  recent_beer[[lag_name]] = lag(recent_beer[["Beer"]], i)
+}
+
+recent_beer
+```
+
+If we call beer $y_t$ (the time series we are studying), the formal notation for the variables above would be:
+
+-   $y_t \rightarrow$ `Beer` production, the variable we are studying
+-   $y_{t-1} \rightarrow$ `Beer_lag1` - first lag of the variable beer
+-   $y_{t-2} \rightarrow$ `Beer_lag2` - second lag of the variable beer
+-   $y_{t-3} \rightarrow$ `Beer_lag3` - third lag of the variable beer
+-   $y_{t-4} \rightarrow$ `Beer_lag4` - fourth lag of the variable beer
+
+It is important to remark that:
+
+-   Because there is no information to fill the void generated when shifting the variable, these voids are filled with *NAs*.
+    -   Note that **the lagged variables are time series, but shorter than the original variable due to these NAs.**
+-   The rest of the values of the time series temain the same
+
+This results in the following structure of NAs as the lag number increases:
+
+![](figs/lagplots_increasingNAs.png){fig-align="center" width="566"}
+
+Let us now create a timeplot of these lags. If we focus for example on `Beer` ($y_t$) and `Beer_lag4` ($y_{t-4}$), we observe that **each value of the variable `Beer` is confronted to its value 4 time steps ago**. For example the value of beer at `2001 Q1` is next to its value at `2000 Q1` (exactly four time-steps ago)
+
+```{r}
+recent_beer %>% select(Beer, Beer_lag4)
+```
+
+The code below creates a time-plot of both variables (change `n_lag` if you wish to depict another lag):
+
+```{r}
+n_lag = 4
+lag_name = paste0("Beer_lag", n_lag)
+
+recent_beer %>% 
+  autoplot() +
+  scale_x_yearquarter(breaks = "1 years",
+                      minor_breaks = "1 year") +
+  geom_line(aes_string(x = "Quarter", y = lag_name), # Call attention upon aes_string
+            color = "red",
+            linetype = "dashed")
+```
+
+```{r}
+
+```
+
+We can see that, for the 4-th lag, the lagged variable and the original variable are perfectly *in phase*. This is because this series has a seasonal period of 1 year (4 quarters) and simple seasonality (meaning only this yearly seasonality is present).
+
+# Lagged-variables and scatterplots. Autocorrelation.
+
+Lagged variables enable us to study the extent to which the value of the series at time t (the original series) depends upon the values of the series at past time steps.
+
+Let us compute a scatterplot depicting the relation between the fourth lag of the variable beer and the original variable. That is, we are going to forget about time and are simply going to confront values of the series `Beer` and its fourth lag `Beer_lag4`. These are the values signalled in yellow in the tsibble below (note that NAs have of course been excluded):
+
+![](figs/lags_scattervalues.png)
+
+```{r}
+
+```
+
+The code to attain that is:
+
+```{r}
+recent_beer %>%
+  gg_lag(y = Beer, geom = "point", lags = 4)
+```
+
+```{r}
+
+```
+
+We could summarize the **degree of linear relationship between these two variables** using, for example the **pearsons correlation coefficient**. However, we will see there is a better metric in the case of time series
+
+Let us compute these scatterplots for a number of lags. This is what is calles **a lagplot** of the time series:
+
+```{r}
+recent_beer %>%
+  gg_lag(y = Beer, geom = "point", lags = 1:12)
+```
+
+```{r}
+
+```
+
+In the figure above, you see that **the relationship between the variable and the lagged variables at multiples of the seasonal period (m = 4, 8, 12...) is much stronger**.
+
+## Autocorrelation vs. Pearsons correlation coefficient
+
+Let us recall the formula for the Pearson's correlation coefficient between two variables `x` and `y`
+
+```{=tex}
+\begin{align*}
+  r_{k} = \frac{\sum(x_{i}-\bar{x})(y_{i}-\bar{y})}
+  {\sqrt{\sum(x_{i}-\bar{x})^2\sum(y_{i}-\bar{y})^2}}
+\end{align*}
+```
+If we applied this formula to each of the lagplots in the previous section, the number of terms in the sums in the denominator would decrease as the lag number increases. This would be due to the fact that **the lagged time series has less points than the original series**.
+
+We can use this fact to create a **new correlation coefficient** that **considers the fact that, the further away in the past a lag is**, the **smaller its influence over the original time series should be**. This is what we call the **autocorrelation coefficient between the time series** $y_t$ and its k-th lag $y_{t-k}$:
+
+```{=tex}
+\begin{align*}
+  r_{k} = \frac{\sum\limits_{t=k+1}^T (y_{t}-\bar{y})(y_{t-k}-\bar{y})}
+  {\sum\limits_{t=1}^T (y_{t}-\bar{y})^2}
+\end{align*}
+```
+In the above formula:
+
+-   $t = 1$ is the first point in the time series
+-   $t = T$ is the last poitn for which we have recorded data
+-   **The denominator remains the same for the correlation coefficient of every lag**. The sum in the denominator extends over the totality of the original time series (from $t=1$ to $t=T$).
+-   **The numerator has a decreasing number of terms as** $k$ (the lag-number) increases. The sum in the numerator extends from $k+1$ to $T$.
+-   **Example:** if $k = 1$ (first lag), the first value of the lagges seris ($t=1$) is an `NA`. The sum extends therefore from $t=k+1=2$ until the end
+
+This simple fact **inherently decreases the autocorrelation coefficient of lags that are further away in the past** because the denominator remains constant while the numerator decreases with increasing k.
+
+**IMPORTANT**: this **does not mean that autocorrelation coefficients in the past cannot be high**. It means that the autocorrelation coefficient has this built-in feature that scales the coefficient depending on the point in time it is referring to.
+
+## Computing the autocorrelation coefficients in R
+
+The autocorrelation coefficients may be easily computed using the function `ACF()`
+
+```{r}
+recent_beer %>%
+  ACF()
+```
+
+## ACF Plot (a.k.a *Correlogram*)
+
+If we now compute the autocorrelation coefficient corresponding to each lag, we can create a graph with the following axes:
+
+-   **x-axis**: the lag number.
+-   **y-axis**: the value of the corresponding autocorrelation coefficient.
+
+This is what we call the lagplot. The lagplot can be easily depicted as follows:
+
+```{r}
+recent_beer %>%
+  ACF() %>%
+  autoplot()
+```
+
+### Number of lags to be depicted
+
+With the argument `lag_max` we can specify the number of lags to be computed and subsequently depicted in the correlogram. **This is important because, for seasonality to appear in the correlogram, a sufficient number of lags needs to be computed**. See the upcoming sections for further details.
+
+```{r}
+recent_beer %>%
+  ACF(lag_max = 24) %>%
+  autoplot()
+```
+
+## Tend and seasonaity in ACF plots
+
+When data have a **trend:**
+
+-   The **autocolleration coefficients for small lags** (please note the *small lags* appreciation) tend to be **large and positive** because **observations nearby in time are also nearby in value**. And so the ACF of a trended time series tends to have **positive values that slowly decrease as the lags increase**.
+        - Please **focus only on the region circled in red and not on the region where the ACF becomes negative in this case**. What is important to recognize the trend is this slowly decreasing ACFs that are positive at the beginning.      
+
+![](figs/correlogram_trend.png){fig-align="center" width="633"}
+```{r}
+
+```
+
+-   Note that the pattern is the same for a negative trend:
+
+![](figs/acf_patterns/trend_negative.png){fig-align="center" width="668"}
+
+```{r}
+
+```
+
+When data are **seasonal:**
+
+-   The autocorrelation **will be larger for the seasonal lags (at multiples of the seasonal period) than for other lags.**.
+    -   NOTE: the autocorrelation at higher multiples of the seasonal period will be smaller than at lower multiples of the seasonal period because the former are further away in the past and the formula for the autocorrelaiton coefficient accounts for this fact, as we previously explained.
+
+![](figs/correlogram_season.png){fig-align="center" width="668"}
+```{r}
+
+```
+
+When data are **both trended and seasonal**
+
+-   You see a combination of these effects. Depending on the **relative strength of the trend and teh seasonality**, the pattern varies. Below a description of some of the most common cases. These have been generated using this shiny app:
+
+[Web-app - Time Series autocorrelation - basic patterns](https://tel5cn-juan-garbayo.shinyapps.io/shiny_tseriesacf/)
+
+* **Seasonal and trend data are of the same order** (one does not dominate over the other):
+
+![](figs/acf_patterns/trend_seasonal_comparable.png){fig-align="center" width="668"}
+```{r}
+
+```
+
+Let us look at the example of the sales of Australian antidiabetic drugs:
+
+![](figs/4_correlogram_trend_seasonality.png)
+```{r}
+
+```
+
+* **Seasonal component weaker than trend component**: waves due to seasonal component can be seen on the ACF... but the ACF alone does not reveal the actual seasonal period (lag 12 not higher than the rest). **This does not mean that there is no seasonality, only that it is not visible on the ACF**. With time series decomposition (next session), we will be able to extract the seasonal component.
+
+![](figs/acf_patterns/trend_seasonal_weaker.png){fig-align="center" width="668"}
+```{r}
+
+```
+
+
+* **Seasonal component much weaker than trend component**: ACF appears to be that of a trend. However **this does not mean that there is no seasonality, only that the ACF does not reflect it**. With time series decomposition (next session), we will be able to extract the seasonal component.
+
+![](figs/acf_patterns/trend_seasonal_vweak.png){fig-align="center" width="668"}
+
+```{r}
+
+```
+
+Another relevant case to consider is **when the trend component is much weaker than the seasonal component**. Then the trend would barely be noticeable on the correlogram. Again, this does not mean that there is no trend, it just means that the correlogram does not reflect it because it is masked by the seasonal component.
+
+# White noise
+
+Time series that show no autocorrelation are called white noise.
+
+```{r}
+# Sets a seed to ensure repeatibility of random functions
+set.seed(30)
+
+y <- tsibble(sample = 1:50, wn = rnorm(50), index = sample)
+
+y %>% autoplot(wn) + labs(title = "White noise", y = "")
+```
+
+```{r}
+
+```
+
+In particular, the above series samples from a gaussian distribution. In this case the noise is called **gaussian white noise**. The process for generating such a gaussian white noise is sampling from a normal distribution as follows:
+
+![](figs/3_gaussian_wnoise.png)
+
+Lets have a look at the correlogram:
+
+```{r}
+y %>%
+  ACF(wn) %>%
+  autoplot() + labs(title = "White noise")
+```
+
+```{r}
+
+```
+
+For white noise series, autocorrelation is expected to be close to 0, but there is some **random variation** that will make it deviate from zero.
+
+-   We expect 95% of the spikes in the ACF to lie within $\pm 2/\sqrt{T}$, where $T$ is the length of the time series.
+-   Checking this is similar to performing separate statistical tests on each autocorrelation coefficients.
+    -   Therefore, we may have false positives.
+
+If:
+
+-   One or more **large spikes** are outside these bounds
+-   Substantially more than 5% of the spikes are outside these bounds
+
+Then **the time series is probably not white noise.**.
+
+Later on in the course we will see how to perform statistical statistical that encompass multiple autocorrelation coefficients. For now the above criteria should suffice.
+
+# Exercise 1 - ACF Plot patterns
+
+With the concepts we have seen in this class, you should be able to tell which time series corresponds to each correlogram:
+
+![](figs/4_correlograms_examples.png)
+
+```{r, include=params$print_sol, eval = FALSE}
+3 - D - series exhibits a clear trend and D is the only correlogram that matches 
+this. We also observe spikes at lag 12. Since this is monthly data, this 
+corresponds to yearly seasonality. It matches the data structure.
+
+4 - C - the series exhibits cycles of approximately 10 years. These cycles seem 
+pretty regular. The only correlogram showing this behavior is correlogram C. 
+Remember these are cycles and not seasonality. We are dealing with yearly data.
+
+2 - A - correlogram exhibits yearly seasonality (spikes at lag 12 for monthly data), 
+matching the time series. No trend in the data.
+
+1 - Signal from sensor. More erratic behavior and a bit of downwards trend. 
+No seasonality and a bit of trend. The only correlogram matching this is B.
+```
+
+# Exercise 2 - time series graphs
+
+Use the following graph functions: `autoplot()`, `gg_season()`, `gg_subseries()`, `gg_lag()`, `ACF()` and explore features of the time series `Total Private` from the dataset `us_employment` (loaded with `fpp3`):
+
+```{r}
+us_employment
+```
+
+```{r}
+total_private <- us_employment %>%
+  filter(Title == "Total Private")
+
+total_private
+```
+
+```{r, include=params$print_sol}
+autoplot(total_private) +
+  scale_x_yearmonth(breaks = "5 years",
+                    minor_breaks = "1 year") +
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r, include=params$print_sol}
+total_private %>% gg_season(Employed)
+```
+
+```{r, include=params$print_sol}
+gg_subseries(total_private, Employed)
+```
+
+```{r, include=params$print_sol}
+gg_lag(total_private, Employed, lags = 1:12)
+```
+
+```{r, include=params$print_sol}
+autoplot(ACF(total_private, Employed))
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+In all of these plots, the trend is so dominant that it is hard to see anything 
+else.
+
+In particular the lagplots and correlogram show very strong and positive correlation
+between adjacent lags that decay very slowly. The effect of seasonality is much
+smaller than the effect of the trend and cannot be perceived by visual inspection
+of the correlogram.
+
+We will need to remove the trend to explore other features of the data.
+The next chapter (Time Series decomposition) will show how to identify the different
+components of the time series.
+```
+
+# Exercise 3 - time series graphs
+
+The PBS dataset included in fpp3 contains Monthly Medicare Australia prescription data. Run `?PBS` on the console for further info.
+
+We would like to focus on the prescriptions with ATC (Anatomical Therapeutic Chemical Index level 2) equal to H02. This group corresponds to corticosteroids for systemic use.
+
+```{r}
+PBS %>%
+  filter(ATC2 == "H02") %>%
+  select(ATC2, Month, Cost, everything()) %>%
+  arrange(Month)
+```
+
+1.  As you can see, after filtering for `ATC2 == H02` there are 4 entries per month corresponding to different combinations of the columns `Concession` and `Type`. We would like to add the Cost associated to those 4 entries for every month, to obtain a time series of the total cost per month. Use `index_by()` and `summarise()` to get the total cost per month
+
+```{r, include=params$print_sol}
+h02_monthly <- PBS %>%
+  filter(ATC2 == "H02") %>%
+  index_by(Month) %>%
+  summarise(
+    Cost = sum(Cost)
+  )
+
+h02_monthly
+```
+
+2.  Create and interpret the following graphs
+
+-   Time-plot with sufficient resolution to visually identify the seasonality
+-   Seasonal plot and seasonal subseries plots to identify the evolution of the seasonal component.
+-   ACF plots and lag plots to identify the seasoanlity
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  autoplot(Cost) +
+  
+  # We use scale_x_yearmonth() because these are the units of the time index
+  scale_x_yearmonth(date_breaks = "1 year",
+                    minor_breaks = "1 year") +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+The graph revels yearly seasonality as well as an upwards trend. Further, the 
+variability in the seasonal pattern seems to be proportional to the level 
+of the trend.
+
+There is also a noteworthy drop every February.
+```
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  gg_season(Cost)
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+The graph reveals the underlying upwards trend of the series, as well as the drop occurring every February.
+```
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  gg_subseries(Cost)
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+The trends have been greater in the higher peaking months like august, september, october, november, december...
+```
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  gg_lag(Cost, geom='point', lags=1:16)
+```
+
+```{r, include=params$print_sol}
+h02_monthly %>%
+  ACF(Cost) %>% autoplot()
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+The strong yearly seasonality is clear in the spike of the ACF every 12 lags(). 
+The lagplots show a separate cluster of points in almost every graph that matches 
+the large sales in January.
+```
+
+# Exercise 4 - time series graphs
+
+The us_gasoline dataset, loaded with fpp3, contains weekly data beginning on Week 6 1991 and ending on Week 3 2017. Units are "million barrels per day". This is the time series you need to analyse
+
+```{r}
+head(us_gasoline)
+```
+
+Create and interpret the following graphs:
+
+1.  Timeplot with sufficient resolution to spot the beginning of each year.
+2.  Seasonal and seasonal subseries plots to examine a period of 1 year.
+3.  Lagplots and correlogram to examine if there is any seasonality.
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  autoplot(Barrels) + 
+  
+  # We pick scale_x_yearweek() because this is the structure of the time index
+  # of the series.
+  scale_x_yearweek(breaks = "1 years",
+                   minor_breaks = "1 year") +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+Positive trend until 2008 -> Global financial crisis.
+Production seems to take positive trend again after 2012.
+Shape of seasonality seems to have changed over time.
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  gg_season(Barrels)
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+The noise makes it difficult to spot the seasonal pattern.
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  gg_subseries(Barrels, period = "year")
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+The bluelines mark the average levels in each week of the year.
+On average, production seems to increase until Q3 to then decrease.
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  gg_lag(Barrels, geom='point')
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  ACF(Barrels, lag_max = 160) %>% autoplot()
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+In this case, the lagplots are not all that useful because of the big amount 
+of weeks per year. In order to see the seasonal pattern on the correlogram, 
+we need to increase the number of lags at least beyond 52 
+(number of weeks in a year). 
+If we do this, we clearly observe yearly seasonality.
+```

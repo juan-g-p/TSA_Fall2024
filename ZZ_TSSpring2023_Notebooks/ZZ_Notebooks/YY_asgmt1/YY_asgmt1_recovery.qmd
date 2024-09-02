@@ -1,0 +1,76 @@
+---
+title: "TS - Graphs Async1 recovery"
+format: html
+editor: source
+params:
+  print_sol: false
+  print_sol_adv: false
+  hidden_notes: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# Exercise 1
+
+The aus_livestock data contains the monthly total number of pigs slaughtered in Victoria, Australia, from Jul 1972 to Dec 2018. 
+
+1. Use filter() to extract pig slaughters in Victoria between 1990 and 1995. 
+
+```{r, include=params$print_sol}
+pigs_vict <- 
+  aus_livestock %>% 
+    filter(Animal == "Pigs") %>% 
+    filter(State == "Victoria") %>% 
+    filter(year(Month) >= 1990 & year(Month) <= 1995)
+```
+
+2. Use autoplot() and ACF() for this data. How do they differ from white noise?
+
+```{r, include=params$print_sol}
+pigs_vict %>% autoplot()
+```
+
+
+```{r, include=params$print_sol}
+pigs_vict %>%
+  ACF() %>% 
+  autoplot()
+```
+
+# Exercise 2
+
+The aus_arrivals data set comprises quarterly international arrivals to Australia from Japan, New Zealand, UK and the US.
+
+1. Use filter to retain only the time series corresponding to Japan
+
+```{r, include=params$print_sol}
+japan_arrivals <- 
+aus_arrivals %>% 
+  filter(Origin == "Japan")
+```
+
+2. Create a timeplot of the data and comment on its pattern (comment max 60 words)
+
+```{r, include=params$print_sol}
+japan_arrivals %>% 
+  autoplot()
+```
+
+3. Use `gg_season()` and `gg_subseries()` on the series and comment on the output of each of these. Max comment per graph of around 100+ words.
+
+```{r, include=params$print_sol}
+japan_arrivals %>% 
+  gg_season()
+```
+
+```{r, include=params$print_sol}
+japan_arrivals %>% 
+  gg_subseries()
+```
+

@@ -1,0 +1,169 @@
+---
+title: "1_Introduction"
+self-contained: true
+self-contained-math: false
+format: html
+editor: source
+params:
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+# Libraries
+
+```{r}
+library(fpp3)
+```
+
+# 1. What is a time series?
+
+In simple terms, a time series is a **record of values throughout time** associated to **an observational unit**. For example, the `global_economy` dataset (loaded along with the library fpp3) contains observations of GDP, Imports, Exports, Population... associated to many of the world countries.
+
+```{r}
+global_economy
+```
+
+Each country in the dataset is one **observational unit**, for which we look at **different variables throughout time**. For each country, the record of each of the variables throughout time constitues a time series. That is, the different columns of the dataset `global_economy` particularized at each contry constitute different time series.
+
+For example, let us consider the country of Spain and depict the evolution of its population:
+
+```{r}
+# Focus on Spain economy
+spain_economy <- 
+  global_economy %>% 
+    filter(Country == "Spain")
+
+# Create sequences of major and minor ticks
+major_ticks_seq <-  seq(0, max(spain_economy$Year), 10)
+minor_ticks_seq <-  seq(0, max(spain_economy$Year), 5)
+
+spain_economy %>% 
+  autoplot(Population) +
+  scale_x_continuous(breaks = major_ticks_seq,
+                     minor_breaks = minor_ticks_seq)
+```
+
+The above graph is called a *time-plot* and it simply shows the values of the time series over time.
+
+If we consider only the 4 variables `GDP`, `Ìmports`, `Exports` and `Population` and we count the number of different countries, we may count the number of time series contained in the dataset:
+
+```{r}
+# Number of countried in the dataset
+global_economy %>% 
+  as_tibble() %>% # Convert to tibble to be able to drop the time index (later explained)
+  select(Country) %>% 
+  distinct() %>% 
+  nrow()
+```
+
+The dataset contains 4 time series per country, so in total it contains 263 * 4 = 1052 time series
+
+# 2. Example of a use case: automated forecasts of the population of different countries
+
+First I will convert the variable popullation to millions and then we will fit different models and perform some forecasts.
+
+Do not worry if you do not understand the entirety of the code, these are things you will learn throughout the course. This only intends to show you an example.
+
+```{r}
+populations <- 
+  global_economy %>% 
+  mutate(Pop = Population / 1e6) %>% 
+  select(Country, Year, Pop)
+
+# Dataset containing soely the population in millions of the different countries
+populations
+```
+Now we will fit two different types of models to these time series:
+  
+* Exponential Smoothing Models
+* ARIMA Models (Autoregressive Integrated Moving Average Models)
+  
+We will study these models in detail throughout the course and, as you will see, there are a number of parameters of importance to define when picking the model for each time series. The tools we will learn have the capability of automating this process, which does not always result in the best possible model. The point now, however, is to demonstrate this capability in case we need to produce forecasts in a "batched" manner:
+
+```{r}
+fit <- 
+  populations %>% 
+    model(
+      ets = ETS(Pop), # Automatically picked Exponential Smoothing Model
+      arima = ARIMA(Pop) # Automatically picked ARIMA model
+    )
+```
+
+Examining this we see that we have got two models for each of the countries (for each of the population time series). These models are not necessary the optimal to pick up, but they have been selected automatically following criteria we will study throughout the course:
+
+```{r}
+fit
+```
+
+Now each of these fitted models can produce forecasts. Let us produce forecasts for the next 4 years. 
+
+```{r}
+fc <- 
+  fit %>% 
+    forecast(h = 4) # Produce forecast for the next for time steps (years in this case)
+```
+
+As you can see, for each country 8 forecasts are produced: 4 forecasts using the ETS model (Exponential Smoothing) and for forecasts using the ARIMA model.
+
+Let us now examine the forecasts for the country of Spain:
+
+```{r}
+fc %>% 
+  filter(Country == "Spain") %>% 
+  autoplot(level = NULL) 
+```
+
+In actuality, each forecast has its own prediction intervals:
+
+```{r}
+fc %>% 
+  filter(Country == "Spain") %>% 
+  autoplot(level = 95, alpha = 0.6) 
+```
+
+As you can see, in general, the further into the future the forecast goes, the higher the associated uncertainty. We will also understand in detail how these prediction intervals are computed. 
+
+We could depict the forecasts along with the original time series for context:
+
+```{r}
+fc %>% 
+  filter(Country == "Spain") %>% 
+  autoplot(populations, level = 95, alpha = 0.6) 
+```
+
+We could also examine the forecasts produced for any other country in the dataset, for example:
+
+```{r}
+fc %>% 
+  filter(Country == "Germany") %>% 
+  autoplot(populations, level = 95, alpha = 0.6) 
+```
+
+Throughout the course we will delve in the details of these models in order to be able to produce the necessary forecasts
+
+# 3. Installing R and the necessary packages
+
+1. Install R (first) and R Studio (secondly)
+  * NOTE: if you had already installed R and RStudio, update them. No need to re-install them
+  * To update R, open R (not R Studio) and select R -> Check for R Updates
+  * To update RStudio, open RStudio and select Help -> Check for Updates
+  
+2. Install Quarto CLI (to manage Quarto documents)
+  * [Link](https://quarto.org/docs/get-started/)
+  
+3. In RStudio, in the console, type `install.packages("fpp3", dependencies = TRUE)`
+
+Then open a new RScript or Quarto document and try running the following code, which should produce the graph below:
+
+```{r}
+library(fpp3)
+
+recent_production <- aus_production |>
+  filter(year(Quarter) >= 2000)
+recent_production |>
+  gg_lag(Beer, geom = "point") +
+  labs(x = "lag(Beer, k)")
+```
+

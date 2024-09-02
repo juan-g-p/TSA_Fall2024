@@ -1,0 +1,452 @@
+---
+title: "TS_S2023_F"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+## Libraries
+
+For this exam you are going to require the following packages. If you do not have either of them installed, install them before loading them.
+
+```{r}
+# Load packages
+library(readxl)
+library(fpp3)
+library(patchwork)
+```
+
+## Dataset
+
+For this exam we are going to use the following dataset:
+
+1. `usgas_y_m`: this dataset contains information about the monthly gas consumption in the US for different purposes and states.
+  
+To load the dataset, you may run the code below. This will open a pop-up window. Select the excel file and it will be loaded as a tsibble to `usgas_y_m`. The variables will be:
+
+Below a description of the columns:
+  * `process:` purpose for which the gas was consumed.
+  * `state:` state of the data point.
+  * `y_m`: yearmonth object detailing the year and the month of the observation. It is the index of the tsibble
+  * `monthly_gas:` amount of gas consumed by the particular process at the particular state in the given month. **Units:** Million Cubic Feet (`MMCF`)
+
+```{r, eval=FALSE}
+usgas_y_m <- 
+  read_xlsx(file.choose()) %>%
+    mutate(
+      y_m = yearmonth(date)
+    ) %>% 
+    as_tsibble(
+      key=c(state, process),
+      index = y_m
+    ) %>% 
+    select(process, state, y_m, monthly_gas)
+
+colnames(usgas_y_m)
+```
+
+```{r, include=params$print_sol}
+usgas_y_m <- 
+  read_xlsx("usgas_y_m.xlsx") %>%
+    mutate(
+      y_m = yearmonth(date)
+    ) %>% 
+    as_tsibble(
+      key=c(state, process),
+      index = y_m
+    ) %>% 
+    select(process, state, y_m, monthly_gas)
+```
+
+
+## 1. 0.5 points
+
+1. How many different time series does the loaded object usgas_y_m contain?
+
+**HINT:** a possible way to check the unique combinations of two columns in a tibble/dataframe is using `dplyr`'s function distinct in combination with `nrow()` to count the number of rows. For example, the code below counts the number of unique combinations of the columns `col1` and `col2` in the toy dataframe `df_toy` provided:
+
+```{r}
+df_toy <- tibble(
+  col1 = c("a", "b", "a", "b", "a"),
+  col2 = c("x", "y", "x", "y", "z"),
+  col3 = c(1, 2, 1, 2, 3)
+)
+
+# Count the number of unique combinations of col1 and col2 values:
+n_distinct <- df_toy %>% 
+                distinct(col1, col2) %>% 
+                nrow()
+
+# Number of unique combinations of col1 and col2
+n_distinct
+```
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+```
+
+```{r, include=params$print_sol}
+usgas_y_m %>% 
+  distinct(process, state) %>% 
+  nrow()
+```
+
+## 2. 0.5 points
+
+For the process `Vehicle Fuel Consumption`, we would like to examine the state with the greatest consumption every year. To compute this:
+
+1. Create a new column `year` from the variable `y_m`
+2. Use `group_by()` appropriately to compute the total gas consumed by each state, for each process, each year. Store this result as `usgas_y`
+3. Starting from `usgas_y`, filter for the process *Vehicle Fuel Consumption* and use `group_by()` again appropriately to have a final dataset with only one row per year: the row corresponding to the state with the greatest consumption of gas for *Vehicle Fuel Consumption*. 
+
+```{r, include=params$print_sol}
+usgas_y <- 
+  usgas_y_m %>%
+    mutate(year = year(y_m)) %>% 
+    as_tibble() %>% 
+    group_by(state, process, year=year(y_m)) %>% 
+    summarize(
+      yearly_gas = sum(monthly_gas)
+    ) %>% 
+    ungroup()
+
+max_vehicle_gas_y <-
+  usgas_y %>% 
+  filter(process == "Vehicle Fuel Consumption") %>% 
+  group_by(process, year) %>% 
+  filter(
+    yearly_gas == max(yearly_gas)
+  )
+```
+
+# 3. 2 points
+
+From now on we are going to focus on the state of California and the process *Vehicle Fuel Consumption*. Filter the dataset `usgas_y_m` accordingly and store the result in a variable called `cali_fuel_y_m`. 
+
+Plot the time series indicating at least the beginning of every year:
+
+```{r, include=params$print_sol}
+cali_fuel_y_m <- 
+  usgas_y_m %>% 
+  filter(state == "California", process == "Vehicle Fuel Consumption")
+```
+
+
+```{r, include=params$print_sol}
+cali_fuel_y_m %>% 
+  autoplot() +
+  scale_x_yearmonth(breaks="1 year", minor_breaks="1 year") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+# 4. 1 point
+
+Looking at the previous graph and at the value suggested for lambda using the `guerrero` method, judge if a transformation to balance the variance of the time series with the level of the time series is necessary:
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+
+```{r, include=params$print_sol}
+lambda <- 
+  cali_fuel_y_m %>% 
+    features(monthly_gas, features = guerrero) %>%
+    pull(lambda_guerrero)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+The value of lambda is very close to 0, which would indicate that a log transformation
+could be sensible. However, if we look at the time plot it appears that the variance
+of the time series does not necessarily increase with the level of the series.
+
+There is a sudden change in the level of the series at the end of some specific
+years which seems to be driven by some external factors (policy changes...) but
+does not affect the variance of the time series.
+
+Since we are unsure whether a log transformation would bring significant improvements
+we will fit models with and without transformation and then evaluate the results.
+```
+
+
+```{r, include=params$print_sol}
+cali_fuel_y_m %>% 
+  autoplot(log(monthly_gas)) +
+  scale_x_yearmonth(breaks="1 year", minor_breaks="1 year") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+# 5. 2 points
+
+Starting from `cali_fuel_y_m`, create a series of taining datasets for cross validation that fulfil:
+
+1. The smallest of these training datasets shall contain 60% of the dataset.
+2. The datasets shall increase in steps of 3 (three months at a time).
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+cali_fuel_y_m <- 
+  usgas_y_m %>% 
+  filter(state=="California") %>% 
+  filter(process=="Vehicle Fuel Consumption")
+
+# Compute parameters for the CV train-test split
+init_perc <-  0.6
+step <-  3
+init_size <-  ceiling(nrow(cali_fuel_y_m)*init_perc)
+
+
+cali_fuel_y_m_cv <- 
+  stretch_tsibble(cali_fuel_y_m, .init=init_size, .step=step)
+```
+
+Then answer these questions:
+
+Q1: How many datasets have we generated?
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+max_id <- cali_fuel_y_m_cv$.id %>% max()
+```
+
+Q2: What are the sizes (in number of observations) of the smallest and biggest trainingn dataset?
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+```{r, include=params$print_sol}
+cali_fuel_y_m_cv %>% 
+  as_tibble() %>% 
+  group_by(.id) %>% 
+  summarize(
+    size = n()
+  ) %>% 
+  filter(.id == 1 | .id==max_id)
+```
+
+# 6. 2 points
+
+Fit the following models to the training datasets:
+
+1. `decomposition_model` applying an STL decomposition and a log transformation. Use a 
+    * drift model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+2. `decomposition_model` applying an STL decomposition and no transformation. Use a 
+    * drift model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+3. `decomposition_model` applyting an STL decomposition and a log transformation. Use a: 
+    * SES (Simple Exp. Smoothing) model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+4. `decomposition_model` applyting an STL decomposition with no transformation. Use a: 
+    * SES (Simple Exp. Smoothing) model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+5. An SES (Simple) exponential smoothing model
+6. A Naive model
+
+**Do not spend time looking for the best parameters of an STL decomposition, use the default arguments of the STL decomposition**
+
+After having fitted the models, perform **one year ahead forecasts**.
+
+
+```{r, include=params$print_sol}
+fit_cv <- 
+  cali_fuel_y_m_cv %>% 
+    model(
+      dcmp_log_drift = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(log(monthly_gas)),
+                 # Specify model for the seasonally adjusted component
+                 RW(season_adjust ~ drift()),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 ),
+      dcmp_drift = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(monthly_gas),
+                 # Specify model for the seasonally adjusted component
+                 RW(season_adjust ~ drift()),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 ),
+      dcmp_log_ses = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(log(monthly_gas)),
+                 # Specify model for the seasonally adjusted component
+                 ETS(season_adjust ~ error("A") + trend("N") + season("N")),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 ),
+      dcmp_ses = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(monthly_gas),
+                 # Specify model for the seasonally adjusted component
+                 ETS(season_adjust ~ error("A") + trend("N") + season("N")),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 ),
+      ses = ETS(monthly_gas ~ error("A") + trend("N") + season("N")),
+      naive = NAIVE(monthly_gas)
+    )
+```
+
+```{r, include=params$print_sol}
+fc_cv <- 
+  fit_cv %>% 
+    forecast(h = 12)
+```
+
+```{r, include=params$print_sol}
+summary_cv_errors <- 
+  fc_cv %>% 
+  accuracy(cali_fuel_y_m) %>% 
+  select(.model, RMSE, MAE, MAPE) %>% 
+  arrange(RMSE)
+
+summary_cv_errors
+```
+
+Subsequently, examine which model has best forecasting performance in terms of RMSE. Compute the average RMSE over all the forecast horizons.
+
+```{r, eval=FALSE, include=params$print_sol}
+Looking at the table, the model with a smallest RMSE is the decomposition model
+using an SES model for the seasonally adjusted component.
+```
+
+Then answer:
+
+1. Do the transformations bring any significant improvement?.
+
+```{r, eval=FALSE, include=params$print_sol}
+The accuracy metrics for the models with transformation are not significantly better.
+What is more, the models with transformations present greater values of these
+metrics, indicating that no significant improvement has been attained.
+```
+
+
+2. Which model would you pick for forecasting? (again, based on the RMSE).
+
+```{r, eval=FALSE, include=params$print_sol}
+Looking at the table, the model with a smallest RMSE is the decomposition model
+using an SES model for the seasonally adjusted component.
+```
+
+
+# 7. 2 points
+
+For the decomposition model using SES for the seasonally adjusted component and no transformation:
+
+1. Fit the model to the entirety of the time series, without splitting it.
+
+```{r, includE=params$print_sol}
+fit <- 
+  cali_fuel_y_m %>% 
+  model(
+      dcmp_ses = decomposition_model(
+                 # Specify decomposition scheme to be used
+                 STL(monthly_gas),
+                 # Specify model for the seasonally adjusted component
+                 ETS(season_adjust ~ error("A") + trend("N") + season("N")),
+                 # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                 SNAIVE(season_year)
+                 )
+  )
+```
+
+2. Analyze the residuals of the model. Do this **bases solely on the output of gg_tsresiduals()**
+
+```{r, include=params$print_sol}
+fit %>%
+  gg_tsresiduals()
+```
+
+------
+Your answer goes here (100 words max)
+------
+
+```{r, eval=FALSE, include=params$print_sol}
+1. Autocorrelation
+
+The ACF plot clearly shows a strong autocorrelation at lag 12. Looking at the 
+time plot of the residuals, it seems to be related with the sharp changes in the
+level of the time series at the end of specific years, which is not appropriately
+captured by the model. That is why the residuals exhibit some larger values at
+the beginning of some years.
+
+Since these changes in the level of the series are driven by external factors,
+modelling them would involve including external variables (something we will see
+in the next course).
+```
+
+```{r, include=params$print_sol}
+fit %>% augment() %>% pull(.innov) %>% mean(na.rm=TRUE)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+2. 0-Mean 
+
+Graphially, the mean seems to be close to 0. However if we compute it we see
+that it departs from 0, indicating that there is a certain bias in the model.
+
+We could remove this bias directly from the forecasts.
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+3. Homoskeasticity 
+
+The residuals seem fairly homoskedastic with the exception of some local spikes
+at the beginning/end of some years.
+
+These are related to the changes in level experienced by the time series, which
+are driven by external factors.
+
+We could say that these residuals are homoskedastic with some local 
+heteroskedasticity.
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+4. Normality
+
+Looking at the output of ggtsresiduals the normality assumption does not seem
+to hold.
+
+
+For the sake of investigatinv a bit further (not requested in the exam), we may
+produce a qq-plot and a box-plot. Looking at the strong departure from the qqplot
+outside the central region and the spykiness of the distribution, we may conclude
+that the distribution is strongly leptokurtic, deviating from normality.
+```
+
+```{r, include=params$print_sol}
+model_vals <- fit %>% augment() 
+
+# sample size
+model_vals %>% nrow()
+
+# Generate qq_plot
+p1 <- ggplot(model_vals, aes(sample = .innov))
+p1 <- p1 + stat_qq() + stat_qq_line()
+
+# Generate box-plot
+p2 <- ggplot(data = model_vals, aes(y = .innov)) +
+      geom_boxplot(fill="light blue", alpha = 0.7) +
+      stat_summary(aes(x=0), fun="mean", colour= "red") # Include the mean
+
+# library patchwork is required
+p1 + p2
+```
+
+
+
+

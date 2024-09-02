@@ -1,0 +1,254 @@
+---
+title: "6_1_E_SES_Exercise"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: false
+  print_sol_int: true
+---
+
+```{r, warning= FALSE, message=FALSE}
+library(fpp3)
+```
+
+# SES Exercise
+
+### 1. Select the data corresponding to Argentina from the dataset `global economy`. In particular, we are going to focus on its exports, so you may extract them as well. Produce a timeplot of the exports with mayor ticks every ten years and minor ticks every five years
+
+```{r}
+arg_exports <- global_economy %>%
+                  filter(Country == "Argentina") %>%
+                  select(Year, Exports)
+
+arg_exports
+```
+
+```{r, include=params$print_sol_int}
+min_year <- min(arg_exports$Year)
+max_year <- max(arg_exports$Year)
+minor_ticks_seq <- seq(min_year, max_year, by=5)
+major_ticks_seq <- seq(min_year, max_year, by=10)
+
+arg_exports %>% 
+  
+  autoplot(Exports) +
+  
+  # We use scale_x_continuous
+  # because Year is of type double
+  # with type "double" we need to specify
+  # the sequences.
+  scale_x_continuous(
+    breaks = major_ticks_seq,
+    minor_breaks = minor_ticks_seq
+  )
+```
+### 2. Fit a simple exponential smoothing method `ETS(A,N,N)` to the series. Plot the forecast along with the fitted values.
+
+```{r, include=params$print_sol_int}
+fit <- 
+  arg_exports %>%
+  model(
+    ses_exports = ETS(Exports ~ error("A") + trend("N") + season("N"))
+  )
+
+fc <- 
+  fit %>% 
+  forecast(h=8)
+
+fc
+```
+
+```{r, include=params$print_sol_int}
+fitted_vals <- 
+  fit %>% 
+  augment()
+
+fc %>%
+  autoplot(arg_exports) +
+  autolayer(fitted_vals, .fitted, colour = "blue", linetype = "dashed")
+```
+
+```{r}
+
+```
+
+#### * **Do you think the ETS forecast method is appropriate for this data? Why? Why not?**
+
+```{r, eval=FALSE, include=params$print_sol_int}
+As explained iin the theory session, Simple Exponential Smoothing is appropriate  
+for data that does not have clear trend or seasonality.
+
+The time plot reveals that this is the case, so the model seems appropriate.
+```
+
+### 3. How many parameters does the model have? Extract their values. Give an interpretation of the value of the parameter alpha.
+
+```{r, eval=FALSE, include=params$print_sol_int}
+There are two parameters to every Simple Exponential Smoothing model: 
+alpha and the initial level l_0
+
+We can inspect the values resulting from the minimisation of the SSE when 
+the model was fitted by using the function `tidy()`:
+```
+
+```{r, include=params$print_sol_int}
+ses_params <- tidy(fit)
+ses_params
+```
+
+```{r, eval=FALSE, include=params$print_sol_int}
+Remember these values have been chosen by the library `fable` as part of the 
+model fitting process. They are the values of the parameters 
+that minimize the SSE (Sum of Squared Errors).
+
+The fact that alpha is roughly 0.89 means that the most recent observation 
+gets assigned a weight of 0.89. The remaining 0.11 percent is split in an 
+exponentially decreasing manner across all other observations. 
+
+Now we are going to add an additional column that computes the exact weight
+assigned to each observation. This code and the corresponding equations are
+explained in the theory lessons.
+```
+
+```{r, include=params$print_sol_int}
+# Esxtract the value of alpha
+alpha <- ses_params$estimate[1]
+
+weights <- vector("double") 
+for (i in seq(1:nrow(fitted_vals))){
+  # Compute the weight associated to each observation
+  weights[[i]] <- alpha*((1-alpha)**(i-1))
+}
+
+# Add this column to the fitted values
+fitted_vals$weight = rev(weights)
+
+# Reverse de order of the dataframe to depict it more clearly
+fitted_vals <- 
+  fitted_vals %>% arrange(desc(Year))
+
+fitted_vals
+```
+
+```{r, eval=FALSE, include=params$print_sol_int}
+The column weight contains the column associated to each specific observation to
+produce the forecasts. We are finally going to compute the weight assigned to 
+the first three elements combined as well as the weight assigned to all elements
+beyond the third
+```
+
+```{r, include= params$print_sol_int}
+n = 3
+
+# Weight assigned to the first three elements
+# (as a fraction of 1)
+sum(fitted_vals$weight[1:n])
+
+# Weight assigned to all elements beyond the third
+sum(fitted_vals$weight[(n+1):nrow(fitted_vals)])
+
+# Of course, both these things add up to 1
+sum(fitted_vals$weight[1:n]) + sum(fitted_vals$weight[(n+1):nrow(fitted_vals)])
+```
+
+### 4. Compute the standard deviation of the residuals as (see equation in html format of the notebook). See session 6_2 for more details.
+
+\begin{equation}
+  \hat{\sigma} = \sqrt{\frac{1}{T-K}\sum_{t=1}^T e_t^2}
+\end{equation}
+
+* $K$ is the number of parameters estimated in the forecasting method
+
+```{r, include=params$print_sol}
+# Extract the residuals
+resid <- fit %>% augment() %>% pull(.innov)
+
+# Remove missing values before computing the length
+resid <- resid[!is.na(resid)]
+
+sigma <- sqrt(sum(resid^2)/(length(resid)-nrow(tidy(fit))))
+
+# Comparison with the forecast distribution provided by the fable library.
+# See lesson 6_2 to learn how to extract this values.
+sigma == distributional::parameters(fc$Exports[1])$sigma
+```
+
+### 5. Compute a 95% prediction interval for the first forecast using $\hat{y} \pm 1.96s$, where s is the standard deviation of the residuals computed in the previous point. See lesson 6_2 for further guidance.
+
+```{r, eval=FALSE, include=params$print_sol}
+Under the assumption that the forecast distribution is normal, we can compute 
+the 95% confidence intervals using the 97.5% quantile of the standard normal 
+distribution together with the standard deviation of the residuals.
+
+* We use a distribution of mean 0 because our point forecast is the 
+  mean of the forecast distribution.
+* We will scale the amplitude of the interval with the sd of our particular 
+  normal distribution of residuals.
+  
+The 97.5% quantile of the standard normal distribution is 1.96 (let is check it). 
+```
+
+```{r, include=params$print_sol}
+# Check the 97.5% quantile of the normal distribution
+alpha = 0.05
+
+q_alpha_2 <- round(qnorm(1-alpha*0.5, mean = 0), 4)
+
+q_alpha_2 
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+We now take this quantile to produce a 95% confidence interval centered around 
+the mean of the distribution (our point forecast). For this we need to scale 
+the quantile by the value of the standard deviation of the residuals we 
+computed before:
+```
+
+```{r, include=params$print_sol}
+# Extract point forecast for h = 1
+h1_fc <- fc$.mean[1]
+
+# Compute the confidence interval centered on the point forecast
+conf_int_man = c(h1_fc - q_alpha_2*sigma, h1_fc + q_alpha_2*sigma)
+
+# Print the confidence interval
+conf_int_man
+```
+
+### 6. Extract the prediction interval produced by R for the first forecast (see session 6_2). How does your prediction interval compare to that?
+
+```{r, include=params$print_sol}
+# See lesson 6_2 to learn how to extract this
+fc_int <- fc %>%
+  hilo() %>%
+  unpack_hilo(`95%`) %>%
+  select(Year, .mean, `95%_lower`, `95%_upper`)
+
+# Inspect the output
+fc_int
+
+# Extract bounds of confidence interval for 2018
+conf_int_fable <- c(fc_int$`95%_lower`[1], fc_int$`95%_upper`[1])
+conf_int_fable
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+We would now like to compare both confidence intervals. Since we rounded the 
+values of the quantiles of the normal function to 4, let us round the result 
+of the multiplication to 2 decimals for comparison:
+```
+
+```{r, include=params$print_sol}
+# If all the components of both verctors are equal, the sum should be equal
+# to 0 (vector of only FALSE booleans)
+# Remember that the ! operator is equivalent to boolean negation
+
+sum(!(round(conf_int_fable, 2) == round(conf_int_man, 2)))
+
+# We can see that the confidence interval computed manually matches the one 
+# computed by `fable`.
+```

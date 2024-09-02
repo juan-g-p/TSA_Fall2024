@@ -1,0 +1,309 @@
+---
+title: "6_8_CV_Practice2_Solved"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+```{r setup, include=FALSE}
+library(fpp3)
+```
+
+# Exercise
+
+For this exercise use the quarterly number of arrivals to Australia from New Zealand, 1981 Q1 – 2012 Q3, from data set `aus_arrivals`.
+
+```{r}
+# Filter data:
+nzarrivals <- aus_arrivals %>% filter(Origin == "NZ")
+nzarrivals
+```
+
+## a. Make a time-plot of your data. Ensure that the grid indicates at least the end of each seasonal period.**
+
+```{r}
+nzarrivals %>%
+  autoplot(Arrivals / 1e3) + labs(y = "Thousands of people") +
+  
+  # Adjust the x-grid
+  scale_x_yearquarter(date_breaks = "1 year",
+                      date_minor_breaks = "1 year") + 
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+## **b. Create a training set that withholds the last two years of available data for test purposes.**
+
+```{r}
+test_years = 2
+
+train <- nzarrivals %>%
+  filter(Quarter <= max(Quarter) - test_years*4)
+
+train
+```
+
+## **c. Fit the following models to your training dataset and create 8-step ahead forecasts:**
+
+* A seasonal naïve method
+* An additive STL decomposition separating the seasonally-adjusted component and the seasonal component using `decomposition_model()`. **Is a transformation necessary**?
+
+First, from the time-plot it is clear that the series is multiplicative, at least to some extent (variance of seasonal component proportional to the level of the series). For the `decomposition_model()` using an STL decomposition, we will need to make the data additive beforehand because STL decomposition is only applicable to additive data.
+
+Let us therefore explore the value lambda-value for an optimal box-cox transformation:
+
+```{r}
+lambda <- nzarrivals %>%
+  features(Arrivals/1e3, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+Let us now check what this transformation attains by depicting the transformed data in a time-plot:
+
+```{r}
+nzarrivals %>%
+  autoplot(box_cox(Arrivals/1e3, lambda)) +
+  
+  # Adjust the x-grid
+  scale_x_yearquarter(date_breaks = "1 year",
+                      date_minor_breaks = "1 year") + 
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Indeed the box-cox transformation has made the scheme additive, perhaps with the exception of the year 1988. We will use this transformation.
+
+Let us start by recalling the name of the output components of an STL decomposition:
+
+```{r}
+nzarrivals %>%
+  model(
+    STL(box_cox(Arrivals/1e3, lambda))
+  ) %>%
+  components() %>%
+  select(Quarter, `box_cox(Arrivals/1000, lambda)`, trend, season_year, remainder, season_adjust)
+```
+When using `decomposition_model()` we need to specify a model for `season_adjust` (the seasonally adjusted component) and a model for `season_year` (the seasonal component. In this case we have yearly seasonality).
+
+We will now fit an additive decomposition model using `decomposition_model()` as well as a seasonal naive component using `SNAIVE()`
+
+
+```{r}
+fit <- train %>%
+      model(
+        # Model 1: additive decomposition based on STL
+        # season_adjust and season_year modelled separately
+        decomp = decomposition_model(
+                    # Specify decomposition scheme to be used
+                    STL(box_cox(Arrivals/1e3, lambda)),
+                    # Specify model for the seasonally adjusted component
+                    RW(season_adjust ~ drift()),
+                    # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                    SNAIVE(season_year)
+                    ),
+    
+        # Model 2: seasonal naïve component
+        seas_naive = SNAIVE(Arrivals)
+        
+        )
+
+fit
+```
+
+We can see that we get an output of a `mable` with 1 row (one time-series being fitted) and 2 columns (two models used). Let us now produce forecasts with these models. Since we left out two years in the test data (8 quarters) we will generate 8-step forecast:
+
+```{r}
+fc <- fit %>% forecast(h=8)
+fc
+```
+
+As expected we obtain 16 rows, since we are producing 8 forecasts per model (2 models).
+
+## **d. Which model performs better with this particular train-test split?**
+
+We now wish to produce summary error metrics for the two models we fitted. We can do this with `accuracy()`.
+
+* **First argument:** the `fable` or forecasts table
+* **Second argument:** the dataset containing both the training and the test dataset
+
+```{r}
+accuracy(fc, nzarrivals) %>% select(.model, RMSE, MAE, MAPE, MASE, RMSSE)
+```
+
+We can see that the `decomposition_model()` we chose seems to outperform the seasonal naive model in virtually every metric.
+
+Plase note that **the metrics above are averaged over all the forecast horizons**. If we wished to compute the metrics for each combination of `.model` and `h`, we would first need to create an `h` column on the forecasts table as follows:
+
+```{r}
+fc <- fc %>%
+        group_by(.model) %>%
+        mutate(h = row_number()) %>%
+        ungroup() %>%
+        as_fable(response = "Arrivals", distribution = Arrivals) %>% 
+        select(h, everything())
+
+fc
+```
+
+and now compute the accuracy metrics specifying that they need to be split by each combination of `h` and `.model`
+
+```{r}
+accuracy(fc, nzarrivals, by=c("h", ".model")) %>% select(h, .model, RMSE, MAE, MAPE, MASE, RMSSE)
+```
+## **e. Perofrm cross-validation instead of using a single training-test set split. Do you come to the same conclusions?**
+
+To perform cross-validation we need to use the function `stretch_tsibble()` to create multiple train-test datasets. Since we want a forecast horizont of 8 the minimum size of our training datasets must be 8. Therefore, we will set `.init = 8`
+
+We will proceed in a step-by-step manner to understand in depth the output of each step, but all these steps could be joined together in a single pipe.
+
+```{r}
+nzarrivals_cv <- nzarrivals %>%
+  stretch_tsibble(.init = 8, .step = 1)
+
+# Number of training datasets created
+nzarrivals_cv %>% pull(.id) %>% max
+
+# Check size of each training dataset
+nzarrivals_cv %>%
+  as_tibble() %>% # Cast to a tibble to be able to do away with time index
+  group_by(.id) %>%
+  summarize(
+    size = n()
+  )
+```
+We can see that 120 training datasets have been created, ranging in size from 8 to 127
+
+Now we will proceed to fit out models to these datasets:
+
+```{r}
+fit_cv <- nzarrivals_cv %>%
+      model(
+        # Model 1: additive decomposition based on STL
+        # season_adjust and season_year modelled separately
+        decomp = decomposition_model(
+                    # Specify decomposition scheme to be used
+                    STL(box_cox(Arrivals/1e3, lambda)),
+                    # Specify model for the seasonally adjusted component
+                    RW(season_adjust ~ drift()),
+                    # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                    SNAIVE(season_year)
+                    ),
+    
+        # Model 2: seasonal naïve component
+        seas_naive = SNAIVE(Arrivals)
+        
+        )
+
+fit_cv
+```
+
+As expected we get a `mable` (model table) of 120 rows, each row corresponding to a training dataset. We have two different model columns (`decomp` and `seas_naive`) because we fitted two models to each of those trainig datasets.
+
+We now move on and generate forecasts of a horizon of up to 8 for each of these models:
+
+```{r}
+fc_cv <- fit_cv %>% forecast(h=8)
+fc_cv
+```
+
+The result is a `fable` (forecasts table) with 1920 rows, that is 120 (training datasets) * 8 (number of forecasts) * 2 (number of models).
+
+With the following code we will add a column 8 to the foregoing table that will indicate the horizon of each forecast:
+
+```{r}
+fc_cv <- fc_cv %>%
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "Arrivals", distribution = Arrivals)
+
+fc_cv
+```
+Now we will generate the cross validated accuracy metrics for each combination of model and forecast horizon:
+
+```{r}
+summary_cv <- fc_cv %>%
+  accuracy(nzarrivals, by = c("h", ".model")) %>%
+  select(h, .model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+
+summary_cv
+```
+
+In this manner we could inspect which model is best to generate predictions for a particular forecast horizon. For a given metric, we could generate a graph comparing the different models we fitted as follows:
+
+```{r}
+summary_cv %>% 
+  ggplot(aes(x = h, y = RMSE, color = .model)) +
+  geom_point() +
+  geom_line()
+```
+
+```{r}
+
+```
+
+We could even go beyond and create a single graph for each metric usng `facet_wrap`. For this, however, we would need to have a column detailing the metric corresponding to each value. That is, we need to make our data "longer" using `pivot_longer()`. You can see details on how to use this function on the notebook `2_2_tsibbles_import_timeplots_w_solutions`.
+
+```{r}
+summary_cv %>%
+  pivot_longer(c(MAE, RMSE, MAPE, MASE, RMSSE), names_to = "metric", values_to = "value")
+```
+You can see the above code puts the values for all the metrics in a single column and in exchange extends the number of rows. The column `metric` indicates to which metric each value belongs. This data structure enables us to use `facet_wrap()` as follows
+
+```{r}
+summary_cv %>%
+  pivot_longer(c(MAE, RMSE, MAPE, MASE, RMSSE), names_to = "metric", values_to = "value") %>%
+  ggplot(aes(x = h, y = value, color = .model)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ metric, nrow = 2, scales = "free")
+```
+```{r}
+
+```
+
+We have set the argument `scale = "free"` so that the `y` scales of the graphs are independent from each other.
+
+The graphs above show that the decomposition model we chose outperforms the seasonal naïve model in virtually every metric and forecast horizon. The only possible exception is the metric `MAPE` for forecast horizons greater or equal than 6.
+
+## Cross-validated results vs. single test-train split
+
+Let us replicate the same graph, but this time with the forecasts we generated using a single train-test split (remember we stored this in the variable `fc`). As before the first thing we do is create a column to identify the forecast horizon:
+
+```{r}
+fc <- fc %>%
+  group_by(.model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "Arrivals", distribution = Arrivals)
+
+fc
+```
+We now proceed to apply the function `accuracy()` function grouping both by model and forecast horizon
+
+```{r}
+summary <- fc %>%
+  accuracy(nzarrivals, by = c("h", ".model")) %>%
+  select(h, .model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+
+summary
+```
+
+```{r}
+summary %>%
+  pivot_longer(c(MAE, RMSE, MAPE, MASE, RMSSE), names_to = "metric", values_to = "value") %>%
+  ggplot(aes(x = h, y = value, color = .model)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ metric, nrow = 2, scales = "free")
+```
+
+You can clearly see that using a single test-train split results in error metrics that are not reliable. It is only when we average them over multiple test-train sets that we start getting statistically robust results with which to judge the model.

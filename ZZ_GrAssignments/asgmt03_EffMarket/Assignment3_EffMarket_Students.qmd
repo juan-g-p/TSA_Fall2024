@@ -1,0 +1,198 @@
+---
+title: "Efficient Market Hypothesis (Group assignment)"
+self-contained: true
+self-contained-math: true
+format: html
+editor: source
+params:
+  solutions: false
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+```{r}
+library(fpp3)
+library(patchwork)
+```
+
+# References
+
+[1] Fama, Eugene (1970). "Efficient Capital Markets: A Review of Theory and Empirical Work". Journal of Finance. 25 (2): 383–417. doi:10.2307/2325486. JSTOR 2325486.
+
+[2] Investopedia - Efficient Market Hypothesis [Link](https://www.investopedia.com/terms/e/efficientmarkethypothesis.asp)
+
+# The Efficient Market Hypothesis
+
+The goal of this assignment is to compare a prediction strategy based on the Efficiet Market Hypothesis (EMH) with some of the first non-trivial models you have learnt: simple exponential smoothing and trended exponential smoothing (additive and additive damped versions).
+
+Essentially, the EMH states that stocks are accurately priced and reflect all available information. If it holds true, it implies that it impossible to consistently beat the market by analysis.
+
+In his influential 1970 paper ([1]), Eugene Fama proposes three categories of efficiency that differ in the information considered reflected in the prices:
+
+1. *Weak-form of the EMH*: considers information contained in historical prices.
+2. *Semi-strong form of EMH*: considers information publicly available beyond historical prices.
+3. *Strong-form*: considers private (privileged) information.
+
+Here we are going to consider the weak-form of the EMH and work only with the information contained in historical prices.
+
+# Assignment
+
+The assignment consists in:
+
+### **1. Load the historical data and create an index associated to the training day** (0 points)
+
+As an additional resource, a notebook is provided to download stock market data.
+  
+The date ranges to be used are:
+
+  * **Initial date**: 7-th of May 2017
+  * **Final date**: the current date.
+  
+**Your final dataset must be an object of type `tsibble` with the following characteristics**:
+
+* key = symbol
+* index = trading_day
+
+```{r}
+tr_data <- readr::read_csv("FTSE_prices.csv")
+tr_data <- tr_data %>% 
+           as_tsibble(key = symbol, index = 'trading_day') %>% 
+           fill(close, .direction="downup") # Interpolate missing values
+```
+
+### **1.1 Create a time-plot of your data and briefly describe it (max 75 words)** (1 points)
+
+```{r}
+# YOUR CODE GOES HERE
+# DO NOT CREATE ADDITIONAL CODE SNIPPETS
+```
+
+------
+
+YOUR ANSWER GOES HERE. MAX 50 WORDS.
+
+------
+
+### **2. Create two training datasets containing 80, 60 of your data** (1 points)
+
+Call them `train_1` and `train_2`.
+
+```{r}
+# YOUR CODE GOES HERE
+# DO NOT CREATE ADDITIONAL CODE SNIPPETS
+```
+
+### **3. Fit the following models to each of the training datasets:** (1 points)
+
+* a Naïve model (`naive`).
+* a Simple Exponential Smoothing model. Call it `ses_tr`
+* a Trended Exponential Smoothing model with and additive dampled trend and no seasonality. Call it `holts_damped`
+
+```{r}
+# YOUR CODE GOES HERE, DO NOT CREATE ADDITIONAL CODE SNIPPETS
+fit_tr1 <- train_1 %>% 
+  model(
+    naive_tr1 = 
+    ses_tr1 =  
+    holts_damped_tr1 = 
+  )
+
+fit_tr2 <- train_2 %>% 
+  model(
+    naive_tr2 = 
+    ses_tr2 =  
+    holts_damped_tr2 = 
+  )
+
+# Bind all the models in a single mable to handle forecasts more easily.
+fit <- bind_cols(
+  fit_tr1 %>% select(-symbol), # Exclude column symbol to be able to bind columns
+  fit_tr2 %>% select(-symbol)
+)
+
+fit
+```
+
+### **4. Generate forecasts of 10 trading days for each of the trained models** (1 point)
+
+The result of this step should be a `fable` or forecast table. Name it `fc`
+
+Add a column `h` to `fc` indicating the forecast horizon of each forecast.
+
+* After adding that column, apply the following command: `as_fable(response = "close", distribution = close)`. This is to ensure that the output after performing these operations is still a `fable`, which can be used in combination with the function `accuracy()`
+
+```{r}
+# YOUR ANSWER GOES HERE
+# DO NOT ADD ADITIONAL SNIPPETS
+```
+
+### **5. For each combination of model, training dataset and forecast horizon compute the RMSE, MAE and MAPE. Store the result in a variable called `summary`** (1 point)
+
+```{r}
+# YOUR ANSWER GOES HERE
+# DO NOT ADD ADITIONAL SNIPPETS
+```
+
+### **6. Produce the following graphs and answer the questions** (2.5 points) 
+
+Using `facet_wrap` produce a graph for the RMSE and another one for the MAPE for each forecast 
+
+The graphs should depict the RMSE for each forecast horizon and for each combination of model and training dataset.
+
+```{r}
+# YOUR CODE GOES HERE
+# YOUR ANSWER GOES HERE
+```
+
+Then answer these questions:
+
+* Does the training dataset have an effect on the errors?
+
+------
+
+**YOUR ANSWER GOES HERE**
+MAX 30 WORDS
+
+------
+
+* Does one of the models outperform the other?
+
+------
+
+**YOUR ANSWER GOES HERE**
+MAX 30 WORDS
+
+------
+
+### **7. Evaluate the same metrics on the same models, but this time using cross validation** (2.5 points)
+
+The end-goal is that you produce the same final graph (facet_wrap graph on the error metrics), but this time only three lines per graph should be depicted (one line per model).
+
+The smallest training dataset shall contain 60% of the trading days. The trading datasets shall increase in steps of 2 trading days.
+
+* What is the difference between these graphs and the ones we generated before? Answer briefly below.
+
+------
+
+YOUR ANSWER GOES HERE: MAX 30 WORDS
+
+------
+
+* Does one of the models outperform the other?
+
+------
+
+YOUR ANSWER GOES HERE: MAX 30 WORDS
+
+------
+
+### **8. Reflect on the results and present some conclusions** (0 point)
+
+------
+
+YOUR ANSWER GOES HERE.
+MAX 100 WORDS.
+
+------

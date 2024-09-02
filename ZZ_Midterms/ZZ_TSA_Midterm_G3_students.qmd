@@ -1,0 +1,217 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import Data
+
+Run the code below. A pop-up window will appear. Select the file `ts_data.csv` provided along with the exam
+
+```{r}
+ts_data <- 
+  read.csv(file.choose()) %>% 
+    mutate(
+      ym = yearmonth(start_timestamp)
+    ) %>% 
+    as_tsibble(index = ym) %>% 
+    select(ym, value)
+
+ts_data
+```
+
+# 1. (2.5 points)
+
+Create two plots: a plot of the original time series `value` and a plot of the log-transformed time series.
+
+They should have major breaks every year and minor breaks every four years.
+
+Then answer the question.
+
+```{r}
+ts_data %>% 
+  autoplot() +
+  scale_x_yearmonth(
+    breaks = "4 years",
+    minor_breaks = "1 year"
+  )
+
+ts_data %>% 
+  autoplot(log(value)) +
+  scale_x_yearmonth(
+    breaks = "4 years",
+    minor_breaks = "1 year"
+  )
+
+
+```
+
+------------------------------------------------------------------------
+
+QUESTION: What does the log transformation attain?
+
+**YOUR ANSWER GOES HERE (20 WORDS)**
+
+------------------------------------------------------------------------
+
+# 2. (3 points)
+
+## 2.1
+
+Create new column wihin `ts_data` with a moving average of the log-transformed time series. Use the same moving average as classical decomposition would.
+
+Call that moving averrage `log_trend_class`.
+
+Then create a new time-plot of the log transformed series with `log_trend_class` superimposed.
+
+```{r}
+# Compute moving averages to estimate the trend
+# Because the seasonal period is 12, we need a 2x12-MA
+ts_data <- ts_data %>%
+  
+  mutate(
+    
+    `12-MA` = slider::slide_dbl(log(value), mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    log_trend_class = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+    
+  )
+
+# Plot the computed trend
+ts_data %>%
+  autoplot(log(value), colour = "gray") +
+  geom_line(aes(y = log_trend_class), colour = "#D55E00") +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+```
+
+## 2.2 Using the previously computed moving average, detrend the log-transformed variable.
+
+Store the result in a new column withih `ts_data` called `log_detrended`
+
+Then create a timepot of the `log_detrended`
+
+```{r}
+ts_data <- 
+  ts_data %>% 
+    mutate(
+      log_detrended = log(value) - log_trend_class
+    )
+
+ts_data %>% 
+  autoplot(log_detrended) +
+  scale_x_yearmonth(
+    breaks = "4 years",
+    minor_breaks = "1 year"
+  )
+```
+
+## 2.3 Compute the ACF plot of log-transformed time series and of `log_detrended`
+
+Compare both ACF pots (max 50 words) and explain how they differ and why.
+
+```{r}
+ts_data %>% 
+  ACF(log_value) %>% 
+  autoplot()
+
+ts_data %>% 
+  ACF(log_detrended) %>% 
+  autoplot()
+```
+
+------------------------------------------------------------------------
+
+**YOUR ANSWER GOES HERE** (50 words MAX)
+
+------------------------------------------------------------------------
+
+# 3. (3 points)
+
+## 3.1 Perform an STL decomposition and a classical decomposition (using `classical_decomposition()`)
+
+-   store the components of the STL decomposition in `stl_dcmp`
+-   store the components of the classical decomposition in `class_dcmp`
+
+```{r}
+# YOUR CODE GOES HERE
+# DO NOT CREATE ADDITIONAL CODE SNIPPETS
+```
+
+## 3.2
+
+Create two time plots, one for the seasonal component of `stl_dcmp` and one of the seasonal component of `class_dcmp`.
+
+Then explain how they differ.
+
+------------------------------------------------------------------------
+
+QUESTION: How do both seasonal components differ?
+
+**YOUR ANSWER GOES HERE (20 WORDS)**
+
+------------------------------------------------------------------------
+
+## 3.3 Compare the `trend_class` you previously computed with the trend returned by classical decomposition. Do they match? (answer this question with a single boolean TRUE or FALSE)
+
+```{r}
+ts_data <- 
+ts_data %>% 
+  mutate(
+    quarter = yearquarter(ym)
+  ) %>% 
+  select(ym, quarter, everything())
+```
+
+```{r}
+ts_data %>%
+  
+  index_by(quarter = yearquarter(ym)) %>%
+  
+  summarise(
+        mean = mean(value),
+        last = last(value),
+        first = first(value)
+          )
+```
+
+# 4. (1.5 points)
+
+Time series data wrangling
+
+# 4.1 Using the functions:
+
+-   `dplyr::last()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the last value of every quarter.
+
+You may use `?dplyr::last()` on the console to get information about how to use last.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+## 4.2 Using the functions:
+
+-   `dplyr::last()`
+-   `dplyr::first()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the mean of the first and last value of every quarter.
+
+You may use `?dplyr:first()` and `?dplyr::last()` on the console to get information about how to use last and first
+
+```{r}
+ts_data %>%
+  
+  index_by(quarter = yearquarter(ym)) %>%
+  
+  summarise(
+        result = mean(first(value), last(value))
+  )
+```

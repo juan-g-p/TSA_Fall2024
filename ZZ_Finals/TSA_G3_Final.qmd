@@ -1,0 +1,78 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+```{r}
+ts_data <- 
+  us_gasoline %>% 
+  rename(value = Barrels)
+```
+
+# 1. Create a time plot of the data with mayor grids every 5 years and minor ticks every year (1 point)
+
+```{r}
+ts_data %>% 
+  autoplot() +
+  scale_x_yearweek(
+    breaks = "5 years",
+    minor_breaks = "1 year"
+  )
+```
+
+# 2. Create an STL decomposition of the series. If necessary, adjust the parameters as you deem necessary and explain why you have adjusted them in this manner.
+
+```{r}
+stl_cmp <- 
+  ts_data %>% 
+    model(
+      STL(value ~ trend(window = 21) + season(window = 5))
+      ) %>% 
+    components()
+
+stl_cmp %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (30 words)
+
+------------------------------------------------------------------------
+
+# 3. Detrend the time series in an additive manner using the previously produced components.
+
+```{r}
+# Detrend the time series
+stl_cmp$detrended <- ts_data$value - stl_cmp$trend
+
+```
+
+------------------------------------------------------------------------
+
+In what parts could we further break down the detrended component?
+
+Check that, in fact the detrended component can be broken down exactly in these parts:
+
+```{r}
+all.equal(stl_cmp$detrended, stl_cmp$season_adjust)
+```
+
+------------------------------------------------------------------------
+
+```{r}
+stl_cmp %>% 
+  ACF(season_year, lag_max = 52*4) %>% 
+  autoplot()
+
+stl_cmp %>% 
+  ACF(detrended, lag_max = 52*4) %>% 
+  autoplot()
+```
+
+------------------------------------------------------------------------

@@ -1,0 +1,119 @@
+---
+title: "7_2_SES_Exercise_Solutions"
+author: ""
+date: ""
+output:
+  bookdown::html_document2:
+    number_sections: no
+    toc: true
+    toc_depth: 6
+    toc_float: true
+    toc_collapsed: false
+    self_contained: true
+    lib_dir: libs
+params:
+  print_sol: FALSE 
+  hidden_notes: FALSE
+---
+
+```{r, warning= FALSE, message=FALSE}
+library(fpp3)
+```
+
+# SES Exercise
+
+### 1. Select the data corresponding to Argentina from the dataset `global economy`. In particular, we are going to focus on its exports, so you may extract them as well. Produce a simple time plot of the exports
+
+```{r}
+arg_exports <- global_economy %>%
+                  filter(Country == "Argentina") %>%
+                  select(Year, Exports)
+
+arg_exports
+```
+
+### 2. Fit a simple exponential smoothing method `ETS(A,N,N)` to the series. Plot the forecast along with the fitted values.
+
+```{r}
+
+```
+
+```{r}
+
+```
+```{r}
+
+```
+
+#### * **Do you think the ETS forecast method is appropriate for this data? Why? Why not?**
+
+### 3. How many parameters does the model have? Extract their values.
+
+```{r}
+
+```
+
+### 4. Compute the standard deviation of the residuals as (see equation in html format of the notebook). See session 6_2 for more details.
+
+\begin{equation}
+  \hat{\sigma} = \sqrt{\frac{1}{T-K}\sum_{t=1}^T e_t^2}
+\end{equation}
+
+* $K$ is the number of parameters estimated in the forecasting method
+* $T$ is the length of the residuals, after removing NAs
+
+```{r}
+
+```
+### 5. Compute a 95% prediction interval for the first forecast using $\hat{y} \pm 1.96s$, where s is the standard deviation of the residuals computed in the previous point. See lesson 6_2 for further guidance.
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+### 6. Extract the prediction interval produced by R for the first forecast (see session 6_2). How does your prediction interval compare to that?
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+### 7. Write your own function to implement simple exponential smoothing. The function should take arguments:
+
+* `y` (the time series)
+* `alpha` (the smoothing parameter $\alpha$)
+* `level` (the initial lvel $l_0$)
+
+The function should return the value of the constant flat forecasts of SES beyond the training data.
+
+```{r}
+my_ses <- function(y, alpha, level) {
+
+  # Returns the forecast (final level) of simple exponential smoothing
+  
+  # ARGUMENTS:
+  # @y: a vector containing the y values of our time series
+  # @alpha: parameter alpha of simple exponential smoothing
+  # @level: initial level of simple exponential smoothing.
+  
+  # RETURN:
+  # returns the final level (i.e. the flat forecast) of simple exponential smoothing
+  
+  yhat <- numeric(length(y) + 1) # Prepares the output of the for loop
+  
+  yhat[1] <- level
+  
+  for (i in 2:(length(yhat))) {
+    yhat[i] <- ## your code goes here
+  }
+  
+  return(last(yhat))
+}
+```

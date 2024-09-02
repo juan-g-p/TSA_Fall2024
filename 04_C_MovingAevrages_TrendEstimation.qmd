@@ -1,0 +1,385 @@
+---
+title: "04_C_MovingAverages_TrendEstimation"
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r, echo=FALSE, include=FALSE}
+library(kableExtra)
+```
+
+# References
+
+1. Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+
+This material is by no means original, but rather an expansion of some sections of reference 1 giving futher indications
+
+# Packages
+
+```{r, include=FALSE, error=FALSE, warning=FALSE, message = FALSE}
+library(patchwork)
+```
+
+
+```{r}
+library(fpp3)
+```
+
+# Moving averages
+
+## Introduction:
+
+Given a time series $y_t$, the **moving average** of the time series is another time series that is built by averaging, at each point in time, the values of the time series at a set of neighboring points contained in a specific window of our choice. 
+
+For example, in the picture below we have a time series $y_t$ in blue and we are computing the moving average using windows of 7 points. To compute the moving average at instant $t$ (instant highlighted in green) we average the values of the time series at $t-3, t-2, t-1, t, t+1, t+2$ and $t+3$. In this specific instance we are using a **centered window** (we will see there are other alternatives), in which we leave an equal number of points to the left and to the right of the point at which we are computing the moving average).
+
+![](figs/mavg_weekly.png){width="100%"}
+
+By shifting this window we could compute the value of the moving average time series at every instant in time. There is, however, a limitation due to our use of centered windows. The points at the extremes do not have complete windows and therefore we will not compute the moving average at these points.
+
+## Centered moving averages
+
+### Windows of uneven number of points:
+
+Centered moving averages are of particular interest to us because centered windows tend to minimize the errors of approximations in general. Also, classical decomposition uses centered moving averages to estimate the trend.
+
+**Centered moving average** of order m can be written as:
+
+$$
+m-MA \text{ }_t =\frac{1}{m}\sum_{j=-k}^{j=+k}{y_{t+j}}
+$$
+
+where: **$m = 2k+1$**. 
+
+* the sum runs from $j=-k$ to $j=+k$ and passes through $k=0$. Therefore there are $2k+1$ points on this moving average
+* $m=2k+1$ is the number of points in the window. Because we are using centered windows, we require the number of points $m$ to be uneven ($2k+1$). In this manner we will be able to leave as many points to the left as to the right.
+
+For example, a 7 order moving average like the one in the example before would have the following formula:
+
+$$
+7-MA_t =\frac{1}{7}\sum_{j=-3}^{j=+3}{y_{t+j}} = \frac{1}{7}(y_{t-3}+y_{t-2}+y_{t-1}+y_t+y_{t+1}+y_{t+2}+y_{t+3})
+$$
+
+#### Example in R
+
+In R, we are going to compute moving averages using the function `slider::slide_dbl()`. We will use `slider::slide_dbl()` within `mutate` to define new columns. This function takes the following arguments:
+
+* The **first argument** is the name of the column containing the time series for which we wish to compute the moving average.
+* The **second argument** is the aggregate function we wish to apply to the points covered by the window. Since we are computing moving averages, we will pass the function `mean`.
+* The argument `.before` specifies the number of points in the window to the left of the point at which we are computing the moving average. In the example above (a $7-MA_t$), this number is 3.
+* The argument `.after` specifies the number of points in the window to the right of the point at which we are computing the moving average. In the example above (a $7-MA_t$), this number is 3.
+
+Look at the code below and make sure you understand how the $7-MA_t$ is computed in the example below:
+
+```{r}
+aus_exports <- 
+  
+  global_economy %>%
+  
+  filter(Country == "Australia") %>%
+  
+  # Generate the moving average
+  mutate(
+    
+    #The slider function applies a function to "sliding" time windows.
+    #In this case it is a 7-MA because we are moving from j=-3 (before = 3) 
+    # to j=+3 (after = 3).
+    `7-MA` = slider::slide_dbl(Exports, mean,
+                               
+                #.complete = TRUE -> function evaluated only on full windows
+                # This means that the MA will not be computed for the first
+                # and last three points of the time series
+                .before = 3, .after = 3, .complete = TRUE)
+  ) %>% 
+  
+  select(Country, Code, Year, Exports, `7-MA`)
+
+aus_exports
+```
+
+Let us conduct a sanity check. We are going to extract the first seven elements of Exports, average them and check that they are actually equal to the first element of the 7-MA series
+
+```{r}
+round(mean(aus_exports$Exports[1:7]), 4) == round(aus_exports$`7-MA`[[4]], 4)
+```
+
+Now let us depict the moving average along with the original series:
+
+```{r}
+aus_exports %>%
+  autoplot(Exports) +
+  
+  geom_line(aes(y = `7-MA`), colour = "#D55E00") +
+  
+  labs(y = "% of GDP",
+       title = "Total Australian exports")
+```
+
+Let us now proceed to create different centered moving averages for this time series. For each moving average, we will use a different number of points. **Note that we are using always odd numbers** to **ensure that there is the same amount of points to the left than to the right**: 
+
+```{r}
+aus_exports <- global_economy %>% filter(Country=='Australia')
+
+# Create the different Moving Averages of order i.
+# Note that i is always uneven
+for (i in seq(3, 13, by = 2)){
+  
+    col_name <- paste0(as.character(i), "-MA")
+    
+    width = (i-1)/2 # Number of points to be left to the left an to the right
+    
+    aus_exports[[col_name]] = slider::slide_dbl(aus_exports$Exports, mean,
+                               
+                              #.complete = TRUE -> function evaluated only on full windows
+                              .before = width, .after = width, .complete = TRUE)
+
+}
+
+aus_exports <- aus_exports %>% 
+                  select(Exports, `3-MA`, `5-MA`, `7-MA`, `9-MA`, `11-MA`, `13-MA`)
+
+aus_exports
+```
+
+```{r, echo=FALSE, warning=FALSE, fig.width = 15, fig.height=10}
+# Do not spend too much time figuring out this code, focus on the output.
+plotlist <- list()
+n_graph <- 1
+
+for (i in seq(3, 13, by = 2)){
+
+  col_name <- paste0(as.character(i), "-MA")
+  col_name = sym(col_name)
+  plt <- aus_exports %>%
+         autoplot(Exports) +
+  
+         #Lo podíamos sustituir por aes_string!!!
+         geom_line(aes(y = !!col_name), colour = "#D55E00") +
+  
+         labs(y = "% of GDP",
+             title = paste(as.character(i), "-MA"))
+  
+  plotlist[[n_graph]] <- plt
+  n_graph = n_graph + 1
+  
+}
+
+plotlist[[1]] + plotlist[[2]] + plotlist[[3]] + plotlist[[4]] + 
+plotlist[[5]] + plotlist[[6]]
+```
+
+Note that:
+
+1. A larger order results in a smoother curve. This is because more points are included in the averaging window. With each movement of the window, only two of the points in the window change. **Therefore the more points contained in the window, the slower the moving average changes**.
+2. Because we are using centered moving averages and we have required our windows to be complete (we used `.complete = TRUE`), no values are computed for the first $(m-1)/2$ ponts or the last $(m-1)/2$ points.
+
+### Windows with an even number of points
+
+In our previous discussion **we have required that $m = 2k+1$.** In other words, that **m be uneven**. This condition ensured that we had the same amount of data points to the left and to the right of the point whose moving average we wish to compute. This is great when using centered moving average.
+
+**How can we compute the centered moving average of data if we wish to base the average on an even number of datapoints?**
+
+This problem is **important** becasue, for series with seasionality, we want to average over the whole seasonal period.
+
+* for weekly data (period length of 7) we can compute a centered moving average with the same amount of points to both sides.
+* for monthly data (period length of 12) or quarterly data (period length of 4) a centered moving average cannot be directly computed. We cannot leave the same amount of points to the left and to the right.
+
+If the number of points is even, we cannot use a centered window. That is, if $m$ (the number of points contained in the moving average window) is even, then we will have either one more point to the left or one more point to the right of the point at which we are computing the moving average.
+
+There is a way around this, which is to:
+
+1. Compute a moving average using these *unbalanced* windows.
+2. Compute the 2-MA of the result of 1. That is, compute the 2nd order moving average of the previously computed moving average. We will see that this will result in a **weighted moving average**, which is the best we will be able to do in these instances.
+
+These **weighted moving averages** may be written as:
+
+$$
+\sum_{j=-k}^{j=k}{a_jy_{t+j}}
+$$
+
+* where $k = m/2$ (in this case $m$ is even, so it can be divided by 2)
+* $\sum_{j=-k}^{j=k}{a_j} = 1$. The weights add up to 1
+* $a_j= a_{-j}$. The weights are symmetric.
+    * The weights slowly increase and then slowly decrease, resulting a smooth curve.
+    
+Let us look at an example in the figure below which shall clarify the process. We would like to compute a 4-MA (Window of 4 points) and make it centered following the process outlined above:
+
+![](figs/evenMAs_w1.png){width="100%"}
+
+1. We start by computing the $4-MA_t$ with a window that picks **1 point to the left of the point at which we are computing the MA and two points to the right.** This would be the green window in the figure above. Using this window we compute the $4-MA$ at every point, wherever we can build a complete window.
+    * **Output**: a time series $4-MA_t$. At each point in time the $4-MA_t$ is computed as:
+    
+$$
+4-MA_t = \frac{1}{4}[y_{t-1}+y_t+y_{t+1}+y_{t+2}]
+$$
+
+2. We compute a $2-MA$ of the foregoing $4-MA_t$. **To compensate the fact that initially we had one more point to the right than to the left, we average the $4-MA_t$ and one point to its left (the $4-MA_{t-1}$).**
+    * **Output**: a time series $2x4-MA_t$. At each point in time, this is computed as:
+    
+$$
+\frac{1}{2}[4-MA_{t-1} + 4-MA_t] = \frac{1}{2}[\frac{1}{4}[y_{t-2}+y_{t-1}+y_{t}+y_{t+1}] + \frac{1}{4}[y_{t-1}+y_t+y_{t+1}+y_{t+2}]]
+$$
+
+Develping this we reach:
+
+$$
+\frac{1}{8} y_{t-2} + \frac{1}{4} [y_{t-1}+y_{t}+y_{t+11}] + \frac{1}{8} y_{t+2}
+$$
+
+If we create a list with the coefficients of this last equation, we see that they satisfy the requirements we had listed for a weighted moving average $\sum_{j=-k}^{j=k}{a_jy_{t+j}}$. The coefficients are $[\frac{1}{8},\frac{1}{4},\frac{1}{4},\frac{1}{4},\frac{1}{8}]$. They satisfy the conditions we listed before, that is, they add up to 1 and they are symmetric.
+
+**This procedure generalizes to any window with an even number of points, that is**:
+
+* A *2 x m-MA* (*$m$ even*) is equivalent to a centered weighted moving average of order $m+1$ where all observations take weights $1/m$, except for the first and last term, which take weights $1/(2m)$. 
+
+The resulting coefficients for some relevant examples are:
+
+* For quarterly data (m=4): $\big[\frac{1}{8}, \frac{1}{4}, \frac{1}{4}, \frac{1}{4}, \frac{1}{8}\big]$
+* For monthly data (m=12): $\big[\frac{1}{24}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{12}, \frac{1}{24}\big]$
+* ...
+
+One more comment about this topic: in the 2 x 4-MA example we showed, there was an arbitrary choice: the initial window for the $4-MA_t$ used 1 point to the left and two points to the right. We could have started with a window that used 2 points to the left and 1 point to the right though. We would have had to compensate this picking one point to the right in the subsequent $2-MA$. The image below clarifies this:
+
+![](figs/evenMAs_w2.png){width="100%"}
+
+```{r}
+
+```
+
+#### Example in R
+
+Let us apply this procedure to the quarterly production of beer in australia beyond 1992:
+
+```{r}
+# Filter dataset
+beer <- aus_production %>%
+  filter(year(Quarter) >= 1992) %>%
+  select(Quarter, Beer)
+
+beer <- 
+  beer %>%
+  mutate(
+    # Unbalanced window for the first 4-MA: 1 point to the left, two
+    # points to the right
+    `4-MA` = slider::slide_dbl(Beer, mean,
+                .before = 1, .after = 2, .complete = TRUE),
+    
+    # Subsequent two MA to make the overall window balanced
+    `2x4-MA` = slider::slide_dbl(`4-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+
+beer %>% select(Quarter, Beer, `4-MA`, `2x4-MA`) %>% head(5)
+
+beer %>% select(Quarter, Beer, `4-MA`, `2x4-MA`) %>% tail(5)
+```
+
+Now let us depict the moving average along with the original series:
+
+```{r}
+beer %>%
+  
+  autoplot(Beer) +
+  
+  geom_line(aes(y = `2x4-MA`), colour = "#D55E00") +
+  
+  labs(y = "Production of beer (megalitres)",
+       title = "Production of beer in Australia starting on 1992")
+```
+
+# Left and right moving averages:
+
+We use the centered moving average because, in general, using centered approximations results in smaller errors when computing numerical approximations. However, when approaching the extremes of our data it will not be possible to use centered windows any more and we would have to gradually shift to the left or right moving average.
+
+Because of this, algorithms using window functions usually offer the option to transition to a one-sided (left or right) moving average as they approach the extremes (beggining and end) of the time series:
+
+* **Left moving average:** window considers the point in time at which we are computing and points to its left 
+
+$$
+ \frac{1}{m}\sum_{k=-(m-1)}^{j=0}{y_{t+j}}
+$$
+
+* **Right moving average:** window considers the point in time at which we are computing and points to its right: 
+
+$$
+\frac{1}{m}\sum_{k=0}^{j=m-1}{y_{t+j}}
+$$
+
+
+In the context of this course, we will only use centered moving averages. But you need to know that there are alternatives to it.
+
+# Exercise 1
+
+The time series below measures the number of employed people in retail in the US beyond 1990:
+
+```{r}
+# Filter the series and select relevant columns
+us_retail_employment <- 
+  us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+```
+
+
+```{r, include=params$print_sol}
+# Compute moving averages
+us_retail_employment_ma <- us_retail_employment %>%
+  mutate(
+    `12-MA` = slider::slide_dbl(Employed, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    `2x12-MA` = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+
+# Plot
+us_retail_employment_ma %>%
+  autoplot(Employed, colour = "gray") +
+  geom_line(aes(y = `2x12-MA`), colour = "#D55E00") +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+```
+
+# Exercise 2
+
+Take the dataset `vic_elec` and aggregate the data to obtain the mean quarterly demand using `index_by()`. Then compute a 2x4-MA of the resulting series that is centered.
+
+```{r, include=params$print_sol}
+q_elec <- vic_elec %>% 
+            index_by(yearquarter(Time)) %>% 
+            summarise(
+              q_demand = mean(Demand)
+            )
+
+q_elec
+```
+
+```{r, include=params$print_sol}
+q_elec <- q_elec %>%
+  mutate(
+    `4-MA` = slider::slide_dbl(q_demand, mean,
+                .before = 2, .after = 1, .complete = TRUE),
+    `2x4-MA` = slider::slide_dbl(`4-MA`, mean,
+                .before = 0, .after = 1, .complete = TRUE)
+  )
+
+q_elec
+```
+
+```{r, include=params$print_sol}
+# Check that you can produce the same result inverting the order of before-after
+# The output of the final time series 2x12 MA is the same
+q_elec <- q_elec %>%
+  mutate(
+    `4-MA` = slider::slide_dbl(q_demand, mean,
+                .before = 1, .after = 2, .complete = TRUE),
+    `2x4-MA` = slider::slide_dbl(`4-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+
+q_elec
+```

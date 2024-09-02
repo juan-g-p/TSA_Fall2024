@@ -1,0 +1,181 @@
+---
+title: "TS_PPLE_2023Spring_Midterm"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import data
+
+Run the code below. A pop-up window will appear (look for it). Select the file "Spain_Arrivals_Monthly.csv", placed in the ZZ_Datasets folder
+
+```{r}
+sp_arrivals <- readr::read_delim(file.choose(), delim = ",") %>% 
+            mutate(year = substr(period, 1, 4),
+                   month = substr(period, 6, 8),
+                   ym = make_yearmonth(year = year, month = month),
+                   value = as.numeric(gsub(".", "", value, fixed=TRUE))
+                   ) %>% 
+            select(ym, value) %>% 
+            as_tsibble()
+            
+sp_arrivals
+```
+
+# 1. Basic plots
+
+## 1.1 Create a time-plot of the series, adjusting the time grid so that it signals the beginning of every year
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+## 1.2 Looking at the timeplot prior to 2020, what is the seasonal period you would expect? (max. 30 words)
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (30 words max)
+
+------------------------------------------------------------------------
+
+## 1.3 Looking at the timeplot, judge briefly the strength of the seasonal vs the trend component:
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (30 words max)
+
+------------------------------------------------------------------------
+
+# 2. TS Decomposition
+
+## 2.1 Perform an STL decomposition with default arguments. Depict the decomposition.
+
+Store the resulting components in a variable called `STL_defaults`. Then depict the resulting decomposition.
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+## 2.1.1 If you can, adjust the parameters of the STL decomposition to improve it. Depict the resulting decomposition.
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+## 2.1.2 What are the most important limitations of the STL decomposition in general?
+
+------------------------------------------------------------------------
+
+Bullet point like answer (30-40 words max)
+
+------------------------------------------------------------------------
+
+## 2.1.3 Check, in fact, the decomposition is indeed a breakdown of the time series.
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+## 2.2 Perform a classical decomposition. Store the resulting components in a tsibble called `dcmp_classic`
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+
+## 2.3 Compare the STL and Classical decompositions in terms of:
+
+1.  Variance of their components (assess graphically)
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (50 words max)
+
+------------------------------------------------------------------------
+
+2.  Autocorrelation of the remainder / irregular component
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (50 words max)
+
+------------------------------------------------------------------------
+
+# 3. Benchmark modes
+
+## 3.1 Filter a subset of the data so that you retain only data up to January 2020. Store it in a new variable called `sp_arrivals_jan2020`
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+## 3.2 Consider two tsibbles: the original `sp_arrivals` and the reduced `sp_arivals_jan2020`. Then fit the following forecasting models to each of these tsibbles seaparately.
+
+1. Seasonal Naive model
+2. SES model
+3. Drift model
+4. `decomposition_model()` using STL for the decomposition (decomposition you used in section 2) + drift() for seasonally adjusted component + seasonal naive for seasoanl component.
+5. `decomposition_model()` using STL for the decomposition (decomposition you used in section 2) + drift() for seasonally adjusted component + seasonal naive for seasoanl component.
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+## 3.3 Produce forecasts of up to 1 year ahead with all the models. Store them in two variables called `fc_arrivals` and `fc_arrivals_jan2020`.
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+## 3.4 Depict the forecasts along with the original time series for model 4. of those specified in 3.1 (decomposition_model with drift). Do this for both `fc_arrivals` and `fc_arrivals_jan2020` (two separate graphs).
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+# 4. Assess the residuals of `decomposition_model()` using SES for the seasonally adjusted component that has been fitted to the totality of the time series. For the autocorrelation, be sure to include use of the Ljung-Box or Box-Pierce statistics.
+
+```{r}
+#YOUR CODE GOES HERE
+
+# PLACE ALL THE CODE WITHIN THIS SNIPPET
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (100 words max)
+
+------------------------------------------------------------------------

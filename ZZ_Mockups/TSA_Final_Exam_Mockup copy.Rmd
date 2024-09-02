@@ -1,0 +1,350 @@
+---
+title: "Time Series Analysis - Fina Exam - May 2022"
+author: "Juan Garbayo - Time Series Analysis"
+date: "May - 27th - 2022"
+output:
+  bookdown::html_document2:
+    number_sections: no
+    toc: true
+    toc_depth: 6
+    toc_float: false
+    toc_collapsed: false
+    self_contained: true
+    lib_dir: libs
+params:
+  run_snippet: FALSE
+  print_sol: FALSE
+  hidden_notes: FALSE
+---
+
+```{r setup, include=FALSE}
+library(fpp3)
+library(seasonal)
+```
+
+```{r}
+cafes <- aus_retail %>% 
+  filter(`Series ID` == "A3349849A")
+
+cafes %>% index_by(Month) %>% summarize(size = n())
+```
+
+### 1. (**0.5 points**) Create a time-plot of the series adjusting the grid so that it signals the beginning of every year.
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+autoplot(cafes) +
+scale_x_yearmonth(date_breaks = "1 year",
+                  date_minor_breaks = "1 year") +
+# Flip x-labels by 90 degrees
+theme(axis.text.x = element_text(angle = 90))
+```
+
+Answer briefly (max 50 words):
+
+* Does the scheme look purely additive or multiplicative to some extent?
+
+### 2. (**1.5 points**) Perform an STL decomposition of the time series. Adjust the arguments of the decomposition so that the remainder component is smaller than the seasonal component. Remember that to apply the STL decomposition certain conditions need to be fulfilled, so you may need to manipulate the time series.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+
+```{r}
+#SOLUTION
+# Obtain the suggested value for lambda
+l <- cafes %>%
+  features(Turnover, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+# Inspect the transformed series
+cafes %>% 
+  autoplot(box_cox(Turnover, lambda = l))
+
+# Perform the decomposition 
+dcmp <-cafes %>%
+        model(
+          STL(box_cox(Turnover, lambda = l) ~ trend(window = 5) + season(window=5))
+        ) %>%
+        components()
+
+# Depict the decomposition
+dcmp %>% autoplot()
+```
+```{r}
+
+```
+
+### 3. (**1 point**) Obtain the autocorrelation graph of:
+
+* The total time series.
+* The seasonally adjusted component.
+* The seasonal component of the time series.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+dcmp <-cafes %>%
+        model(
+          STL(box_cox(Turnover, lambda = l) ~ trend(window = 5) + season(window=5))
+        ) %>%
+        components()
+
+# dcmp %>% autoplot()
+cafes %>% ACF(box_cox(Turnover, lambda = l), lag_max = 100) %>% autoplot()
+dcmp %>% ACF(season_adjust, lag_max = 100) %>% autoplot()
+dcmp %>% ACF(season_year, lag_max = 100) %>% autoplot()
+```
+Answer briefly (max 75 words per question. You may use less than 75 words as well).
+
+* Compare the autocorrelation graph of the total time series and the seasonally-adjusted series.
+  + Are they similar to one another? Why? Why not?
+
+* Does the series exhibit seasonality? **Focus on the values of the autocorrelation on multiples of the seasonal period**.
+  + If so, in which graph did you spot the seasonality?
+
+### 4. (**0.5 points**) Obtain two train sets containing 60 and 80% of the data.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+rows_80 <- floor(nrow(cafes)*0.8)
+rows_60 <- floor(nrow(cafes)*0.6)
+
+train_60 <- cafes %>% slice(1:rows_60)
+train_80 <- cafes %>% slice(1:rows_80)
+```
+
+### 5. (**1 point**) Fit the following models to each of the training datasets:
+
+* Naive model
+* Simple Exponential Smoothing
+* Mean model
+* Seasonal Naive model
+* `decompositoin_model()` with:
+  + STL decomposition applied to decompose the time series.
+    + Note: if you managed to find good parameters for the decomposition in question 2, use those. Otherwise use the defaults.
+  + Drift model applied to the seasonally adjusted component.
+  + SNaive model applied to the seasonal component.
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+fit_tr60 <- train_60 %>%
+              model(
+                naive_60 = NAIVE(Turnover),
+                SES_60 = ETS(Turnover ~ error("A") + trend("N") + season("N")),
+                mean_60 = MEAN(Turnover),
+                snaive_60 = SNAIVE(Turnover),
+                decomp_stl_60 = decomposition_model(
+                             # Specify decomposition scheme to be used
+                             STL(box_cox(Turnover, lambda = l) ~ trend(window = 5) + season(window=5)),
+                             # Specify model for the seasonally adjusted component
+                             RW(season_adjust ~ drift()),
+                             # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                             SNAIVE(season_year)
+                             )
+              )
+
+fit_tr80 <- train_80 %>%
+              model(
+                naive_80 = NAIVE(Turnover),
+                SES_80 = ETS(Turnover ~ error("A") + trend("N") + season("N")),
+                mean_80 = MEAN(Turnover),
+                snaive_80 = SNAIVE(Turnover),
+                decomp_stl_80 = decomposition_model(
+                             # Specify decomposition scheme to be used
+                             STL(box_cox(Turnover, lambda = l) ~ trend(window = 5) + season(window=5)),
+                             # Specify model for the seasonally adjusted component
+                             RW(season_adjust ~ drift()),
+                             # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                             SNAIVE(season_year)
+                             )
+              )
+
+# Bind all the models in av single mable to handle forecasts more easily.
+fit <- bind_cols(
+  fit_tr60 %>% select(-c(State, Industry)), # Exclude column symbol to be able to bind columns
+  fit_tr80 %>% select(-c(State, Industry))
+)
+```
+### 6. (**1 point**) Evaluate the residuals accuracy for the different models **on the training dataset** using the corresponding training dataset and the function `accuracy()`. Keep the `MAE`, `RMSE` and `MAPE` errors:
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTUION
+fit %>% 
+  accuracy() %>%
+  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE) %>%
+  arrange(RMSE)
+```
+### 7. (**1 point**) Answer the following questions regarding the output of question 6
+
+Questions (answer briefly, max 75 words per question but be as succint as possible):
+
+* What is the forecast horizon of the residuals for which the metrics have been computed in 6?
+* What are the units of the MAE? What does it represent?
+* What are the units of the RMSE?
+* What are the units of MAPE? What does it represent?
+* Which is the best performing model in terms of RMSE? Clarify how you have determined this.
+* For a given error metric and model type (naive, decomposition, SES...), do the results change with the training dataset? Why or why not?
+
+### 7. (**0.5 points**) For the best model in terms of RMSE of the residuals, assess and interpret the autocorrelation of the residuals (max 75 words but be as succint as possible).
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+fit %>% 
+  select(decomp_stl_60) %>% # Selects the best model in terms of RMSE
+  gg_tsresiduals()
+
+# Box-Pierce Statistic
+fit %>% 
+  select(decomp_stl_60) %>% # Selects the best model in terms of RMSE
+  augment() %>% 
+  features(.innov, box_pierce, lag = 24, dof = 1)
+```
+
+### 8. (**1.5 points**) For every model fitted in 5, generate forecasts of up to 1 seasonal period. Then evaluate the errors of those forecasts (i.e. compare to the actual values of the test datasets using the `accuracy()` function). The output should return the error metrics for each model and forecast horizon.
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+fc <- fit %>%
+        forecast(h = 12)
+
+fc <- fc %>%
+        group_by(.model) %>%
+        mutate(h = row_number()) %>%
+        ungroup() %>%
+        as_fable(response = "Turnover", distribution = Turnover)
+
+summary <- fc %>%
+              accuracy(cafes, by=c("h", ".model"))
+
+summary
+```
+* For a forecast horizon of 1, which model performs best in terms of RMSE? Is it the same model that performed best when using only the training dataset? Why or why not?
+  + NOTE: to answer this question you need to write a bit of code on the matrix containing the summary metrics
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+summary %>%
+  filter(h == 1) %>%
+  arrange(RMSE)
+```
+* For a forecast horizon equal to half the seasonal period, which model performs best in terms of RMSE? 
+  + NOTE: to answer this question you need to write a bit of code on the matrix containing the summary metrics
+
+```{r}
+#SOLUTION
+summary %>%
+  filter(h == 6) %>%
+  arrange(RMSE)
+```
+* For a forecast horizon equal to the seasonal period, which model performs best in terms of RMSE? 
+  + NOTE: to answer this question you need to write a bit of code on the matrix containing the summary metrics
+  
+```{r}
+#SOLUTION
+summary %>%
+  filter(h == 12) %>%
+  arrange(RMSE)
+```
+### 9. (**1.5 points**) Instead of fitting the models to just two datasets, perform cross-validation using `stretch_tsibble()` to generate all the training datasets
+
+* The smallest training dataset shall contain 60% of the observations.
+* The training datasets shall increase in steps of 5 observations.
+* The goal is to **obtain summary metrics for each model type and forecast horizon**. Retain the `MAE`, the `RMSE` and the `MAPE`.
+  + Arrange your results from smallest to largest RMSE
+
+After you have performed the computations, some questions follow:
+
+```{r}
+#YOUR CODE GOES HERE
+```
+
+```{r}
+#SOLUTION
+cafes_cv <- cafes %>%
+  stretch_tsibble(.init = trunc(0.6*nrow(cafes)), .step = 5)
+
+fit_cv <- cafes_cv %>%
+              model(
+                naive = NAIVE(Turnover),
+                SES = ETS(Turnover ~ error("A") + trend("N") + season("N")),
+                mean = MEAN(Turnover),
+                snaive = SNAIVE(Turnover),
+                decomp_stl = decomposition_model(
+                             # Specify decomposition scheme to be used
+                             STL(box_cox(Turnover, lambda = l) ~ trend(window = 5) + season(window=5)),
+                             # Specify model for the seasonally adjusted component
+                             RW(season_adjust ~ drift()),
+                             # Specify model for the seasonal component (unnecessary since SNAIVE is default)
+                             SNAIVE(season_year)
+                             )
+              )
+
+fc_cv <- fit_cv %>%
+            forecast(h = 12) %>%
+            group_by(.id, .model) %>%
+            mutate(h = row_number()) %>%
+            ungroup() %>%
+            as_fable(response = "Turnover", distribution = Turnover)
+
+summary_cv <- fc_cv %>%
+                accuracy(cafes, by=c("h", ".model")) %>%
+                select(-c(MPE, MASE, RMSSE, ACF1, ME)) %>%
+                arrange(RMSE)
+
+
+bind_rows(
+            summary_cv %>% filter(h == 1),
+            summary_cv %>% filter(h == 6),
+            summary_cv %>% filter(h == 12)
+          )
+```
+
+NOTE: to answer these quesitons you might need to filter and or arrange the output of the accuracy() function from your previous answer:
+
+* **For a forecast horizon of 1**: 
+  + Which is the model with smallest RMSE?
+  + Is it the same model type than in question 8? 
+  + If they differ, why do they?
+
+* **For a forecast horizon of 6**: 
+  + Which is the model with smallest RMSE?
+  + Is it the same model type than in question 8?
+  + If they differ, why do they?
+
+* **For a forecast horizon of 1*2*: 
+  + Which is the model with smallest RMSE?
+  + Is it the same model type than in question 8?
+  + If they differ, why do they?

@@ -1,0 +1,424 @@
+---
+title: "2_3_Dates_Times"
+author:
+output:
+  bookdown::html_document2:
+    number_sections: no
+    toc: true
+    toc_depth: 6
+    toc_float: true
+    toc_collapsed: false
+    self_contained: true
+    lib_dir: libs
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+
+# library(tidyverse)
+
+# #Part of tidyverse, but not of tidyverse core. Needs to be specifically loaded.
+# library(lubridate)
+
+#To load the flights dataset. You may need to install this package.
+library(nycflights13)
+```
+
+# References
+
+<span style="color: red;">**This notebook is by no means original material, but rather a compilation extracted from the references below.**</span>
+
+1. Wickham, H; Grolemund, G. *R for Data science*. 2017. Available online at: https://r4ds.had.co.nz/index.html
+      + https://r4ds.had.co.nz/data-import.html#readr-datetimes
+      + https://r4ds.had.co.nz/dates-and-times.html#prerequisites-10
+
+2. D. Peng, R. *R Programming for Data Science*. 2020.
+
+3. tsibble documentation: https://cran.r-project.org/web/packages/tsibble/tsibble.pdf
+
+4. All tidyverse documentation. Start at https://www.tidyverse.org/packages/
+
+# Introduction
+
+Within the `tidyverse` collection of packages, there are two packages designed to work with time:
+
+* `lubridate` for dates and date-times. This package does not belong to the "core" of tidyverse and normally requires to be loaded separately (as you can see at the beginning of this notebook).
+* `hms` for time-of-day values (hours-minutes-seconds).
+
+Within base R there are functions to deal with dates and times such as:
+
+* `as.Date`: coerce date from a character string
+* `as.POSIXt`: coerce times from characters string.
+* `as.POSIXct`: coerce times from characters string.
+* `weekdays`: gives the day of the week
+* `months`: give the name of the month
+* `quarters`: gives number of the quarter ("Q1", "Q2", "Q3", "Q4")
+* `strptime`: parsing function to read dates from strings in case they are in a different format.
+
+The syntax of working with dates and times can be tricky for newcomers. I therefore encourage you to read this notebook carefully since its a foundational skill to be able to deal with time-series. Here we will discuss the functions in `tidyverse` in detail and then provide some cursory comments about the base R functions.
+
+# The tidyverse way
+
+## Creating dates
+
+There are three types of date/time data that refer to an instant in time:
+
+* A **date**. Tibbles print this as `<date>`.
+  + Under the hood this is treated as the number of days since 1970-01-01.
+* A **time** within a day. Tibbles print this as `<time>`
+  + Under the hood this is treated as the number of seconds since midnight.
+* A **date-time**: a date + a time. 
+  + Under the hood this is treated as the number of seconds since 1970-01-01.
+  + Uniquely identifies an instant in time, typically to the nearest second.
+  + Tibbles print this as `<dttm>`.
+  + In base R these are called `POSIXct` or `POSIXt`. We will deal with them in the base R section of this notebook.
+  
+  
+When dealing with dates, **one should always stick to the simplest possible data type fit for purpose**. Examples:
+
+* If you can use a date, do not use date-time.
+* Date-time objects are much more complex because they need to account for time zones.
+
+The most prevalent ways to create a date/time are:
+
+* From a string.
+* From individual date-time components.
+* From an existing date/time object.
+
+### From a string
+
+There are two possible approaches to this:
+
+1. Use the helper functions provided by the `lubridate` package (also part of `tidyverse`)
+2. Use parsing functions within the `readr package` (part of `tidyverse`)
+
+#### Using `lubridate` and its helper functions.
+
+##### Dates: `ymd()` like functions
+
+These functions **work out the format automatically once you specify the order of the components**. To use them:
+
+1. Identify the order in which year, month and day appear in your dates.
+2. Arrange "y", "m" and "d" in the same order.
+
+This gives you the **name of the lubridate function that will parse your date**
+
+```{r}
+ymd("2017-01-31")
+mdy("January 31st, 2017")
+dmy("31-Jan-2017")
+```
+These functions also take unquoted numbers:
+
+```{r}
+ymd(20170131)
+```
+##### Date-times: `ymd_hms()` like functions:
+
+To create a date-time, add an underscore and one or more of "h", "m" and "s" to the name of the parsing function.
+
+```{r}
+ymd_hms("2017-01-31 20:11:59")
+mdy_hm("01/31/2017 08:01")
+
+#You can also force the creation of a date-time from a date providing a timezone:
+ymd(20170131, tz = "UTC")
+```
+#### Using parsing functions
+
+We will normally not use this alternative but it is interesting that you know it and we might need to resort to it in some specific contexts. Please read this section on your own and pose any related questions.
+
+To work with this functions we will need to load the library `readr`
+
+```{r}
+library(readr)
+```
+
+
+Three parsers to choose from depending on whether you want a **date**, a **date-time** or a **time**.
+
+Default calls without any additional arguments:
+
+* `parse_datetime()`: expects a string in format ISO8601. This is an international standard that organises dates from biggest to smallest component: year, monh, day, hour, minute, second.
+
+```{r}
+parse_datetime("2010-10-01T2010")
+
+# If time is omitted, it is set to midnight
+parse_datetime("20101010")
+```
+
+* `parse_date()` expects a four digit year, a `-` or a `/`, the month, a `-` or a `/`, then the day:
+
+```{r}
+parse_date("2010-10-01")
+```
+* `parse_time()` expects the hour, `:`, minutes, optionally `:` and seconds, and an optional am/pm specifier
+
+```{r}
+parse_time("01:10 am")
+parse_time("20:10:01")
+```
+These defaults can be tweaked to supply your own date-time `format` if the default does not fit your needs. The format shall be specified using the following convention, which can be checked at anytime calling the help of the function in the console (for example `?parse_datetime()`):
+
+**Year**:
+
+* `%Y`
+* `%y`: (2 digits); 00-09 -> 2000-2009 ; 70-99 -> 1970-1999
+
+**Month**
+
+* `%m` (2 digits).
+* `%b` (abbreviated name, like “Jan”).
+* `%B` (full name, “January”).
+
+**Day**
+
+* `%d` (2 digits).
+* `%e (optional leading space).
+
+**Time**
+
+* `%H` 0-23 hour.
+* `%I` 0-12, must be used with %p.
+* `%p` AM/PM indicator.
+* `%M` minutes.
+* `%S` integer seconds.
+* `%OS` real seconds.
+* `%Z` Time zone (as name, e.g. America/Chicago). Beware of abbreviations: if you’re American, note that “EST” is a Canadian time zone that does not have daylight savings time. It is not Eastern Standard Time! We’ll come back to this time zones.
+* `%z` (as offset from UTC, e.g. +0800).
+
+**Non-digits**
+
+* `%.` skips one non-digit character.
+* `%*` skips any number of non-digits.
+
+Trying out the formats with character vectors is the best way to figure out what you need:
+
+```{r}
+parse_date("01/02/15", format = "%m/%d/%y")
+parse_date("01/02/15", format = "%d/%m/%y")
+parse_date("01/02/15", format = "%y/%m/%d")
+
+datestring <- c("January 10, 2012;@ 10:40", "December 9, 2011;@ 9:10")
+parse_datetime(datestring, format="%B %d, %Y;@ %H:%M")
+```
+There is even the option to adjust the month names to other languages. For example:
+
+```{r}
+parse_date("1 janvier 2015", "%d %B %Y", locale = locale("fr"))
+```
+
+You can see the list of built in languages in `date_names_langs()` or create a custom one if yours is not included with `date_names()`. These are functions of the `readr` package, part of tidyverse as well.
+
+##### Examples of the use of parsing functions
+
+```{r}
+d1 <- "January 1, 2010"
+parse_date(d1, "%B %d, %Y")
+
+d2 <- "2015-Mar-07"
+parse_date(d2, "%Y-%b-%d")
+
+d3 <- "06-Jun-2017"
+parse_date(d3, "%d-%b-%Y")
+
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+parse_date(d4, "%B %d (%Y)")
+
+d5 <- "12/30/14" # Dec 30, 2014
+parse_date(d5, "%m/%d/%y")
+
+t1 <- "1705"
+parse_time(t1, "%H%M")
+
+# t2 uses real seconds (seconds are a real number)
+t2 <- "11:15:10.12 PM"
+parse_time(t2, "%H:%M:%OS %p")
+```
+
+### From individual components: `make_date()` and `make_datetime()`
+
+Sometimes you do not have a single string, but rather the individual components spread across multiple columns. For example, in the flights dataset:
+
+```{r}
+flights %>%
+  select(year, month, day, hour, minute)
+```
+
+This sort of input can be handled with `make_date()` for dates or `make_datetime()` for date-times:
+
+```{r}
+flights %>% 
+  select(year, month, day, hour, minute) %>% 
+  
+  #Create new date-time column
+  mutate(departure = make_datetime(year, month, day, hour, minute))
+```
+### From other types: `as_datetime()` and `as_date()`
+
+You can switch between a date-time and a date with the functions `as_datetime()` and `as_date()` of the package `lubridate`.
+
+```{r}
+today()
+as_datetime(today())
+
+now()
+as_date(now())
+```
+
+Sometimes you'll get date/time as numeric offsets from the "Unix Epoch", 1970-01-01:
+
+* If the offset is in days, use `as_date()`
+* If the offset is in seconds, use `as_datetime()`
+
+```{r}
+ # 10 hours offset in seconds from 1970-01-01 UTC midnight
+as_datetime(60 * 60 * 10)
+
+# Ten years offset in days from 1970-01-01.
+# +2 accounts for two leap years
+as_date(365 * 10 + 2)
+```
+## tsibble functions `yearquarter()`, `yearmonth()`, `yearweek()`:
+
+As we saw in class, creating a tsibble requires that the index variable is a date, time or date-time object. More generally, a range of possible indices are supported:
+
+* native time classes in R (such as `Date`, `POSIXct` and `difftime`).
+* **tsibble's new additions (such as `yearweek`, `yearmonth` and `yearquarter`)**
+* other commonly-used classes: `ordered`, `hms::hms`, `lubridate::period` and `nanotime::nanotime`.
+
+NOTE:
+
+Although it wont be used in this course, tsibble supports arbitrary index classes, as long as they can be ordered from past to future. To support a custom class, you need to define `index_valid()` for the class and calculate the interval through `interval_pull()`. See reference 3.
+
+### `yearmonth()`, `yearquarter()` and `yearweek()` functions and objects
+
+As you can see, these functions return either the month, quarter or even calendar week of a given date. Note that **the output is no longer a date or a date-time** but **rather a yearmonth, yearquarter or yearweek object**.
+
+These functions are particularly useful when we want to group lower frequency observations (e.g. daily observations) in higher level units (e.g. weekly). We can do this using index_by().
+
+```{r}
+#NOTE: the enclosing parenthesis display the output without an additional line of code
+(ym1 <- yearmonth(ymd("2017-01-31")))
+(ym2 <- yearmonth(dmy("31-Jan-2017"), format="%Y%m"))
+(ym5 <- yearmonth(mdy_hm("04/20/2020 08:01")))
+
+class(ym1)
+```
+
+Note that **the output is no longer a date or a date-time** but **rather a yearmonth object**.
+
+```{r}
+#NOTE: the enclosing parenthesis display the output without an additional line of code
+(yq1 <- yearquarter(ymd("2017-01-31")))
+class(yq1)
+```
+
+Note that **the output is no longer a date or a date-time** but **rather a yearquarter object**.
+
+```{r}
+#NOTE: the enclosing parenthesis display the output without an additional line of code
+(yw1 <- yearweek(ymd("2017-01-31")))
+class(yw1)
+```
+
+Note that **the output is no longer a date or a date-time** but **rather a yearweek object**.
+
+### `index_by()`: grouping by time index:
+
+Lets with an example how to use index_by to calculate aggregations by index. We want to calculate the average distance of the flights in each month of the year. For this, we first need to create a tsibble
+
+```{r}
+flights
+```
+
+
+```{r}
+flights_ts <- 
+  flights %>%
+  
+  #Select columns of interest
+  select(year, carrier, flight, month, day, hour, minute, distance) %>%
+  
+  #Create timestamp
+  mutate(time = make_datetime(year, month, day, hour, minute)) %>%
+
+  #Drop columns
+  select(time, everything(), -c(year, month, day, hour, minute)) %>%
+
+  #Create a tsibble, 
+  #NOTE: flight and tailnum are both required to uniquely identify observations
+  as_tsibble(key=c(carrier, flight), index = time)
+
+#Inspect result
+flights_ts
+```
+
+Now let us aggregate by month:
+
+```{r}
+flights_ts %>%
+  index_by(month = yearmonth(time)) %>%
+  summarise(mean_dist = mean(distance))
+```
+Of course in this particular case this could have been done prior to transforming flights into a tsibble because we had a specific column detailing the month, but the point of this exercise was to show how to do this kind of aggregations if you had a time index.
+
+### creating a custom sequence of time obects
+
+Sometimes it will be useful to define our own sequence of time objects, particularly to have more control over the time axis printout when using ggplot or other visualization libraries.
+
+If you remember the function sequence could be use to generate the following kidn of objects
+
+```{r}
+seq(0, 60, by = 6)
+```
+We could combine this with with a given year, yearmonth, yearquarter or yearweek object and generate our required sequences as follows:
+
+```{r}
+# Sequence of 6 months steps starting in Januart 2012 and advancing for 60 months (5 years)
+yearmonth("2012-01-01") + seq(0, 60, by = 6)
+```
+```{r}
+# Sequence of 2 quarters steps starting in January 2012 and advancing for 20 quarters (4 years):
+yearquarter("2012-01-01") + seq(0, 20, by = 2)
+```
+```{r}
+# Sequence of 2 weeks steps starting in January 2012 and advancing for 52 weeks
+yearweek("2012-01-01") + seq(0, 52, 2)
+```
+
+### scale_x_yearmonth(), scale_x_yearquarter(), scale_x_yearweek()
+
+This functions belong to the tsibble library and can be used to appropriately scale the x axis of a time plot. 
+
+They take the same arguments than `ggplot2::scale_x_date`.
+
+See reference 3 for further info and the exercises solved in session 2 for examples on how to use them.
+
+## Further topics
+
+There are some topics we have not covered:
+
+* Working in detail with date-time components (getting components, rounding components).
+* The arithmetics of date objects (substraction, addition, intervals...).
+* Time zones.
+
+For this, refer to **reference 1**, chapter 16, sections 16.3 onwards.
+
+# base R alternatives
+
+Base R also has a representation of dates and times that is perhaps less capable/efficient but is an alternative to the options provided by tidyverse and its associated libraries.
+
+**We will not deal with the base R alternatives in this course** but if you need to deal with them, you may use reference 2 as a guide.
+
+* Dates are represented by the **Date** class
+* Times are represented by the **POSIXct** or the **POSIXlt** class
+* Dates are stored internally as the number of days since a specific origin, usually 1970-01-01. This origin might vary and you should query the help of your class (e.g. ?POSIXct) if you need this specific information, which is usually not required.
+* Times are stored internally as the number of seconds since a certain origin date, usually 1970-01-01. This origin might vary and you should query the help of your class if you need this specific information, which is usually not required.

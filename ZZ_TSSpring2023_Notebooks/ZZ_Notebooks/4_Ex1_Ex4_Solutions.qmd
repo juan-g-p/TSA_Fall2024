@@ -1,0 +1,91 @@
+---
+title: "4_Ex1_Ex4_Solutions"
+format: html
+editor: visual
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# Exercise 1 - ACF Plot patterns
+
+With the concepts we have seen in this class, you should be able to tell which time series corresponds to each correlogram:
+
+![](figs/4_correlograms_examples.png)
+
+```{r, include=params$print_sol}
+# 3 - D - series exhibits a clear trend and D is the only correlogram that matches this. We also observe spikes at lag 12. Since this is monthly data, this corresponds to yearly seasonality. It matches the data structure.
+
+# 4 - C - the series exhibits cycles of approximately 10 years. These cycles seem pretty regular. The only correlogram showing this behavior is correlogram C. Remember these are cycles and not seasonality. We are dealing with yearly data.
+
+# 2 - A - correlogram exhibits yearly seasonality (spikes at lag 12 for monthly data), matching the time series. No trend in the data.
+
+# 1 - Signal from sensor. More erratic behavior and a bit of downwards trend. No seasonality and a bit of trend. The only correlogram matching this is B.
+```
+
+# Exercise 4 - time series graphs
+
+The us_gasoline dataset, loaded with fpp3, contains weekly data beginning on Week 6 1991 and ending on Week 3 2017. Units are âmillion barrels per dayâ. This is the time series you need to analyse
+
+```{r}
+head(us_gasoline)
+```
+
+Create and interpret the following graphs:
+
+1.  Timeplot with sufficient resolution to spot the beginning of each year.
+2.  Seasonal and seasonal subseries plots to examine a period of 1 year.
+3.  Lagplots and correlogram to examine if there is any seasonality.
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  autoplot(Barrels) + 
+  
+  # We pick scale_x_yearweek() because this is the structure of the time index
+  # of the series.
+  scale_x_yearweek(breaks = "1 years",
+                   minor_breaks = "1 year") +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+
+
+# Positive trend until 2008 -> Global financial crisis.
+# Production seems to take positive trend again after 2012.
+# Shape of seasonality seems to have changed over time.
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  gg_season(Barrels)
+
+# The noise makes it difficult to spot the seasonal pattern.
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  gg_subseries(Barrels, period = "year")
+
+# The bluelines mark the average levels in each week of the year. On average, production seems to increase until Q3 to then decrease.
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  gg_lag(Barrels, geom='point')
+```
+
+```{r, include=params$print_sol}
+us_gasoline %>%
+  ACF(Barrels, lag_max = 160) %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+# In this case, the lagplots are not all that useful because of the big amount of weeks per year. In order to see the seasonal pattern on the correlogram, we need to increase the number of lags at least beyond 52 (number of weeks in a year). If we do this, we clearly observe yearly seasonality.
+```

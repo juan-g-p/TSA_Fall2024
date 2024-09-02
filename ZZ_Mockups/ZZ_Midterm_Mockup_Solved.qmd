@@ -1,0 +1,261 @@
+---
+title: "TS_PPLE_2023Spring_Midterm"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import data
+
+Run the code below. A pop-up window will appear (look for it). Select the file "Spain_Arrivals_Monthly.csv", placed in the ZZ_Datasets folder
+
+```{r, eval=FALSE}
+sp_arrivals <- readr::read_delim(file.choose(), delim = ",") %>% 
+            mutate(year = substr(period, 1, 4),
+                   month = substr(period, 6, 8),
+                   ym = make_yearmonth(year = year, month = month),
+                   value = as.numeric(gsub(".", "", value, fixed=TRUE))
+                   ) %>% 
+            select(ym, value) %>% 
+            as_tsibble()
+```
+
+```{r, include=FALSE}
+sp_arrivals <- readr::read_delim("../ZZ_Datasets/Spain_Arrivals_Monthly.csv", delim = ",") %>% 
+            mutate(year = substr(period, 1, 4),
+                   month = substr(period, 6, 8),
+                   ym = make_yearmonth(year = year, month = month),
+                   value = as.numeric(gsub(".", "", value, fixed=TRUE))
+                   ) %>% 
+            select(ym, value) %>% 
+            as_tsibble()
+            
+sp_arrivals
+```
+```{r}
+sp_arrivals
+```
+
+
+# 1. Basic plots
+
+## 1.1 Create a time-plot of the series, adjusting the time grid so that it signals the beginning of every year
+
+```{r}
+sp_arrivals %>% 
+  
+  autoplot() +
+  
+  scale_x_yearmonth(
+    breaks = "1 years",
+    minor_breaks = "1 year"
+  )
+```
+
+## 1.2 Looking at the timeplot prior to 2020, what is the seasonal period you would expect? (max. 30 words)
+
+------------------------------------------------------------------------
+
+There is a clearly repeating pattern every year that indicates yearle seasonality. With monthly data, the seasonal period wold be m = 12.
+
+------------------------------------------------------------------------
+
+## 1.3 Looking at the timeplot, judge briefly the strength of the seasonal vs the trend component:
+
+------------------------------------------------------------------------
+
+Prior to 2020 the trend is very mild. The seasonal component has a greater variance and dominates. After COVID strikes in 2020, this regular structure is broken and the trend increases in importance.
+
+------------------------------------------------------------------------
+
+# 2. TS Decomposition
+
+## 2.1 Perform an STL decomposition with default arguments. Depict the decomposition.
+
+Store the resulting components in a variable called `STL_defaults`. Then depict the resulting decomposition.
+
+```{r}
+STL_defaults <- 
+  sp_arrivals %>% 
+    model(
+      stl = STL(value)
+    ) %>% 
+  components()
+
+STL_defaults %>% autoplot()
+```
+
+## 2.1.1 If you can, adjust the parameters of the STL decomposition to improve it. Depict the resulting decomposition.
+
+```{r}
+STL_adjust <- 
+  sp_arrivals %>% 
+    model(
+      stl = STL(value ~ trend(window=5) + season(window=5))
+    ) %>% 
+  components()
+
+STL_adjust %>% autoplot()
+```
+
+## 2.1.2 What are the most important limitations of the STL decomposition in general?
+
+------------------------------------------------------------------------
+
+See associated theory session.
+
+------------------------------------------------------------------------
+
+## 2.1.3 Check, in fact, the decomposition is indeed a breakdown of the time series.
+
+```{r}
+all.equal(round(sp_arrivals$value, 3), (STL_adjust$trend + STL_adjust$season_year + STL_adjust$remainder))
+```
+
+## 2.2 Perform a classical decomposition. Store the resulting components in a tsibble called `dcmp_classic`
+
+```{r}
+dcmp_classic <- 
+  sp_arrivals %>% 
+  model(
+    classical = classical_decomposition(value)
+  ) %>% 
+  components()
+
+dcmp_classic %>% autoplot()
+```
+
+## 2.3 Compare the STL and Classical decompositions in terms of:
+
+1.  Variance of their components (assess graphically)
+
+------------------------------------------------------------------------
+
+* STL decomposition (adjusted)
+  * Variance of remainder much smaller than both the trend and seasonal components.
+
+* Classical decomposition 
+  * Variancer of the remainder very similar to variance of seasonal and trend
+
+* Conclusion: STL decomposition (adjusted) is better
+
+------------------------------------------------------------------------
+
+2.  Autocorrelation of the remainder / irregular component
+
+```{r}
+dcmp_classic %>% 
+  ACF(random) %>% 
+  autoplot()
+
+STL_adjust %>% 
+  ACF(remainder) %>% 
+  autoplot()
+```
+
+------------------------------------------------------------------------
+
+Clearly the remainder of the adjusted STL decomposition is better, because it is more white-noise like.
+
+------------------------------------------------------------------------
+
+# 3. Benchmark modes
+
+## 3.1 Filter a subset of the data so that you retain only data up to January 2020. Store it in a new variable called `sp_arrivals_jan2020`
+
+```{r}
+sp_arrivals_jan2020 <-  
+  sp_arrivals %>% 
+  filter(ym < yearmonth("2020 Jan"))
+```
+
+## 3.2 Consider two tsibbles: the original `sp_arrivals` and the reduced `sp_arivals_jan2020`. Then fit the following forecasting models to each of these tsibbles seaparately. Store the in `fit` and `fit_jan2020`
+
+1.  Seasonal Naive model
+2.  SES model
+3.  Drift model
+4.  `decomposition_model()` using STL for the decomposition (decomposition you used in section 2) + SES for seasonally adjusted component + seasonal naive for seasoanl component.
+5.  `decomposition_model()` using STL for the decomposition (decomposition you used in section 2) + drift() for seasonally adjusted component + seasonal naive for seasoanl component.
+
+```{r}
+fit <-
+  sp_arrivals %>% 
+  model(
+    snaive = SNAIVE(value),
+    ses = ETS(value ~ error("A") + trend ("N") + season("N")),
+    drift = RW(value ~ drift()),
+    dcmp_ses = decomposition_model(
+                  STL(value ~ trend(window=5) + season(window=5)),
+                  ETS(season_adjust ~ error("A") + trend ("N") + season("N")),
+                  SNAIVE(season_year)
+                ),
+    dcmp_drift = decomposition_model(
+                  STL(value ~ trend(window=5) + season(window=5)),
+                  RW(season_adjust ~ drift()),
+                  SNAIVE(season_year)
+                )
+  )
+  
+fit_jan2020 <-
+  sp_arrivals_jan2020 %>% 
+  model(
+    snaive = SNAIVE(value),
+    ses = ETS(value ~ error("A") + trend ("N") + season("N")),
+    drift = RW(value ~ drift()),
+    dcmp_ses = decomposition_model(
+                  STL(value ~ trend(window=5) + season(window=5)),
+                  ETS(season_adjust ~ error("A") + trend ("N") + season("N")),
+                  SNAIVE(season_year)
+                ),
+    dcmp_drift = decomposition_model(
+                  STL(value ~ trend(window=5) + season(window=5)),
+                  RW(season_adjust ~ drift()),
+                  SNAIVE(season_year)
+                )
+  )
+```
+
+## 3.3 Produce forecasts of up to 1 year ahead with all the models. Store them in two variables called `fc_arrivals` and `fc_arrivals_jan2020`.
+
+```{r}
+fc_arrivals <- fit %>% forecast(h = 12)
+
+fc_arrivals_jan2020 <-  fit_jan2020 %>% forecast(h=12)
+```
+
+## 3.4 Depict the forecasts along with the original time series for model 4. of those specified in 3.1 (decomposition_model with ses). Do this for both `fc_arrivals` and `fc_arrivals_jan2020` (two separate graphs).
+
+```{r}
+fc_arrivals %>% 
+  filter(.model == "dcmp_drift") %>% 
+  autoplot(sp_arrivals)
+
+fc_arrivals_jan2020 %>% 
+  filter(.model == "dcmp_drift") %>% 
+  autoplot(sp_arrivals_jan2020)
+```
+
+# 4. Assess the residuals of `decomposition_model()` using SES for the seasonally adjusted component that has been fitted to the totality of the time series. For the autocorrelation, be sure to include use of the Ljung-Box or Box-Pierce statistics.
+
+```{r}
+fit %>% 
+  select(dcmp_ses) %>% 
+  gg_tsresiduals()
+
+# ASSESMENT AND OTHER NECESSARY GRAPHS LEFT TO YOU
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (100 words max)
+
+------------------------------------------------------------------------

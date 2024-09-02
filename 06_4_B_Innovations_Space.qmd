@@ -1,0 +1,284 @@
+---
+title: "06_4_B_Innovation_State_Space_Models"
+self-contained: true
+format: html
+editor: source
+params:
+  solutions: false
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+# References
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+
+2.  Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). *Forecasting with exponential smoothing: The state space approach.* Springer-Verlag. [Link](http://www.exponentialsmoothing.net)
+
+# Note
+
+This notebook is not original material, but rather based on ref. 1 with notes expanding on some of the concepts contained in the book.
+
+# Innovations state space models for exponential smoothing
+
+**So far** we have studied **Exponential Smoothing Methods** which generate **point forecasts.** These are simply **algorithms** and **lack an underlying statistical model**. As such they are **incapable of producing forecast distributions**, they merely produce **point forecasts.**
+
+Now we will make some **additional assumptions** to **build statistical models on top of these algorithms**. These will be able to generate both point forecasts as well as **prediction intervals.**
+
+**Statistical Model:** a **stochastic** (or random) **data generating process that can produce outcomes of a specific experiment.** In the case of time series, **this data generating process can be used to produce forecast distributions.**
+
+**Components of the ETS statistical models:**
+
+-   A **measurement equation** that describes the observed data $y_t$ in terms of the components and the statistical hypothesis.
+
+-   **Some state equations** that describe how the unobserved components or states (level, trend, seasonal) change over time.
+
+For **each ETS Method (algorithm)** there exists **two models**:
+
+-   One with additive erros
+
+-   One with multiplicative errors
+
+## Additive vs Multiplicative erros in the models
+
+If the same smoothing parameters are used, both produce the **same point forecasts**, but they lead to **different prediction intervals**.
+
+# ETS(A, N, N): Simple Exponential Smoothing - Additive Errors
+
+**Starting point:** component form of SES.
+
+```{=tex}
+\begin{align*}
+  \text{Forecast equation}  && \hat{y}_{t+1|t} & = \ell_{t}\\
+  \text{Smoothing equation} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1}.
+\end{align*}
+```
+Let us re-arrange the level equation to obtain an explicit formula for $l_t$ in terms of $\alpha$, $y_t$ and $l_{t-1}$
+
+```{=tex}
+\begin{align*}
+\ell_{t} %&= \alpha y_{t}+\ell_{t-1}-\alpha\ell_{t-1}\\
+         &= \ell_{t-1}+\alpha( y_{t}-\ell_{t-1}) = \ell_{t-1}+\alpha e_{t},
+\end{align*}
+```
+where:
+
+-   $e_{t}=y_{t}-\hat{y}_{t|t-1}=y_{t}-\ell_{t-1}$ is the residual at time $t$.
+
+This equation can be interpreted as the adjustment of the level throughout the smoothing process for $t = 1, ..., T$ with the training data errors $e_t$.
+
+-   If $e_t$ \< 0 (error at time $t$) then $y_t < \hat{y}_{t|t-1}$ and so the level at $t-1$ has been over-estimated.
+    -   The new level is then the previous level $l_{t-1}$ adjusted downwards.
+    -   $\alpha$ close to 1: rougher adjustment of the levels (and vice-versa)
+-   If $e_t$ \> 0 the reverse applied.
+
+## Statistical hypothesis
+
+Now we make an **additional statistical assumption**: we assume a distribution for the errors $e_{t}=y_{t}-\hat{y}_{t|t-1}=y_{t}-\ell_{t-1}$.
+
+-   For a **model with additive errors**, we assume that **the residuals** (the **one step training errors)** $e_t$ are **normally distributed white noise with mean 0 and variance** $\sigma^2$. **Short hand notation:**
+    -   $e_t = \varepsilon_t \sim NID(0, \sigma^2)$, where NID stands for "*Normal Identically Distributed".*
+
+Under these assumptions, we may re-write the equations of the model as:
+
+```{=tex}
+\begin{align*}
+  \text{measurement (or observation) equation}  && y_t &= \ell_{t-1} + \varepsilon_t\\
+  \text{state (or transition) equation} && \ell_t&=\ell_{t-1}+\alpha \varepsilon_t.
+\end{align*}
+```
+These two equations + the statistical distribution of the errors ($\varepsilon_t \sim NID(0, \sigma^2)$): form a fully specified statistical model. We refer to it as the **innovations state space model underlying Simple Exponential Smoothing**.
+
+-   **Innovations** is a term used because **all equations use the same error random process** $\varepsilon_t$. An alternative name for this formulation is therefore **single source of error model**.
+-   **Measurement equation**: shows the **relationship between the observations and the unobserved states** (in this case $l_t$):
+
+```{=tex}
+\begin{align*}
+  y_t = \underbrace{l_{t-1}}_\textrm{predictable part of $y_t$} + \underbrace{\varepsilon_t}_\textrm{unpredictable part of $y_t$}
+\end{align*}
+```
+-   **State equation**: shows the evolution of the state through time.
+
+```{=tex}
+\begin{align*}
+  \text{state (or transition) equation} && \ell_t&=\ell_{t-1}+\alpha \varepsilon_t.
+\end{align*}
+```
+-   High values of $\alpha$ allow for rapid changes in the level
+-   Low values of $\alpha$ result in smooth changes
+-   $\alpha = 0 \rightarrow$ the level of the series does not change over time - $\alpha = 1 \rightarrow$ the model reduces to a **random walk model** ($y_t = y_{t-1} + \varepsilon_t$)
+
+# ETS(M, N, N): Simple Exponential Smoothing with multiplicative errors
+
+We can specify models with **multiplicative errors** by **writing the one-step ahead training errors** as **relative errors**.
+
+```{=tex}
+\begin{align*}
+  \text{additive errors (before)}  && \varepsilon_t=e_t=y_{t}-\hat{y}_{t|t-1} \\
+  \text{multiplicative (relative) errors}  && \varepsilon_t=\frac{y_{t}-\hat{y}_{t|t-1}}{\hat{y}_{t|t-1}} = \frac{e_t}{\hat{y}_{t|t-1}}
+\end{align*}
+```
+Where we assume:
+
+-   $\varepsilon_t \sim \text{NID}(0,\sigma^2)$ (our statistical hypothesis).
+
+It is worth noting that:
+
+-   **In this case** $\varepsilon_t \neq e_t$.
+
+-   The relative errors defined here **normalize the error with the forecast** $\hat{y}_{t|t-1}$, that is, with the approximation to $y_t$ instead of with $y_t$ itself. This is done in order to obtain explicit expressions of $y_t$ when rearrnging these errors:
+
+Proceeding in an analogous manner to the additive case, we reach the model equations:
+
+```{=tex}
+\begin{align*}
+  y_t&=\ell_{t-1}(1+\varepsilon_t)\\
+  \ell_t&=\ell_{t-1}(1+\alpha \varepsilon_t).
+\end{align*}
+```
+# ETS (A, A, N): Holt's linear method with additive errors
+
+Starting with Holt's method in the known component form:
+
+```{=tex}
+\begin{align*}
+  \text{Forecast equation}&& \hat{y}_{t+h|t} &= \ell_{t} + hb_{t} \\
+  \text{Level equation}   && \ell_{t} &= \alpha y_{t} + (1 - \alpha)(\ell_{t-1} + b_{t-1})\\
+  \text{Trend equation}   && b_{t}    &= \beta^*(\ell_{t} - \ell_{t-1}) + (1 -\beta^*)b_{t-1},
+\end{align*}
+```
+We assume the one-step ahead errors follow a normal distribution (note we obtain the expression for $\hat{y}_{t|t-1}$ from the forecast equation adjusting the indexes for $t-1$ instead of $t$ and $h=1$)
+
+```{=tex}
+\begin{align*}
+e_t=y_t-\hat{y}_{t|t-1}=y_t-\ell_{t-1}-b_{t-1}=\varepsilon_t \sim \text{NID}(0,\sigma^2)
+\end{align*}
+```
+The measurement equation is simply a re-arrangement of the definition of $\varepsilon_t$):
+
+```{=tex}
+\begin{align*}
+y_t&=\ell_{t-1}+b_{t-1}+\varepsilon_t
+\end{align*}
+```
+We then re-arrange the terms of the level equation to take into account the definition of $\varepsilon_t$:
+
+```{=tex}
+\begin{align*}
+\ell_t&=l_t + b_{t-1} + \alpha(y_t-l_{t-1}-b_{t-1}) = \ell_{t-1}+b_{t-1}+\alpha \varepsilon_t\\
+\end{align*}
+```
+and finally we substitute $l_t$ from this state equation into de trend equation, reaching the second state equation for $b_t$:
+
+```{=tex}
+\begin{align*}
+y_t&=\ell_{t-1}+b_{t-1}+\varepsilon_t\\
+\ell_t&=\ell_{t-1}+b_{t-1}+\alpha \varepsilon_t\\
+b_t&=b_{t-1}+\beta \varepsilon_t,
+\end{align*}
+```
+where $\beta=\alpha \beta^*$
+
+In short:
+
+```{=tex}
+\begin{align*}
+y_t&=\ell_{t-1}+b_{t-1}+\varepsilon_t\\
+\ell_t&=\ell_{t-1}+b_{t-1}+\alpha \varepsilon_t\\
+b_t&=b_{t-1}+\beta \varepsilon_t,
+\end{align*}
+```
+# ETS (M, A, N): Holt's linear method with multiplicative errors errors
+
+As before, we start with the Holt's method equation, but this time we define the one-step-ahead training errors as relative errors such that:
+
+```{=tex}
+\begin{align*}
+\varepsilon_t=\frac{y_t-\hat{y}_{t|t-1}}{\hat{y}_{t|t-1}}=\frac{y_t-(\ell_{t-1}+b_{t-1})}{(\ell_{t-1}+b_{t-1})} \sim \text{NID}(0,\sigma^2)
+\end{align*}
+```
+Again, we obtained the expression for $\hat{y}_{t|t-1}$ from the forecast equation, adjusting the indexes for $t-1$ instead of $t$ and $h=1$.
+
+Developing and re-arranging the equation above and following a substitution process similar to the one outlined for the additive case, we come to the following expression:
+
+```{=tex}
+\begin{align*}
+y_t&=(\ell_{t-1}+b_{t-1})(1+\varepsilon_t)\\
+\ell_t&=(\ell_{t-1}+b_{t-1})(1+\alpha \varepsilon_t)\\
+b_t&=b_{t-1}+\beta(\ell_{t-1}+b_{t-1}) \varepsilon_t,
+\end{align*}
+```
+where again $\beta=\alpha \beta^*$
+
+# Point Forecast vs Forecast Distributions
+
+From this derivation **it should be clear that both the models with additive and multiplicative errors lead to the same point forecasts**. In fact, **the underlying expression for** $\hat{y}_{t|t-1}$ is the same for both models.
+
+The difference between both models **lies in the different statistical hypothesis made on the errors**, which are what is used by the model to compute the confidence intervals.
+
+# Other ETS Models:
+
+Following the same approach we can write an *innovations state space mmodel* for each of the exponential smoothing methods:
+
+![](figs/statespacemodels-1.png)
+
+# Forecasting with ETS Models
+
+Point forecasts for innovation state space models are the same as those obtained using the algorithmic methods.
+
+Point forecasts can be obtained following these steps:
+
+1.  Iterate the measurement equation that gives $y_t$ for $t = T+1,.,T+h$
+2.  Setting all $\varepsilon_t=0$ for $t>T$, since $\varepsilon_t = 0 \iff y_t = \hat{y}_{t|t-1}$ (that is, if the forecast has no error).
+
+**Example:** for $ETS(M, A, N)$ we have the following equations:
+
+```{=tex}
+\begin{align*}
+y_t&=(\ell_{t-1}+b_{t-1})(1+\varepsilon_t)\\
+\ell_t&=(\ell_{t-1}+b_{t-1})(1+\alpha \varepsilon_t)\\
+b_t&=b_{t-1}+\beta(\ell_{t-1}+b_{t-1}) \varepsilon_t,
+\end{align*}
+```
+Step 1. iterate the measurement equation for $t>T$:
+
+```{=tex}
+\begin{align*}
+y_{T+1} &= (\ell_T + b_T )(1+ \varepsilon_{T+1}) \\
+y_{T+2} &= (\ell_{T+1} + b_{T+1})(1 + \varepsilon_{T+2})\\
+        &= \left[
+              (\ell_T + b_T) (1+ \alpha\varepsilon_{T+1}) +
+              b_T + \beta (\ell_T + b_T)\varepsilon_{T+1}
+            \right]
+   (1 + \varepsilon_{T+2})\\
+y_{T+3} &= \text{ ...}
+\end{align*}
+```
+Step 2. Setting all $\varepsilon_t=0$ for $t>T$ we obtain that:
+
+-   $\hat{y}_{T+1|T}=\ell_{T}+b_{T}$
+-   $\hat{y}_{T+2|T}= \ell_{T}+2b_{T}$
+-   $\hat{y}_{T+3|T}= \text{ ...}$
+
+These are the same forecasts of the corresponding Holt's linear algorithmic method.
+
+**ETS point forecasts constructed in this way are equal to the means of the forecast distributions**, **except for the models with multiplicative seasonality**.
+
+## Prediction intervals
+
+With the state space models, prediction intervals can also be generated, something that the methods alone cannot do. The prediction intervals for the models can be written as:
+
+$\hat{y}_{T+h|T} \pm c \sigma_h$
+
+-   $c$ are the quantiles of the normal distribution, since we assumed the errors follow such a distribution.
+-   $\sigma^2$ is the forecast variance.
+
+**The point forecasts will be the same regardless of whether the errors are assumed as additive or multiplicative**, but **the prediction intervals will differ**.
+
+The forecast variance can have complex formulas.
+
+-   The formulas are given in [table 8.8](https://otexts.com/fpp3/ets-forecasting.html#tab:pitable) of reference 1.
+-   The exact development of the formulas can be found in reference 2.
+
+**For a few exponential smoothing models** there are **no known formulas for the prediction intervals**. In this case we resort to **bootstrapping confidence intervals**, simulating sample paths and computing prediction intervals from the percentiles of those simulated future paths. See [section 5.5](https://otexts.com/fpp3/prediction-intervals.html#prediction-intervals-from-bootstrapped-residuals) of the main text book (ref. 1).

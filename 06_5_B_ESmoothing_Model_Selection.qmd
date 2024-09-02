@@ -1,0 +1,447 @@
+---
+title: "06_5_B_ESmoothing_Model_Selection"
+self-contained: true
+self-contained-math: false
+format: html
+editor: source
+params:
+  print_sol: false
+  print_sol_int: true
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+# References
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. Forecasting: principles and practice. 3rd edition.
+2.  Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). Forecasting with exponential smoothing: The state space approach. Springer-Verlag. [Link](http://www.exponentialsmoothing.net)
+3.  Akaike, H. (1974) A New Look at the Statistical Model Identification. IEEE Transactions on Automatic Control, AC- 19, 716-723
+4.  Additional material by the authors of 1 available on the internet.
+
+This is by no means original material, but rather an expansion on reference \[1\] with some additional notes or remarks by the professor.
+
+# Libraries
+
+```{r}
+library(fpp3)
+```
+
+# The ETS Statistical framework and model selection
+
+## Minimizing SSE vs Maximizing likelihood.
+
+Using the ETS state space model statistical framework has the added value that the *likelihood* of the models can be estimated. The **likelihood** is the **probability of the data arising from a specified model** (remember the likelihood is, in the end, nothing else than a joint probability). A large likelihood is associated with a good model.
+
+-   **For an additive error model**: it can be proved that maximizing the likelihood (assuming normally distributed errors) gives the same results as minimizing the sum of squared errors (at least asymptotically).
+-   **For multiplicative models**: different results will be obtained.
+
+### Ranges of values taken by the parameters.
+
+TODO: complete from section 8.6
+
+## Information criteria vs Maximising likelihood.
+
+**Information criteria** use both the likelihood of the model as well as some other metric of the model complexity. The idea is to **penalize the likelihood to compensate for potential overfitting of the data that might arise if we focus solely on maximizing the likelihood of the model**.
+
+## Information criteria vs. Cross-validation
+
+The information criteria metrics we will use are $AIC$, $AIC_c$ and $BIC$. **Since all these metrics use the likelihood of the model**, these metrics **cannot be used to compare between models in different model classes.** For example, they can be used to select an ETS model between all candidate ETS models, or an ARIMA model between candidate ARIMA models (later on this subject). However **they cannot be used to compare between ETS and ARIMA models, because they are in different model classes and the likelihood is computed in different ways**.
+
+In short, **information criteria are only comparable between the same model class and only if those models share the same response variable (after transformations and differencing).**
+
+To compare between models in different classes, we resort to cross-validation.
+
+## Information criteria used in this subject
+
+### $AIC$ - Akaike's Information Criterion (AIC)
+
+Akaike Information Criterion (Akaike, 1974) is derived from principles of maximum likelihood and negative entropy (the Kullback-Liebler conditional discriminant information). Essentially the negative entropy measures the information loss when using the model as an approximation of the phenomenon. More details can be found in refs. 2 and 3.
+
+For ETS models:
+
+```{=tex}
+\begin{align*}
+\text{AIC} = -2\log(L) + 2k,
+\end{align*}
+```
+-   $L$ is the likelihood of the model
+-   $k$ is the total number of parameters and initial states that have been estimated. It is a **metric of the model complexity**
+
+The lower the AIC, the better.
+
+### $AIC_c$ Bias-corrected AIC
+
+For small samples (for small values of $T$, the length of the time series), $AIC$ tends to select too many predictors. The $AIC_c$ is a biased corrected version that works better for small values of $T$:
+
+```{=tex}
+\begin{align*}
+\text{AIC}_{\text{c}} = \text{AIC} + \frac{2k(k+1)}{T-k-1},
+\end{align*}
+```
+-   $L$ is the likelihood of the model.
+-   $k$ is the total number of parameters and initial states that have been estimated. It is a **metric of the model complexity**.
+-   $T$ is the length of the time series.
+
+As with the $AIC$, the lower the $AIC_c$, the better.
+
+### $BIC$ - Bayesian Information Criterion
+
+The BIC was derived by Schwarz using a Bayesian statistics approach. See reference 2 for more details. Specifically, BIC is asymptotically minimized at the model order having the highest posterior probability.
+
+For ETS Models:
+
+```{=tex}
+\begin{align*}
+\text{BIC} = \text{AIC} + k[\log(T)-2].
+\end{align*}
+```
+The model chosen by the BIC is either the same as that chosen by the AIC, or one with fewer terms. This is because the **BIC penalises the number of parameters more heavily than the AIC.**
+
+## Model combinations to be excluded {#sec-model_combinations}
+
+Three combinations of (Errror, Trend, Seasonal) can lead to numerical difficulties due to division by values potentially close to zero in the state equations. These will not normally be considered when selecting a model.
+
+-   $ETS(A, N, M)$
+-   $ETS(A, A, M)$
+-   $ETS(A, Ad, M)$
+
+With this restrictions, we will use the following model combinations (images from ref. 1):
+
+![](figs/ets_models_1.png){fig-align="center" width="593"}
+
+![](figs/ets_models_2.png){fig-align="center" width="593"}
+
+## Models with multiplicative errors
+
+-   Useful **when data are strictly positive**
+-   Numerically **unstable when data contains zeros or negative values**. Therefore **multiplicative error models will not be considered if the time series is not strictly positive**.
+
+Now it **would be a good time to go over the chapter *transformations*** and recall that **there are transformations devised to be used when the data is negative or presents 0**.
+
+-   $log(1+x)$. Used because zeros on the original scale will be zeros on the transformed scale. Also, the function is very easily linearized around $x=0$.
+
+-   ...
+
+Remember that using a transformation has effects both on the interpretability of the model as well as on the properties of the model, the symmetry of the forecast distribution... All of this pros and cons are to be weighed in with proper care.
+
+### Residuals and multiplicative errors
+
+When using multiplicative errors the residuals and innovation residuals differ, even if we do not apply a transformation to the response variable. For details see the session on state space models. We can obtain both using the \`augment()\` function:
+
+-   Response residuals:
+    -   $\hat{e}_t = y_t - \hat{y}_{t|t-1}$
+-   Innovation residuals
+    -   Additive error model: $\hat{\varepsilon}_t = y_t - \hat{y}_{t|t-1}$
+    -   Mult. error model: $\hat{\varepsilon}_t = \frac{y_t - \hat{y}_{t|t-1}}{\hat{y}_{t|t-1}}$
+
+In short, for multiplicative errors the response residuals and the innovation residuals are different.
+
+# Automatic ETS model selection
+
+![](figs/Automatic_ETS.png){fig-align="center"}
+
+## How to tell ETS() to perform automatic model fitting
+
+The general rule is that **when we do not give a full specification of the ETS() model** (that is, we give a specif option for the *error*, *trend* and *seasonal* terms), the ETS() function will perform an automatic search of all the terms that have not been explicitly specified. Let us look at example 1 and exercise 1.
+
+## Example 1
+
+Automatic forecast of national populations (note we have not specified any of the terms of the ETS model):
+
+```{r}
+fit <- global_economy %>% 
+  mutate(Pop = Population /1e6) %>% 
+  model(ets = ETS(Pop))
+
+fit
+```
+
+The code above automatically returned the best ETS() model in terms of $AIC_c$ for each of the time series contained in the dataset! That is, for each of the time series in the data, it fitted all the 15 models we will limit ourselves to (see @sec-model_combinations) and then selected the one with the best $AIC_c$, which is the one it returned as *best model*.
+
+Run the code in R Studio and explore the variable *fit* in the variable explorer for further details on which model was fitted to each time series.
+
+The function `glance()` gives a one-row quick summary of each model:
+
+```{r}
+fit %>% filter(Country == "China") %>% tidy()
+```
+
+```{r}
+log_lik <- fit %>% glance() %>% filter(Country=="China") %>% pull(log_lik)
+```
+
+```{r}
+# Number of parametes including the resudial variance 
+-2*log_lik + 2*(4+1)
+```
+
+```{r}
+fit %>% glance()
+```
+
+If we want a more detailed report for a single model:
+
+```{r}
+fit %>% 
+  filter(Country == "Argentina") %>% 
+  report()
+```
+
+We may examine as well the evolution of the model states over time (**do not confuse with the decomposition of the time series**):
+
+```{r}
+fit %>% 
+  filter(Country == "Argentina") %>% 
+  components()
+```
+
+```{r}
+fit %>% 
+  filter(Country == "Argentina") %>% 
+  components() %>% 
+  autoplot()
+```
+
+```{r}
+
+```
+
+Finally, we can perform forecasts using for all the time series at once:
+
+```{r}
+fc <- fit %>% 
+  forecast(h = 5)
+
+fc
+```
+
+You can start to appreciate how powerful this time series package is!
+
+## Exercise 1
+
+1.  From the dataset "tourism" filter those trips with purpose *Holiday*. The resulting dataset will contain a different time series for each combination of *Region* and *State* (pay attentiont at the *Key* of the tsibble to be able to tell this!)
+
+2.  Fit ETS time series models to each of these time series. Let the model be chosen automatically in terms of the best $AIC_c$.
+
+3.  Subsequently, generate a report for the best model corresponding to the region of *Brisbane*. For that same region, examine the evolution of the model states over time.
+
+4.  Finally generate forecasts for each region covering the next eight quarters. Filter out the forecasts for the region of Brisbane and generate a timeplot.
+
+```{r, include = params$print_sol_int}
+# 1.
+holidays <- tourism %>% 
+  filter(Purpose == "Holiday")
+
+holidays
+
+# Note that the keys in the resulting tsibble are region, state and purpose. 
+# 
+# This information is used by the function ETS() to determine the time series
+# it needs to fit.
+```
+
+```{r, include = params$print_sol_int}
+#2. 
+fit <- holidays %>% model(ets = ETS(Trips))
+
+fit
+```
+
+```{r, include = params$print_sol_int}
+#3.
+fit %>% 
+  filter(Region == "Brisbane") %>% 
+  report()
+```
+
+```{r, include = params$print_sol_int}
+#3. (cont)
+fit %>% 
+  filter(Region == "Brisbane") %>% 
+  components() %>% autoplot()
+```
+
+```{r, include = params$print_sol_int}
+#3. (cont)
+fit %>% 
+  filter(Region == "Brisbane") %>% 
+  components() %>% 
+  autoplot()
+```
+
+```{r, include = params$print_sol_int}
+#4. 
+fc <- fit %>% forecast(h=8)
+fc
+```
+
+```{r, include = params$print_sol_int}
+#4. (cont)
+fc %>% 
+  filter(Region == "Brisbane") %>% 
+  autoplot(holidays)
+```
+
+```{r, include = params$print_sol_int}
+# Additional:
+# The model fitted does not contain seasonality. Being tourism data this seems 
+# a bit # strange. We could force ETS() to consider only the subset of models 
+# that include # some form of seasonalitz in the following manner
+
+fit_season <- holidays %>% 
+        model(ets = ETS(Trips ~ season(c("A", "M"))))
+
+fit_season %>% 
+  filter(Region == "Brisbane") %>% 
+  report()
+
+# See how, now, the model returned is of the form (A, A, A) instead of (A, A, N) 
+# as before, # because we specifically forced the library to impose this 
+# constraint when looking for optimal models.
+```
+
+```{r, include = params$print_sol_int}
+# Let us now depict the forecasts by this new model. Despite the model being 
+# more complex (now it considers seasonality and before no component for 
+# seasonality was included). 
+# The forecast do not necessarily look any better/plausible, rather, they
+# look overfitted. AICc seemed to have worked correctly in this case.
+fit_season %>% 
+  filter(Region == "Brisbane") %>% 
+  forecast(h = 8) %>% 
+  autoplot(holidays)
+```
+
+```{r, include = params$print_sol_int}
+# Now we will compare the actual performance on the fitted values of the 
+# automatically chosen model (A, A, N) and the model in which we enforced 
+# the seasonality (A, A, A)
+fit_brisbane <- holidays %>%
+        filter(Region == "Brisbane") %>%     
+        model(
+          ets_1 = ETS(Trips ~ error("A") + trend("A") + season("A")),
+          ets_2 = ETS(Trips ~ error("A") + trend("A") + season("N"))
+          )
+```
+
+```{r, include = params$print_sol}
+# The model ets_1 has better AIC_c as expected. Nonetheless, it has a slight
+# worse residual fit! (output of accuracy()). That is, the model with the 
+# best AIC_c is not necessarily the one that fits the training data best!
+
+# This is because Information Criteria balance good fit with
+# model complexity! They want to account for potential overfitting in the model!
+fit_brisbane %>% glance()
+fit_brisbane %>% accuracy()
+```
+
+```{r, include = params$print_sol}
+# Other regions have predictions that look more sensible/clear
+fc %>%
+  filter(Region == "Snowy Mountains") %>% 
+  autoplot(holidays) +
+  labs(y = "Thousands", title = "Overnight trips")
+```
+
+## Exercise 2
+
+Look for an optimal ETS model for the time series resulting from summing the trips that have *Holiday* as a purpose for all states. Check if the residuals and the innovation residuals match.
+
+```{r}
+aus_holidays <- tourism %>%
+  filter(Purpose == "Holiday") %>% 
+  summarise(Trips = sum(Trips))
+
+aus_holidays
+```
+
+```{r, include = params$print_sol}
+fit <- aus_holidays %>% 
+  model(ets = ETS(Trips))
+```
+
+```{r, include = params$print_sol}
+fit %>% report()
+
+# The model uses multiplicative errors. Therefore the residuals and
+# innovation residuals do not match despite no transformation
+# being explicitly applied:
+fit %>% augment()
+```
+
+```{r, include = params$print_sol}
+fc <- fit %>% forecast(h = 8)
+
+fc %>% autoplot(aus_holidays)
+```
+
+```{r, include = params$print_sol}
+fit %>% components() %>% autoplot()
+```
+
+```{r, include = params$print_sol}
+fit %>% gg_tsresiduals()
+```
+
+## Exercise 3
+
+From the pbs dataset, filter for prescriptions with `ATC == "H02"` and perform a sum of totals for each month. Then fit an ETS model automatically and examine the model chosen as best fit.
+
+Finally fit two models to the data:
+
+-   The model chosen as best fit automatically
+-   An ETS model with additive errors, additive trend and additive seasonality.
+
+Compare the accuracy of the fit for these models.
+
+```{r}
+h02 <- PBS %>% 
+  filter(ATC2 == "H02") %>% 
+  summarise(Cost = sum(Cost))
+
+h02 %>% autoplot(Cost)
+```
+
+```{r, include=params$print_sol}
+fit <- h02 %>% 
+  model(ETS(Cost))
+```
+
+```{r, include=params$print_sol}
+fit %>% report()
+```
+
+```{r, include=params$print_sol}
+fit %>% components() %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+fit %>% gg_tsresiduals()
+```
+
+```{r, include=params$print_sol}
+fit2 <-h02 %>%
+  model(
+    auto = ETS(Cost),
+    AAA = ETS(Cost ~ error("A") + trend("A") + season("A"))
+  )
+
+fit2 %>% accuracy()
+```
+
+```{r, include=params$print_sol}
+fit2 %>% select(auto) %>% components %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+fit2 %>% select(AAA) %>% components() %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+fit2 %>% forecast() %>% autoplot(h02)
+```
+
+```{r, include=params$print_sol}
+fit2 %>% select(AAA) %>% gg_tsresiduals()
+```

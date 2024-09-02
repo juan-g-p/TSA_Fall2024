@@ -1,0 +1,273 @@
+---
+title: "5_5_TS_Midterm_Mockup_solved"
+format: html
+editor: visual
+params:
+  print_sol: true
+  hidden_notes: true
+  hidden_graphs: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r}
+library(fpp3)
+```
+
+### 1. Import the .csv data and format it as a tsibble
+
+```{r}
+# Adapt this line to match the path of your dataset
+unemp <- readr::read_csv("./ZZ_Datasets/spain_unemployment_format.csv")
+
+# Convert column "date" to a yearmonth object
+unemp <- unemp %>% 
+      mutate(date = yearmonth(date)) %>% 
+      as_tsibble()
+
+unemp
+```
+
+### 2. Graphical analysis
+
+#### 2.1 Generate a timeplot of the data, adjusting its grid adequately to signal at least the end of every year
+
+```{r, include=params$print_sol}
+unemp %>% 
+  autoplot() +
+  
+  labs(y = "Unemployed people in Spain", x = "Time (Years)") +
+
+  scale_x_yearmonth(date_breaks = "1 year",
+                    date_minor_breaks = "1 year") +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+
+```
+
+#### 2.2 Generate a seasonal subseries plot
+
+```{r, include=params$print_sol}
+unemp %>%
+  gg_subseries(unemp) +
+  labs(
+    y = "Unempoyed people in Spain",
+    title = "Spain - Unemployment"
+  )
+```
+
+```{r}
+
+```
+
+#### 2.3 Answer the following questions based on the foregoing graphs (**1 point**)
+
+1.  Which period would you expect? (Justify briefly)
+
+```{r, include=params$print_sol, eval=FALSE}
+We are dealing with data that is collected once a month. The natural calendar
+period would be 1 year. The timeplot with an adequate grid suggests that
+this is a fair thing to expect.
+```
+
+2.  Which is the average seasonal pattern exhibited by the unemployment in Spain? (Justify briefly)
+
+```{r, include=params$print_sol, eval=FALSE}
+The average seasonal component corresponds to the blue lines on the seasonal
+sub-series plot. On average it appears that the unemployment increases from
+January to March, then decresaes until July and then increases again until
+the end of the year with a slight descent in December most likely due to
+a Christmas effect.
+```
+
+3.  Would you say the series is multiplicative or additive? (Justify briefly)
+
+```{r, include=params$print_sol, eval=FALSE}
+The series seems to be additive. The seasonal variation does not seem to
+increase with the level of the series, indicating an additive pattern.
+```
+
+#### 2.4 Generate and interpret a correlogram of the series
+
+-   IMPORTANT: extend the correlogram to cover at least 4 seasonal periods.
+
+```{r, include=params$print_sol}
+unemp %>%
+  ACF(unemp, lag_max = 48) %>%
+  autoplot() +
+  labs(title="Unemployed people in Spain")
+```
+
+```{r}
+
+```
+
+For the interpretation, briefly answer these:
+
+-   Any particular pattern you can recognize?
+
+```{r, include=params$print_sol, eval=FALSE}
+A clear trend pattern (high and slowly decreasing correlation between
+adjacent lags) is visible.
+```
+
+-   Can you spot the seasonality on the correlogram?. Why might this be?
+
+```{r, include=params$print_sol, eval=FALSE}
+On this correlogram the seasonality cannot be spotted. Yet the timeplot
+exhibits a pattern that clearly points to yearly seasonality
+
+This is because the trend is much stronger than the seasonal component.
+In order to observe the effect of the seasonal component on the correlogram,
+we would need to at least detrend the series.
+```
+
+### 3. Decomposition
+
+#### 3.1 STL Decomposition with default arguments
+
+Use the default arguments for the STL decomposition. Depict the decomposition. Compare the seasonal and remainder components.
+
+```{r, include=params$print_sol}
+unemp_cmp <- unemp %>%
+              model(
+                STL(unemp)
+                ) %>%
+              components()
+
+autoplot(unemp_cmp)
+```
+
+```{r}
+
+```
+
+-   Are there any time periods that are not adequately captured by the decomposition? Pay attention to the remainder component and justify briefly your answer.
+
+```{r, include=params$print_sol, eval=FALSE}
+Observing the remainder component we observe two regions where its fluctuations
+increase: the 2008 crisis and the end of 2019/start of 2020.
+The increment is much clearer in the latter.
+
+With the default arguments the trend and the seasonal
+components are not capable of
+adequately capturing the strong variations in unemployment associated with
+these two crisis periods. The averaging windows used are too wide.
+```
+
+-   Does the relative magnitude of the resulting components make sense? (how big they are compared to one another). Justify briefly.
+
+```{r, include=params$print_sol, eval=FALSE}
+The decomposition shows that, at least in the first quarter of 2020,
+the variation of the remainder component is much stronger than the variation
+of the seasonal component.
+
+Neither the seasonal component nor the trend are capable of capturing this variation
+and so it bleeds into the remainder component. The goal of the decomposition is
+having most of the variation (most of the information) captured by the seasonal and
+trend components. Therefore, at least locally, the decomposition is not adequate.
+```
+
+#### 3.2 Adjust the arguments used in the STL decomposition to improve the decomposition in those time regions.
+
+-   NOTE: be sure to store the result of the decomposition in a separate variable prior to printing it. We will be working with the components.
+
+-   NOTE: the resulting decomposition may not be perfect regarding the homoskedasticity of the remainder, but there must be an improvement in the relative magnitude of the components.
+
+```{r, include=params$print_sol}
+unemp_cmp <- unemp %>%
+              model(
+                STL(unemp ~ trend(window = 5) + # Manually change this value from the default 13
+                            season(window = 13))
+                ) %>%
+              components()
+
+autoplot(unemp_cmp)
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+After adjusting the values, we still have a time region (first quarter of 2020)
+where the fluctuations of the remainder component increase. Refining the argumets
+is not able to solve this specific issue.
+
+However, we observe that the magnitude of the remainder component is now at least
+smaller than that of the seasonal component, even in this region. Adjusting
+these arguments has led to substantial improvements in this sense.
+```
+
+#### 3.3 Generate the correlogram of the seasonal component.
+
+-   Include at least 4 seasonal periods.
+-   Briefly interpret the correlogram.
+
+```{r, include=params$print_sol}
+unemp_cmp %>%
+  ACF(season_year, lag_max = 48) %>%
+  autoplot() +
+  labs(title="Unemployed people in Spain")
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+The correlogram clearly shows that the strongest correlations occur at lags that
+are multiples of 12 (12, 24, 36...). This confirms the yearly seasonality of
+the series we were expecting to encounter.
+```
+
+### 4. Converting to quarterly data.
+
+#### 4.1 Using `index_by()` compute a quarterly series based on the average quarterly unemployment
+
+```{r, include=params$print_sol}
+unemp_q_mean <- unemp %>%
+  
+  # Step 1: Indicate level of aggregation desired in the index. In this case
+  # we will start with a weekly aggregation:
+  index_by(quarter = yearquarter(date)) %>%
+  
+  # Step 2: aggregate variables with the desired output
+  summarise(
+    unemp = mean(unemp, na.rm = TRUE), # Computes the mean NO2 levels for each calendar week.
+  )
+
+unemp_q_mean
+```
+
+#### 4.2 Perform an STL decomposition of the result
+
+```{r, include=params$print_sol}
+unemp_q_mean_cmp <- unemp_q_mean %>%
+                      model(
+                        STL(unemp ~ trend(window = 5) + 
+                                    season(window = 13))
+                        ) %>%
+                      components()
+
+autoplot(unemp_q_mean_cmp)
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+The averaging process has removed all the monthly subtelties of the seasonal
+component. Instead of 12 data pointes per year it now has four and hence its
+much simpler aspect.
+```
+
+#### 4.3 Generate again the correlogram of the seasonal component
+
+```{r, include=params$print_sol}
+unemp_q_mean_cmp %>%
+  ACF(season_year, lag_max = 48) %>%
+  autoplot() +
+  labs(title="Unemployed people in Spain")
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+As expected the seasonal component now has a period of 4 (4 quarters per year)
+and hence the strongest correlations are observed at multiples of 4
+(4, 8, 12, 16....)
+```

@@ -1,0 +1,290 @@
+---
+title: "asgmt1_tsgraphs"
+format: html
+editor: visual
+params:
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Libraries
+
+```{r}
+library(fpp3)
+```
+
+# Instructions
+
+-   This notebook contains a series of exercises **to be solved individually by each student**.
+
+-   When answering the questions please **stick to the questions asked and respect the limit to the number of words** (use an online word counter or your text processor of choice).
+
+-   **Answering more than what is asked for in the question will not provide additional points**. More often than not, it actually leads to a worse grade since the additional info provided usually shows a lack of understanding of some concepts on the student's part.
+
+-   **Before delivering the assignment** **make sure you are delivering executable code**. To do this (dedicated video on the appendix RStudio Basics)
+
+    1.  Delete all variables in your environment.
+    2.  Restart your R Session.
+    3.  Click on Run -\> Run all
+
+    -   **IMPORTANT:** if the code you deliver is not executable from beginning to end, you will be somewhat penalized in your assignment (depending on the severity of the issue). So please bear this in mind. At university level the least expected is that you deliver executable code.
+
+# 1. (3.3 points)
+
+The PBS dataset included in fpp3 contains Monthly Medicare Australia prescription data. Run `?PBS` on the console for further info.
+
+We would like to focus on the prescriptions with ATC (Anatomical Therapeutic Chemical Index level 2) equal to H02. This group corresponds to corticosteroids for systemic use.
+
+```{r}
+PBS_h02 <- PBS %>%
+  filter(ATC2 == "H02") %>%
+  select(ATC2, Month, Cost, everything()) %>%
+  arrange(Month)
+
+view(PBS_h02)
+```
+
+1.  As you can see, after filtering for `ATC2 == H02` there are 4 entries per month corresponding to different combinations of the columns Concession and Type. We would like to add the Cost associated to those 4 entries for every month, to obtain a time series of the total cost per month. Use `index_by()` and `summarise()` to get the total cost per month **(1 point)**
+
+```{r}
+PBS_month <- PBS_h02 %>%
+  index_by(month = yearmonth(Month)) %>%
+  summarise(
+    month_cost = sum(Cost)
+  )
+
+PBS_month
+```
+
+2.  Create and interpret a time-plot with sufficient resolution to visually identify the seasonality **(0.8 points)**
+
+```{r}
+autoplot(PBS_month, month_cost) +
+
+
+scale_x_yearmonth(date_breaks = "1 year",
+                  date_minor_breaks = "3 months",
+                  date_labels = "%y-%m") +
+
+theme(axis.text.x = element_text(angle = 90))
+
+
+
+```
+
+------------------------------------------------------------------------
+
+From the autoplot above, it is clear there is a seasonality. By observing the beginning of each year, we can see that the cost tends to reach its lowest point. Likewise, the cost tends to constantly peak almost at the end of each year.
+
+------------------------------------------------------------------------
+
+3.  Create and interpret a seasonal plot and a seasonal subseries plots to identify the evolution of the seasonal component. **(0.8 points)**
+
+```{r}
+#Seasonal plot
+PBS_month %>% 
+  gg_season(month_cost) + 
+  theme(legend.position = "left") +
+  labs( y = "Cost", title = "Monthly Total Cost")
+
+#Subseries 
+
+PBS_month %>%
+  gg_subseries(month_cost) +
+  labs(
+    y = "Cost" ,
+    title = "Monthly Total Cost",
+  )
+```
+
+------------------------------------------------------------------------
+
+The seasonal plot shows that costs decrease at the beginning of the year. After, there is a constant increase throughout the months. The subseries plot shows that lowest point is reached in February and the highest in December. It also shows that costs have increased throughout the years and months.
+
+------------------------------------------------------------------------
+
+4.  Create and interpret ACF plots and lag plots to identify the seasoanlity **(0.8 points)**
+
+```{r}
+PBS_month %>%
+  ACF() %>%
+  autoplot()
+
+PBS_month %>%
+  gg_lag(month_cost, geom='point', lags=1:12)
+```
+
+------------------------------------------------------------------------
+
+The ACF plot shows how the autocorrelation is positive and strong in many lag values, suggesting that the data follows a pattern/seasonality. The lag plots show the strong, positive correlation between the months, again proving that the data is clearly seasonal.
+
+------------------------------------------------------------------------
+
+# 2. (3.3 points)
+
+Use the following graph functions: autoplot(), gg_season(), gg_subseries(), gg_lag(), ACF() and explore features of the time series Total Private from the dataset us_employment (loaded with fpp3) (3.3 points)
+
+```{r}
+total_private <- us_employment %>%
+  filter(Title == "Total Private")
+
+total_private
+```
+
+-   2.1 Generate a timeplot that has major ticks every ten years and minor ticks every year **(1.1 points)**
+
+```{r}
+total_private %>%
+autoplot() +
+  scale_x_yearquarter(date_breaks = "10 year",
+                      minor_breaks = "1 year") + 
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+-   2.2 Use `gg_season()` and `gg_subseries()` to examine the evolution of the seasonal components over time (period of 1 year). That is, generate the graphs and interpret them **(1.1 points)**
+
+```{r}
+total_private %>% 
+  gg_season() + 
+  theme(legend.position = "left") +
+  labs( y = "Employed", title = "Monthly Employed")
+
+total_private %>%
+  gg_subseries() +
+  labs(
+    y = "Employed" ,
+    title = "Monthly Employed",
+  )
+
+```
+
+------------------------------------------------------------------------
+
+The seasonal plot shows how the number of employees has increased throughout the years. Also, it shows how throughout each year, the number of employed increases at a slow but constant pace. The gg_subseries graphs also prove this slowly increasing, positive trend.
+
+------------------------------------------------------------------------
+
+-   2.3 Use `gg_lag()` and `ACF()` to examine the autocorrelation of the series. Again, generate the graphs and interpret them **(1.1 points)**
+
+```{r}
+
+total_private %>%
+  ACF(Employed) %>%
+  autoplot()
+
+total_private %>%
+  gg_lag(Employed, geom='point', lags=1:12)
+
+```
+
+------------------------------------------------------------------------
+
+The ACF shows a strong trend. Observations of small lags (and even bigger lags) have a large positive value (almost 1). The gg_lag plot supports this information, showing how all lags are almost identical to one another. This demonstrates that this is a clear example of a trend.
+
+------------------------------------------------------------------------
+
+# 3. Stock prices (3.4/10 points)
+
+The GAFA stock prices dataset in the ffp3 package contains historical stock prices from 2014-2018 for Google, Amazon, Facebook and Apple. All prices are in \$USD
+
+## 3.1 Use `group_by()` in combination with `filter()` and `max()` to finde what days correspond to the peak closing price for each of the four stocks in the dataset `gafa_stock` (**0.5 points**)
+
+```{r}
+gafa_stock %>% 
+  group_by(Symbol) %>% 
+  filter(Close == max(Close)) %>%
+  select(Symbol, Date, Close)
+```
+
+## 3.2 Amazon Stock Prices
+
+The following code computes the daily changes in Amazon closing stock prices from 2018 onwards:
+
+```{r}
+damzn
+damzn <- gafa_stock %>%
+  filter(Symbol == "AMZN", year(Date) >= 2018) %>%
+  mutate(trading_day = row_number()) %>%
+  update_tsibble(index = trading_day, regular = TRUE) %>%
+  mutate(diff = difference(Close))
+view(damzn)
+
+```
+
+-   3.2.1 Why does the code above re-index the tsibble? Hint: run `?update_tsibble()` on the console to access the documentation and read about the argument regular (**0.5 points**)
+
+------------------------------------------------------------------------
+
+By re-indexing the tsibble, we make sure that we have different indexes for every stock. If we left is as before, we would have stocks that share the same index.
+
+------------------------------------------------------------------------
+
+-   3.2.2 Use the function `lag()` to compute an additional column `diff2` that should be equal to the column `diff`. Hint: you need to compute the first lag of the variable Close to do this. (**0.5 points**)
+
+```{r}
+damzn[[paste0("diff2")]] = lag(damzn$diff, 1)
+head(damzn)
+ 
+```
+
+-   3.2.3 Create a time plot of the closing prices and a time plot of the differences. These plots must have major ticks every 20 trading days and minor ticks every 10 trading days (**0.5 points**)
+
+```{r}
+damzn %>%
+autoplot(Close) +
+  scale_x_yearweek(date_breaks = "20 days",
+                      minor_breaks = "10 days") + 
+  theme(axis.text.x = element_text(angle = 90))
+
+damzn %>%
+autoplot(diff) +
+  scale_x_yearweek(date_breaks = "20 days",
+                      minor_breaks = "10 days") +
+  theme(axis.text.x = element_text(angle = 90))
+
+
+damzn %>%
+autoplot(diff2) +
+  scale_x_yearweek(date_breaks = "20 days",
+                      minor_breaks = "10 days") + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+-   3.2.4 Create the correlogram of the closing prices and of the differences in prices using the ACF() and autoplot() functions. Depict 100 lags (look at the argument lag_max). **(0.5 points)**
+
+```{r}
+#closing prices 
+damzn %>%
+  ACF(Close, lag_max = 100) %>%
+  autoplot()
+
+#diff
+damzn %>%
+  ACF(diff, lag_max = 100) %>%
+  autoplot()
+
+#diff2
+damzn %>%
+  ACF(diff2, lag_max = 100) %>%
+  autoplot()
+```
+
+-   3.2.5 Do the differences in the stock look like white noise? **(0.45 points)**.
+
+------------------------------------------------------------------------
+
+Although there are some correlations that go outside of the blue boundaries (which show that the correlations are significantly larger than 0), it is clear that they account for less than the 5% threshold to state that a time series is white noise. Therefore, this series is not white noise.
+
+------------------------------------------------------------------------
+
+-   3.2.6 What about the original series `Close`? **(0.45 points)**
+
+------------------------------------------------------------------------
+
+By contrast, the original series Close is not white noise/ not random. This is clear as a great percentage of the correlations fall outside of the boundaries (blue lines). In fact, many autocorrelations are close to 1, so this series is clearly not random.
+
+------------------------------------------------------------------------

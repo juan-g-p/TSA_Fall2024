@@ -1,0 +1,963 @@
+---
+title: "05_6_Point_Forecast_Accuracy"
+format: html
+editor: source
+params:
+  print_sol: false
+  print_examples: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+NOTE: the following material is not fully original, but rather an extension of reference 1 with comments and other sources to help students understand the concepts.
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+
+2.  Fable package documentation
+
+-   [Index](https://fable.tidyverts.org/index.html)
+-   [Basics](https://fable.tidyverts.org/articles/fable.html)
+
+3.  [Percent errors discussion](https://www.statworx.com/content-hub/blog/was-dem-mape-falschlicherweise-vorgeworfen-wird-seine-wahren-schwachen-und-bessere-alternativen/)
+
+4.  Hyndman, R. J., & Koehler, A. B. (2006). Another look at measures of forecast accuracy. International Journal of Forecasting, 22(4), 679--688.
+
+# Packages
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+library(patchwork) # Necessary to produce combinations of graphs
+                   # E.g. when we do p1 + p2 (with p1 an p2 being ggplot objects)
+```
+
+# Short general intro: absolute and relative errors
+
+![](figs/errors_general.png){ig-align="center" width="100%"}
+
+Let $x$ and $\hat{x}$ be real numbers, with $\hat{x}$ being an approximation of x. There are essentially two ways to quantify the error of $\hat{x}$ when approximating $x$:
+
+-   **differences**
+-   **ratios**
+
+## Absolute error (based on differences)
+
+In this case we add the absolute value function because we want to deal with a distance and we do not want positive and negative errors to even out when averaging.
+
+$E_{abs}(\hat{x}) = |x-\hat{x}|$
+
+Note that this error has the same units than $x$.
+
+-   E.g. if $x$ is in USD, the error is in USD.
+
+## Relative error (ratios)
+
+$E_{rel} =\frac{|x-\hat{x}|}{|x|}$
+
+Note that **this measure of the error is dimensionless**. We have divided by the magnitude we wanted to approximate and therefore the units in the numerator and the denominator cancel each other out.
+
+## Other errors
+
+There are other possible error metrics (e.g. scaled errors), but the underlying idea is always the same: either ratios or differences.
+
+# Forecast errors vs residuals
+
+1.  **Residuals** are calculated on the *training set.* **Forecast errors** are calculated on the *test set*.
+2.  **Resdiuals** are based on *one-step forecasts* (the *fitted values*) while **forecast errors** can involve *multi-step forecasts*.
+
+Remember the summary figure I have insisted upon:
+
+![](./figs/forecasting_task.png){ig-align="center" width="100%"}
+
+**Forecast error**: difference between an observed value and its forecast.
+
+Error $\neq$ mistake. Think of it as the "unpredictable part of an observation". That which the model is not able to capture.
+
+-   **Training data:** $\{y_1,\dots,y_T\}$
+-   **Test data:** $\{y_{T+1}, y_{T+2},\dots, y_{T+h}\}$
+
+The figure below further summarizes this:
+
+![](./figs/errors_ts.png){ig-align="center" width="100%"}
+
+# Metrics to summarize forecast errors
+
+We can take the set of forecast errors (also the set of residuals) and produce different summary metrics. In more simple words, we can take the error at each point and compute overall summary metrics of the errors.
+
+![](figs/errors_metrics.png){ig-align="center" width="100%"}
+
+## Scale-dependent error metrics
+
+These summary error metrics are on the **same scale as the data**, because they use **errors based on differences**:
+
+$$
+e_t = y_t - \hat{y_t}
+$$ They are therefore **scale-dependent** and **cannot be used to make comparisons between series that involve different units**.
+
+### Mean Absolute error (MAE)
+
+We take the absolute value of the errors to prevent positive and negative errors from canceling each other out when averaging:
+
+```{=tex}
+\begin{align*}
+  \text{Mean absolute error: MAE} & = \text{mean}(|e_{t}|) = \text{mean}(|y_t - \hat{y_t}|)
+\end{align*}
+```
+-   **Easy to interpret**
+
+The expression for the MAE takes a somewhat different look deending on whether we are working with forecast errors or with the model residuals:
+
+#### Expression of the MAE for the model residuals and for forecast errors:
+
+-   **For model residuals**:
+    -   T is the length of the residuals (the length of the vector of residuals, after removing NAs).
+
+```{=tex}
+\begin{align*}
+  \text{mean}(|e_{t}|) = \frac{1}{T}\sum_{t=1}^{t=T}|y_t - \hat{y_t}|
+\end{align*}
+```
+-   **For forecast errors**:
+    -   h is the forecast horizon
+
+```{=tex}
+\begin{align*}
+  \text{mean}(|e_{t}|) = \frac{1}{h}\sum_{j=1}^{j=h}|y_{T+j} - \hat{y_{T+j}}|
+\end{align*}
+```
+#### MAE minimisation and forecasts on the median
+
+-   **IMPORTANT**: a forecast method that minimizes the MAE will lead to forecasts of the **median** of the RV we want to predict ($y_t$)
+-   **PROOF**: will be provided in a separate video/notebook.
+
+### Root Mean Squared Error (RMSE)
+
+We square the erros for two reasons:
+
+1.  The resulting vector of errors has only positive elements. This prevents positive and negative errors from cancelling each other out when averaging.
+2.  The bigger the error, the more it is amplified by the squaring operation. This is an easy way to assign a bigger weight to large errors than to small errors.
+
+$$
+  \text{Root mean squared error: RMSE} = \sqrt{\text{mean}(e_{t}^2)} = \sqrt{\text{mean}((y_t - \hat{y_t})^2)}
+$$
+
+#### Expression of the RMSE for the model residuals and for forecast errors:
+
+-   **For model residuals**:
+    -   T is the length of the residuals (the length of the vector of residuals, after removing NAs).
+
+$$
+  \text{mean}(e_{t}^2) = \sqrt{\frac{1}{T}\sum_{t=1}^{t=T}(y_t - \hat{y_t})^2}
+$$
+
+-   **For forecast errors**: now there are now equations limiting the degrees of freedom. Therefore:
+    -   h is the forecast horizon
+
+$$
+  \text{mean}(e_{t}^2) = \sqrt{\frac{1}{h}\sum_{j=1}^{j=h}(y_{T+j} - \hat{y}_{T+j})^2}
+$$
+
+#### RMSE minimisation and forecasts on the mean:
+
+-   **IMPORTANT**: a forecast method that minimizes the RMSE will lead to forecasts of the **mean** of the RV we want to predict ($y_t$)
+-   **PROOF**(TODO)
+
+## Percentage errors (relative errors)
+
+We scale the error at each point by the actual value at that point of what we are trying to forecast. Note that these are **relative errors**
+
+$$
+p_{t} = 100 \frac{e_{t}}{y_{t}} = 100 \frac{y_t - \hat{y_t}}{y_t}
+$$
+
+-   **Unit-free** - used to **compare forecast performances between data sets**
+-   **Drawbacks**
+    -   Percentage errors become **infinite or undefined if** $y_t = 0$ or close to zero
+
+    -   Percentage errors **assume the unit of measurement has a meaningful zero**:
+
+        -   e.g. percentage errors make no sense when measuring the accuracy of temperature forecasts on either the Fahrenheit or Celsius scales, because **these scales have an arbitrary zero point**. Therefore scaling by $y_t$ (in this case the temperature) is meaningless, since the 0 of the scale has been arbitrarily set and therefore the $y_t$, the measure used to scale our errors, is itself arbitrary.
+
+    -   Percentage errors are often said to **impose a heavier penalty on negative errors than on positive errors.** This is **arguable.** Let us consider the following **example:**
+
+    -   Case 1: $y_t = 150$ ; $\hat{y_t} = 100$
+
+$$
+  \frac{|y_t-\hat{y_t}|}{y_t}*100 =\frac{|150-100|}{150}*100 =33.33%  
+$$
+
+-   
+
+    -   Case 2: $y_t = 100$ ; $\hat{y_t} = 150$
+
+$$
+  \frac{|y_t-\hat{y_t}|}{y_t}*100 =\frac{|100-150|}{100}*100 = 50%
+$$
+
+Indeed case 2 (negative error) results in a greater percentage error. However, the reason for the heavier penalty is not that the error is positive or negative, but that the actual value has changed. Let us consider an example with positive and negative errors of the same magnitude where the actual value remains constant:
+
+-   Case 3: $y_t = 100$ ; $\hat{y_t} = 150$
+
+$$
+  \frac{|y_t-\hat{y_t}|}{y_t}*100 =\frac{|100-150|}{100}*100 = 50%
+$$
+
+-   Case 4: $y_t = 100$ ; $\hat{y_t} = 50$
+
+$$
+  \frac{|y_t-\hat{y_t}|}{y_t}*100 =\frac{|100-50|}{100}*100 = 50%
+$$
+
+Further discussion on ref \[3\] (unfortunately in German). Reference \[4\] is very good as well.
+
+### MAPE: Mean Absolute Percentage Error
+
+We take the absolute value of the errors to prevent positive and negative errors from canceling each other out when averaging:
+
+$$
+\text{Mean absolute percentage error: MAPE} = \text{mean}(|p_{t}|)
+$$
+
+### sMAPE: "symmetric" Mean Absolute Percentage Error
+
+This section is included for completion, but sMAPE is not part of the subject or the exam.
+
+$$
+\text{sMAPE} = \text{mean}\left(200|y_{t} - \hat{y}_{t}|/(y_{t}+\hat{y}_{t})\right)
+$$
+
+-   Supposedly solves the problem of MAPE penalizing negative errors more.
+-   Value can be negative (not really a measure of "absolute percentage errors")
+-   Does not solve the division by 0 problem (if $y_t$ is close to 0, $\hat{y_t}$ is also likely close to 0)
+-   Use not recommended. Included because used in some contexts.
+
+## Scaled Errors
+
+These particular forms of scaled errors were proposed by Hyndman & Koehler as an alternative to using percentage errors when comparing forecast accuracy across series with different units (ref \[4\]),
+
+**Percentage errors** scale each error dividing by $y_t$, the actual value at the point where we are computing each error.
+
+**Scaled errors** scale the errors using the errors of a simple (benchmark) forecast method **computed over the training dataset**. Remember that saying "errors on the training dataset" is equivalent to saying "errors of the fitted values", which is the definition of "residuals". In other words, the MAE or RMSE of the residuals of these benchmark methods will be used to scale the errors:
+
+-   For **non-seasonal data**
+    -   The errors are scaled using the **MAE of a naïve method** over the training dataset
+    -   The squared errors are scaled using the **square of the RMSE of a naïve method** over the training dataset
+    -   In the formulas below:
+        -   $T$ is the length of the time series and $T-1$ is the length of the residuals after removing NAs. We remove 1 from T because the first fitted value of the naïve method is an NA.
+
+$$
+  \text{MAE of Naïve forecasts over training dataset} \;\; \frac{1}{T-1}\sum_{t=2}^T |y_{t}-y_{t-1}|
+$$
+
+$$
+  \text{squared RMSE of Naïve forecasts over training dataset} \;\; \frac{1}{T-1}\sum_{t=2}^T (y_{t}-y_{t-1})^2
+$$
+
+-   For **seasonal data**
+    -   The errors are scaled using the **MAE of a seasonal naïve method** over the training dataset.
+    -   The squared errors are scaled using the **square of the RMSE of a seas. naïve method** over the training dataset.
+    -   In the formulas below:
+        -   $T$ is the length of the time series and $T-m$ is the length of the residuals (after removing NAs).
+        -   $m$ is the length of the seasonal period (e.g. $m=12$ for monthly data and yearly seasonality)
+
+$$
+  \text{MAE of Seas. Naïve forecasts over training dataset} \;\; \frac{1}{T-m}\sum_{t=m+1}^T |y_{t}-y_{t-m}|
+$$
+
+$$
+  \text{squared RMSE of Seas. Naïve forecasts over training dataset} \;\; \frac{1}{T-m}\sum_{t=m+1}^T (y_{t}-y_{t-m})^2
+$$
+
+The scaled errors are obtained by scaling each of the error elements with the above references:
+
+-   **Non-seasonal time series**
+
+```{=tex}
+\begin{equation}
+  \text{scaled error component} \;\; q_{j} = \frac{e_{j}} 
+      {\text{MAE of Naïve forecasts over training dataset}}; \\
+
+  \text{where} \;\; e_j = y_j-\hat{y_j}
+\end{equation}
+```
+```{=tex}
+\begin{equation}
+  \text{squared scaled error component} \;\; q_{j}^2 = \frac{e_{j}^2} 
+      {\text{squared RMSE of Naïve forecasts over training dataset}}; \\
+
+  \text{where} \;\; e_j = y_j-\hat{y_j}
+\end{equation}
+```
+-   **Seasonal time series**
+
+```{=tex}
+\begin{equation}
+ \text{scaled error component} ; q_j = \frac{e_{j}} {\text{MAE of Seas. Naïve forecasts over training dataset}}; \\
+
+  \text{where} \;\; e_j = y_j-\hat{y_j}
+\end{equation}
+```
+
+```{=tex}
+\begin{equation}
+\text{squared scaled error component} ;; q_j^2 = \frac{e_{j}^2} {\text{squared RMSE of Seas. Naïve forecasts over training dataset}}; \\
+
+ \text{where} \;\; e_j = y_j-\hat{y_j}
+\end{equation}
+```
+
+### MASE: Mean Absolute Scaled Error:
+
+Like we did with the components $e_j$, we can compute the MAE of the scaled errors, which leads to the **Mean Absolute Scaled Error (MASE)**
+
+$$
+\text{MASE} = \text{mean}(|q_{j}|) = \frac{\text{MAE}}{{\text{MAE of Naïve (or Seas. Naïve) forecasts over training dataset}}} 
+$$
+
+### Root Mean Squared Scaled Error
+
+Like we did with the components $e_j$, we can compute the RMSE of the scaled errors, which leads to the **Root Mean Squared Scaled Error (RMSSE)**
+
+$$
+\text{RMSSE} = \sqrt{\text{mean}(q_{j}^2)} = \frac{\text{RMSE}}{{\text{RMSE of Naïve (or Seas. Naïve) forecasts over training dataset}}} 
+$$
+
+### Interpretation of the scaled errors
+
+#### At error component level
+
+-   if $q_j < 1$ this means that the method provides a **better** forecast for that particular point than the average one-step naïve forecast computed on the training data (or seasonal naïve for seasoal series).
+-   if $q_j > 1$ this means that the method provides a **worse** forecast for that particular point than the average one-step naïve forecast computed on the training data (or seasonal naïve for seasoal series).
+
+#### At error metric level
+
+-   if $MASE < 1$, this means that the $MAE$ of the model over the dataset on which we are computing the errors is smaller than the $MAE$ of a Naïve model (or seas. Naïve for seasonal series) over the training dataset. That is, the model performs better in terms of $MAE$ on the dataset on which we are computing the errors than the naïve model (or seas. naïve for seasonal series) over the training dataset.
+-   if $RMSE < 1$, this means that the $RMSE$ of the model over the dataset on which we are computing the errors is smaller than the $RMSE$ of a Naïve model (or seas. Naïve for seasonal series) over the training dataset. That is, the model performs better in terms of $RMSE$ on the dataset on which we are computing the errors than the naïve model (or seas. naïve for seasonal series) over the training dataset.
+-   The reverse applies if the metrics are $> 1$.
+
+# Example of error metrics with sesonal data
+
+We will work with the australian production of beer:
+
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+
+recent_production %>% autoplot(Beer)
+```
+
+```{r}
+
+```
+
+## Fitting the models to the training dataset and generating forecasts
+
+```{r}
+# Create training dataset
+beer_train <- recent_production %>%
+  filter(year(Quarter) <= 2007)
+
+beer_fit <- beer_train %>%
+  model(
+    Mean = MEAN(Beer),
+    `Naive` = NAIVE(Beer),
+    `Seasonal naive` = SNAIVE(Beer),
+    Drift = RW(Beer ~ drift())
+  )
+
+beer_fc <- beer_fit %>%
+  forecast(h = 10)
+
+beer_fc %>%
+  autoplot(
+    aus_production %>% filter(year(Quarter) >= 1992),
+    level = NULL
+  ) +
+  labs(
+    y = "Megalitres",
+    title = "Forecasts for quarterly beer production"
+  ) +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+```{r}
+
+```
+
+## Residual errors: errors on the training dataset
+
+To compute the errors on the training dataset (that is, the residual errors), we use the `accuracy()` function on the `mable` containing the fitted models:
+
+```{r}
+summary_tr <- beer_fit %>%
+                  accuracy() %>% 
+                  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE) %>% 
+                  arrange(MAE) # Order from smallest to highest MASE 
+summary_tr
+```
+
+The column `.type` indicates that we have computed these metrics on the training dataset, hence they are based on the residuals.
+
+### Interpretation of MAE and RMSE
+
+The MAE and RMSE have **the same units as the original time series**, as we saw earlier in this notebook. That is, megalitres of beer
+
+In this case the Seasonal Naïve is best both in terms of MAE and in terms of RMSE. **In a more general scenario** one model could result in a better MAE and another in a better RMSE. Remember we discussed that
+
+-   Picking the model that minimizes the MAE will lead to forecasts on the median.
+-   Picking a model that minimizes the RMSE will lead to forecasts on the mean.
+
+For the seasonal naïve model, the MAE of roughly 14.3 indicates that, on average, the fitted values produced by the Seasonal Naïve model are off by 14.3 megalitres of beer in terms of absolute error.
+
+The RMSE is more difficult to interpret but essentially we use squares instead of the absolute values to ensure that all errors are positive so that they do not cancel out when computing the mean. Using this metric we conclude that the fitted values of the seasonal naive are off by 16.78 megalitres on average.
+
+Further down in this notebook we will compute the values above manually to understand how they were obtained.
+
+Remember that the metrics above have been computed on the training dataset. To really judge the performance of a model we need to expose it to data to which it has not been seen, that is, to test data.
+
+### Interpretation of MAPE
+
+The MAPE is a **scale free error** because, at each point, we have computed the **percentage error**, scaling the error at the specific point with the value of the time series. Remember we saw earlier:
+
+$$
+p_{t} = 100 e_{t}/y_{t}
+$$ 
+
+$$
+\text{Mean absolute percentage error: MAPE} = \text{mean}(|p_{t}|)
+$$
+
+The MAE of 3.31 of the Seasonal Naive Model means that, on average, the fitted values of the seasonal naive model are off by 3.31 percent from the actual time series (in absolute value terms).
+
+### Interpretation of MASE and RMSSE
+
+-   Because we are dealing with seasonal data, `fable` knows it has to use the seasonal naïve model to compute the scale for scaled errors.
+-   Note that the **MASE and the RMSSE are exactly 1.0 for the Seasonal Naïve model**. This is because the errors have been scaled using the performance of the seasonal naïve model on this very same dataset (on the training dataset).
+-   For the rest of the models MASE and RMSSE are greater than 1, indicating that their performance on this training dataset is worse than the performance of the seasonal naïve model on this same training dataset.
+
+Further down in this notebook we will compute the values above manually to understand how they were obtained.
+
+Remember that the metrics above have been computed on the training dataset. To really judge the performance of a model we need to expose it to data to which it has not been seen, that is, to test data.
+
+## Forecast errors: errors on the test dataset
+
+To compute the errors on the test dataset (that is, the forecast errors), we use the `accuracy()` on the `fable` (forecast table) obtained when generating the forecasts. We also need to feed the **whole dataset to the accuracy function, that is, the dataset containing both the training and the test dataset**:
+
+```{r}
+summary_test <- beer_fc %>% 
+                  accuracy(recent_production) %>% 
+                  select(.model, .type, RMSE, MAE, MAPE, MASE, RMSSE) %>%
+                  arrange(MASE) # Order from smallest to largest MASE
+summary_test
+```
+
+The column `.type` indicates that these error metrics are based on the test dataset, on how well the forecasts of our model compare to the test data.
+
+From the table above we can see that the seasonal naïve outperforms all other models on this particular test data by every metric. That is, all the error metrics computed are smaller for the seasonal naïve model.
+
+Normally the situation will not be so clear: one model will perform better in a specific metric, while another will perform better in another. In these cases we will need to choose which metric we would like to minimize (e.g. minimizing the RMSE leads to forecast on the mean while minimizing MAE leads to forecasts on the median).
+
+In these cases it will be important to understand in detail the meaning of each method and our goal when producing forecasts.
+
+### Interpretation of MAE and RMSE
+
+The interpretation is the same as in the case of the residuals, only now the metrics refer to forecast errors (test set) instead of residuals (training set).
+
+### Interpretation of MAPE:
+
+The interpretation is the same as in the case of the residuals, only now it refers to forecast errors (test set) instead of residuals (training set).
+
+### Interpretation of MASE and RMSSE
+
+-   Because we are dealing with seasonal data, `fable` knows it has to use the seasonal naïve model to compute the scale for scaled errors.
+-   The **MASE and RMSSE are smaller than one for the seasonal naive model indicating that it performs better on this test data than on the training data!**.
+-   For the rest of the models MASE and RMSSE are greater than 1, indicating that their performance on this test dataset is worse than the performance of the seasonal naïve model on the training dataset.
+
+# Manual check 1: compute the MAE and RMSE manually for the drift model in the example above both for the training dataset and for the test dataset. Compare it to the output of the `accuracy()` function:
+
+-   For the **training dataset**:
+
+```{r, include = !params$print_examples}
+# 1. Extract the residuals produced by the drift model from beer_fit using 
+# augment(), filter() and pull()
+
+# 2. Compute the MAE and RMSE using their respective formulas
+
+# 3. Compare with the valuable computed by fable
+```
+
+```{r, include = params$print_examples}
+# 1. Extract the residuals produced by the drift model from beer_fit using 
+# augment(), filter() and pull()
+resid <- beer_fit %>% 
+         select(Drift) %>%
+         augment() %>% 
+         pull(.innov) %>%
+         na.omit() #remove NAs
+
+# 2. Compute the MAE and RMSE using their respective formulas
+MAE_manual <- mean(abs(resid))
+RMSE_manual <- sqrt(mean((resid)^2))
+
+# 3. Compare with the valuable computed by fable
+MAE_fable <- summary_tr %>% filter(.model == "Drift") %>% pull(MAE)
+RMSE_fable <- summary_tr %>% filter(.model == "Drift") %>% pull(RMSE)
+
+all.equal(MAE_manual, MAE_fable)
+all.equal(RMSE_manual, RMSE_fable)
+```
+
+-   For the test dataset:
+
+```{r, include = !params$print_examples}
+# 1. Extract the forecasts produced by the drift model from beer_fc 
+# using filter() and pull()
+
+# 2. Extract the true values of the test data from recent_production 
+# using filter() and pull()
+
+# 3. Compute the error as the dfference between 
+# true values and forecasts
+
+# 4. Compute the MAE and RMSE 
+# averaging errors
+
+# 5. Compare with the vales computed by the function accuracy()
+```
+
+```{r, include = params$print_examples}
+# 1. Extract the forecasts produced by the drift model from beer_fc 
+# using filter() and pull()
+fc <- beer_fc %>% filter(.model == "Drift") %>% pull(.mean) %>% na.omit()
+
+# 2. Extract the true values of the test data from recent_production 
+# using filter() and pull()
+tv <- recent_production %>% select(Quarter, Beer) %>% 
+      filter(Quarter >= yearquarter("2008 Q1")) %>% pull(Beer) %>% na.omit()
+
+# 3. Compute the errors as the difference between true values and forecasts
+err <- tv-fc
+
+# 4. Compute the MAE and RMSE averaging errors
+RMSE_manual <- sqrt(mean(err^2))
+MAE_manual <- mean(abs(err))
+
+# 5. Compare with the vales computed by the function accuracy()
+RMSE_fable <- summary_test %>% filter(.model == "Drift") %>% pull(RMSE)
+MAE_fable <- summary_test %>% filter(.model == "Drift") %>% pull(MAE)
+
+all.equal(RMSE_manual, RMSE_fable)
+all.equal(MAE_manual, MAE_fable)
+```
+
+# Manual check 2: compute the MASE and RMSSE manually for the drift model in the example above. Compare it to the output of the `accuracy()` function
+
+## Computing the MAE of the seas. naive model over the training dataset
+
+We need to compute these because they are what we will use a scale.
+
+Since we are dealing with scaled values, we are going to require the **MAE of the seasonal naïve model on the training dataset to scale both the errors on the training and the test dataset**. Let us compute it manually and compare to the value returned by fable as well
+
+```{r, include=!params$print_examples}
+# 1. Extract the residuals of the snaive model
+
+# 2. Compute the average of the absolute values
+
+# 3. Compare it to the value computed by the accuracy function
+```
+
+```{r, include=params$print_examples}
+# 1. Extract the residuals of the snaive model
+resid_snaive <- beer_fit %>% 
+                  select(`Seasonal naive`) %>% 
+                  augment() %>% 
+                  pull(.innov) %>%
+                  na.omit()
+
+# 2. Compute the average of the absolute values
+MAE_snaive_tr <- mean(abs(resid_snaive))
+RMSE_snaive_tr <- sqrt(mean(resid_snaive^2))
+
+# 3. Compare it to the value computed by the accuracy function
+MAE_snaive_tr_fable <- summary_tr %>% filter(.model == "Seasonal naive") %>% pull(MAE)
+RMSE_snaive_tr_fable <- summary_tr %>% filter(.model == "Seasonal naive") %>% pull(RMSE)
+
+all.equal(MAE_snaive_tr, MAE_snaive_tr_fable)
+all.equal(RMSE_snaive_tr, RMSE_snaive_tr_fable)
+```
+
+## Computing MASE and RMSSE
+
+-   For the training dataset
+
+```{r, include=!params$print_examples}
+# 1. Extract the residuals produced by the drift model from beer_fit 
+# using augment(), filter() and pull()
+
+# 2. Compute the scaled residuals and the scaled squared residuals
+
+# 3. Compute the MASE and RMSSE by averaging the scaled residuals
+
+# 4. Compare with the valuable computed by fable
+```
+
+```{r, include=params$print_examples}
+# 1. Extract the residuals produced by the drift model from beer_fit 
+# using augment(), filter() and pull()
+resid <- beer_fit %>% 
+         select(Drift) %>%
+         augment() %>% 
+         pull(.innov) %>%
+         na.omit() #remove NAs
+
+# 2. Compute the scaled residuals and the scaled squared residuals
+scaled_res <- abs(resid) / MAE_snaive_tr
+scaled_res_sq <- resid^2 / RMSE_snaive_tr^2
+
+# 3. Compute the MASE and RMSSE by averaging the scaled residuals
+MASE_manual <- mean(scaled_res)
+RMSSE_manual <- sqrt(mean(scaled_res_sq))
+
+# 4. Compare with the valuable computed by fable
+MASE_fable <- summary_tr %>% filter(.model == "Drift") %>% pull(MASE)
+RMSSE_fable <- summary_tr %>% filter(.model == "Drift") %>% pull(RMSSE)
+
+all.equal(MASE_manual, MASE_fable)
+all.equal(RMSSE_manual, RMSSE_fable)
+```
+
+-   For the test dataset
+
+```{r, include = !params$print_examples}
+# 1. Extract the forecasts produced by the drift model from beer_fc 
+# using filter() and pull()
+
+# 2. Extract the true values of the test data from recent_production 
+# using filter() and pull()
+
+# 3. Compute the error as the dfference between 
+# true values and forecasts
+
+# 4. Compute the MASE and RMSSE by averaging the scaled errors
+```
+
+```{r, include = params$print_examples}
+# 1. Extract the forecasts produced by the drift model from 
+# beer_fc using filter() and pull()
+fc <- beer_fc %>% filter(.model == "Drift") %>% pull(.mean) %>% na.omit()
+
+# 2. Extract the true values of the test data from recent_production 
+# using filter() and pull()
+tv <- recent_production %>% select(Quarter, Beer) %>% 
+      filter(Quarter >= yearquarter("2008 Q1")) %>% pull(Beer) %>% na.omit()
+
+# 3. Compute the error as the dfference between true values and forecasts
+scaled_err <- (tv-fc) / MAE_snaive_tr
+scaled_err_sq <- (tv-fc)^2 / RMSE_snaive_tr^2
+
+# 4. Compute the MASE and RMSSE by averaging the scaled errors
+MASE_manual <- mean(abs(scaled_err))
+RMSSE_manual <- sqrt(mean(scaled_err_sq))
+
+# 5. Compare with the results returned by fable
+RMSSE_fable <- summary_test %>% filter(.model == "Drift") %>% pull(RMSSE)
+MASE_fable <- summary_test %>% filter(.model == "Drift") %>% pull(MASE)
+
+all.equal(MASE_manual, MASE_fable)
+all.equal(RMSSE_manual, RMSSE_fable)
+```
+
+Alternatively, remember from the formulas we could have obtained the MASE and RMSSE as the ratio between:
+
+-   The MAE (or the RMSE) of the model for which we want the MASE (or the RMSSE)
+-   The MAE (or the RMSE) of the seasonal naïve model on the training dataset. If we were dealing with non-seasonal data, we would use the MAE (or the RMSE) of the naïve model instead
+
+```{r, include=params$print_examples}
+# Check of the above mentioned formula
+all.equal(MASE_manual, MAE_manual / MAE_snaive_tr)
+all.equal(RMSSE_manual, RMSE_manual / RMSE_snaive_tr)
+```
+
+# Example of error metrics with non-seasonal data
+
+In this example I do not go too much into the details of the interpretation of MAE, RMSE and MAPE, because they do not change that much. This example has been included for you to note that, with non-seasonal data, the model used a metric for the MASE and RMSSE is the naïve model rather than the seasonal naïve model.
+
+We are going to compute errors on the google stock data, taking 2015 as the training dataset and testing on data from january 2016. This time, however, we are not going to compute the values manually, just using the `fable` library.
+
+```{r}
+# Data filtering
+google_stock <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) >= 2015) %>%
+  mutate(day = row_number()) %>%
+  update_tsibble(index = day, regular = TRUE)
+
+google_2015 <- google_stock %>% filter(year(Date) == 2015)
+
+google_jan_2016 <- google_stock %>%
+  filter(yearmonth(Date) == yearmonth("2016 Jan"))
+```
+
+```{r}
+# Fit model
+google_fit <- google_2015 %>%
+  model(
+    Mean = MEAN(Close),
+    `Naïve` = NAIVE(Close),
+    Drift = RW(Close ~ drift())
+  )
+
+# Generate forecasts
+google_fc <- google_fit %>%
+  forecast(google_jan_2016)
+
+google_fc %>%
+  autoplot(bind_rows(google_2015, google_jan_2016),
+    level = NULL) +
+  labs(y = "$US",
+       title = "Google closing stock prices from Jan 2015") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+```{r}
+
+```
+
+### Residual errors: errors on the training dataset
+
+```{r}
+summary_tr <- google_fit %>%
+                  accuracy() %>% 
+                  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE) %>% 
+                  arrange(MASE) # Order from smallest to highest MASE 
+summary_tr
+```
+
+We can see that the Naïve and the drift method are those that are performing best in the training dataset (i.e. in terms of smaller residuals)
+
+Note that now it is the MASE and RMSSE of the Naïve model that are equal to 1 because we are dealing with non-seasonal data and therefore the Naïve model fitted to the training dataset is used to scale the errors for MASE and RMSSE.
+
+### Forecast errors: errors on the test dataset
+
+```{r}
+summary_test <- google_fc %>% 
+                  accuracy(google_stock) %>% 
+                  select(.model, .type, RMSE, MAE, MAPE, MASE, RMSSE) %>%
+                  arrange(MASE) # Order from smallest to largest MASE
+summary_test
+```
+
+For this particular dataset and split of train and test data, the naïve model seems to outperform the rest of the models based an all metrics.
+
+As a reminder, we are going to check that the MASE of the Drift model (as an example) is equal to the MAE of the Drift model divided by the MAE of the Naïve model over the training dataset:
+
+```{r}
+MASE_Drift <- summary_test %>% filter(.model == "Drift") %>% select(MASE) %>% pull()
+MAE_Drift <- summary_test %>% filter(.model == "Drift") %>% select(MAE) %>%  pull()
+MAE_Naive_tr <- summary_tr %>% filter(.model == "Naïve") %>% select(MAE) %>%  pull()
+
+# Check
+all.equal(MASE_Drift, MAE_Drift/MAE_Naive_tr)
+```
+
+# Exercise 1
+
+Take the retail series we have used in the previous notebook. The code below filters the series from `aus_retail` and creates a training dataset that leaves out 36 months (3 years) for testing purposes:
+
+```{r}
+# Extract series
+retail_series <- aus_retail %>% 
+  filter(`Series ID` == "A3349767W")
+
+# Create train dataset
+n_test_years = 3
+retail_train <- 
+  retail_series %>% 
+  slice(1:(n()-12*n_test_years))
+
+# Check difference = 36
+nrow(retail_series) - nrow(retail_train)
+```
+
+Now let us fit the same `decomposition_model()` we used previously, but this time only to the training dataset
+
+```{r}
+retail_fit <- 
+  retail_train %>% 
+  model(stlf = decomposition_model(
+                # 1. Define model to be used for the decomposition
+                STL(log(Turnover) ~ trend(window = 7), robust = TRUE), 
+                
+                # 2. Define model for the seasonally adjusted component
+                RW(season_adjust ~ drift()) 
+            ))
+
+retail_fit
+```
+
+And let us produce forecasts for 3 years:
+
+```{r}
+retail_fc <- 
+  retail_fit %>% 
+  forecast(h = 36)
+
+autoplot(retail_fc, retail_series, level = 80, point_forecast = lst(mean, median))
+```
+
+1. Analyze the residuals and check if they satisfy the 4 conditions we normally check.
+
+```{r, include=params$print_sol}
+retail_fit %>% gg_tsresiduals()
+```
+
+```{r, include=params$print_sol}
+# 1. AUTOCORRELATION OF RESIDUALS
+
+# ACF PLOT HAS SPIKES OUTSIDE THE NEGLIGIBLE AUTOCORRELATION AREA. PARTICULARLY
+# THE FIRST LAG IS QUITE BIG
+```
+
+```{r, include=params$print_sol}
+# 2. 0 MEAN
+retail_fitvals <- 
+  retail_fit %>% 
+  augment()
+
+resid_mean <- 
+  retail_fitvals %>%
+    pull(.innov) %>% 
+    mean(na.rm = TRUE)
+
+# Very close to 0
+resid_mean
+```
+
+```{r, include=params$print_sol}
+# 3. HOMOSKEDASTICITY
+# The time-plot of the residuals shows for example that the variance between
+# 2000 and 2010 is smaller than the variance of the residuals before 2000. Let
+# us check this as well graphically with a box-plot
+
+# 1. Add new column signalling year. We will use year to group observations
+# in box-plots since we are dealing with monthly data
+retail_fitvals <- 
+  retail_fitvals %>% 
+    mutate(
+      year = year(Month)
+    )
+
+# Boxplots of years to check the evolution of the variance
+retail_fitvals %>% 
+  ggplot(aes(x = factor(year), y = .innov)) +
+  geom_boxplot() + 
+  theme(axis.text.x=element_text(angle = 90))
+```
+
+```{r, include=params$print_sol}
+# 4. NORMALITY - check graphically with box-plot and qqplot
+stlf_vals <- retail_fitvals %>% 
+              filter(.model == "stlf") # Unnecessary, there is only 1 model...
+
+p1 <- ggplot(data = stlf_vals, aes(sample = .innov)) +
+      stat_qq() +
+      stat_qq_line()
+
+p2 <- ggplot(data = stlf_vals, aes(y = .innov)) +
+      geom_boxplot(fill = "light blue") +
+      stat_summary(aes(x=0), fun="mean", color="red")
+
+p1 + p2
+
+# We see that the distribution is symmetric in the histogram and the
+# fact that the mean and the median coincide in the box-plot.
+
+# The qqplot shows that the distribution deviated from normality in the tails.
+# This will deviation from normality will have an effect in the computation of
+# the prediction intervals. The formulas used for the variance of the forecasts
+# rest upon this normality assumption.
+
+# However, overall, the normality assumption seems to be held quite well in
+# this particular case.
+``` 
+
+2. Compute the MAE, RMSE and MAPE of the residuals:
+  
+```{r, include=params$print_sol}
+retail_fit %>% 
+  accuracy() %>% 
+  select(1:.type, MAE, RMSE, MAPE)
+```
+  
+  * Which are the units of the MAE and the RMSE?
+
+```{r, include=params$print_sol, eval=FALSE}
+They are on the same units as the original time series. If you check the units
+of the object `aus_retail` (the tsibble from which we extracted `retail_series`)
+by running `?aus_retail` in the console and reading the information, you will see
+that these turnover in $Million AUD
+```
+  
+  * Which are the units of the MAPE?
+
+```{r, include=params$print_sol, eval=FALSE}
+MAPE is based on averaging relative errors and therefore has no units. 
+It expresses a percent.
+```
+  
+  * Give an interpretation of the MAE and the MAPE.
+  
+```{r, include=params$print_sol, eval=FALSE}
+MAE = 0.42 
+Means that, on average, the fitted values differ from the actual values of the
+series in the training set by an absolute value of 0.42 Million USD.
+
+MAPE = 4.87
+Means that, on average, the fitted values differ from the actual values of the
+timeseries in the training set by 4.87%
+```
+
+  * To what kind of forecast errors can we compare the residual errors?
+
+```{r, include=params$print_sol, eval=FALSE}
+Fitted values are "one-step ahead forecasts on the training data". So residual
+errors could be compad to errors of one-step ahead forecasts.
+```
+
+3. Compute the MAE, RMSE and MAPE of the forecasts.
+
+```{r, include=params$print_sol}
+retail_fc %>% 
+  accuracy(retail_series) %>%  # We feed the original, unsplitted time series, 
+                               # which contains both the training data 
+                               # and the test data 
+  # Select relevant columns
+  select(1:.type, MAE, RMSE, MAPE)
+```
+
+  * Give an interpretation of MAE and the MAPE.
+
+```{r, include=params$print_sol, eval=FALSE}
+MAE = 2.08
+Means that, on average, the forecasts differ from the actual values of the
+series in the test set by an absolute value of 2.08 Million AUD.
+This average is taken over the 36 forecasts we produced.
+
+MAPE = 14.54
+Means that, on average, the forecasts differ from the actual values of the
+timeseries in the test set by 14.54%.
+This average is taken over the 36 forecasts we produced.
+```
+  
+  * What are the differences between forecast errors and residuals?
+  
+```{r, include=params$print_sol, eval=FALSE}
+# See section Errors vs. resiuals:
+
+1. Residuals are calculated on the training set.
+   Forecast errors are calculated on the test set.
+2. Resdiuals are based on one-step forecasts (the fitted values)
+   Forecast errors can involve multi-step forecasts.
+```

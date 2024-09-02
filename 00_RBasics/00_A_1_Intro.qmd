@@ -1,0 +1,307 @@
+---
+title: "00_A_1_RShort_Intro"
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+1.  R For Data Science - Hadley Wickham - [Link](https://r4ds.had.co.nz/)
+
+# 0. Install R and RStduio
+
+Follow this [link](https://posit.co/download/rstudio-desktop/) and install first R and secondly RStudio.
+
+-   Be sure to **install a version that matches your operating system**.
+
+Once you install both R and RStudio, open RStudio.
+
+NOTE: if you have already installed R and RStudio, you may skip this step. However, you may need to update your R installation throughout the course.
+
+**It is your responsibility to bring a functioning computer with a functioning R installation to the exams**.
+
+# 1. Install and load the tidyverse and ggplot package
+
+We will now install the packages `tidyverse`, `nycflights13`, `ggplot2` and `babynames`. For this, run the following commands (see the videos on Blackboard for an alternative way to do this):
+
+```{r, eval=FALSE}
+install.packages("nycflights13")
+install.packages("tidyverse")
+install.packages("ggplot2")
+install.packages("babynames")
+```
+
+The commands above download and install the packages `nycflights13`, `tidyverse`, `ggplot2` and `babynames`
+
+For the time being, suffice it to say that packages in R are a way developers have to distribute code to make it easily available to other developers.
+
+To make use of the packages, it is not enough to install them. We need to **load the packages every time we re-start our R session** using the function `library()`. See the example below:
+
+```{r}
+# Load libraries
+library(nycflights13) # Load data to be used in the examples.
+library(tidyverse) # Load the tidiverse libraries for data manipulation.
+library(ggplot2) # Load the ggplot2 library
+library(babynames)
+```
+
+The first time you load a package in an RStudio session you will get a message as the one depicted above.
+
+* The first part of that message shows the libraries that have been loaded along the libraries you loaded. These libraries were loaded without you requesting them because the libraries you wanted to load *depend* on them (they are *dependencies*).
+* The second part of the output tells you which functions name collide with functions previously loaded, so that you are aware of potential conflicts.
+
+## 1.1 Run an example to ensure installation of R and the packages above was correct:
+
+Run the code below to ensure the installation was correct. You should get the output below the code if your installation is correct:
+
+```{r}
+# Load libraries
+library(nycflights13) # Load data to be used in the examples.
+library(tidyverse) # Load the tidiverse libraries for data manipulation.
+library(ggplot2) # Load the ggplot2 library
+
+by_dest <- group_by(flights, dest)
+delay <- summarise(by_dest,
+  count = n(),
+  dist = mean(distance, na.rm = TRUE),
+  delay = mean(arr_delay, na.rm = TRUE)
+)
+delay <- filter(delay, count > 20, dest != "HNL")
+
+# It looks like delays increase with distance up to ~750 miles 
+# and then decrease. Maybe as flights get longer there's more 
+# ability to make up delays in the air?
+ggplot(data = delay, mapping = aes(x = dist, y = delay)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)
+```
+
+# 2. Coding basics
+
+## 2.1 R as a calculator
+
+R may be used as a calculator. Note that the operator order precedence is followed
+
+```{r}
+# This is equal to 1 (operator precedence)
+1 / 10 * 10
+
+# This is equal to 1/100 (operator precedence)
+1 / (10 * 10)
+```
+
+Some more examples:
+
+```{r}
+(59 + 73 + 2) / 3
+
+# R has some built-in math functions
+sin(pi / 2)
+```
+
+## 2.2 Creating new objects (variables)
+
+The operator `<-` can be used to create new objects
+
+```{r}
+x <- 2*7
+```
+
+This new objects are stored in memory and available to be retrieved until the variables are cleared. In fact, if we examine the environment within R Studio (upper-right pane we see `x`):
+
+![](figs/rst_environment.png){fig-align="center" width="381"}
+
+We may also inspect the value of an object by typing the name given to the object and running the code
+
+```{r}
+# Inspect newly created object
+x
+```
+
+In general, all assignment statements (where new objects are created) have the same form (the assignment below should be read as *object_name gets value*):
+
+```{r, eval=FALSE}
+# TEMPLATE: Object name gets value
+object_name <- value 
+```
+
+### 2.2.1 Rules for creating names:
+
+-   Names must start with a letter
+-   Can only contain letters, numbers, `_` and `.`
+
+Using **snake_case** is a best practice (use lowercase words separated with \_):
+
+```{r, eval=FALSE}
+i_use_snake_case
+```
+
+Note: RStudio has a shortcut for the `<-` operator: `alt + - (the minus sign)`
+
+```{r}
+this_is_a_really_long_name <- 2.5
+```
+
+Once an object with a name has been created, it is available
+
+```{r, eval=FALSE}
+this # writhe "this" and use "Tab" for autocompletion to write the next of the name
+```
+
+## 2.3 Calling functions
+
+R has a large collection of *built-in* functions that are called like this:
+
+```{r, eval=FALSE}
+function_name(arg1 = val1, arg2 = val2, ...)
+```
+
+You can think of the function as packaged code wit a functionality that provides you with an output given some arguments as inputs.
+
+As an example lets use the `seq()` function to create a sequences of integer numbers.
+
+```{r}
+seq(1, 10)
+```
+
+Functions have some default arguments that can be altered to change their behavior. For example, with the addition of the argument `by`, setting it to 2, we specify that the sequence should be generated using steps of 2.
+
+```{r}
+seq(1, 10, by = 2)
+```
+
+To get more information about the use and arguments of a given function, type `?name_of_function` on the console in RStudio. Or simply run `?name_of_function`.
+
+As an example let us type `?seq` to understand the behavior of the `seq` function
+
+```{r}
+?seq
+```
+
+## 2.4 The pipe
+
+Now that we now how the function `seq()` works, let us illustrate the rationale behind the pipe operator in R (`%>%`) through an example.
+
+Consider we want to:
+
+1.  Generate the sequence of integers that starts at 1 and finishes at an integer `x`. We will store this in a new variable `y`
+2.  Compute the mean of the previous sequence. We will store it in a new variable `z`
+3.  Round the resulting mean to zero decimals. We will store this in a new variable `h_z`.
+
+We may do the above storing the intermediate results as suggested before with the code below (lets consider x = 10)
+
+```{r}
+x <- 10
+
+y <- seq(1, x)
+
+z <- mean(y)
+
+h_z <- round(z, 0)
+
+h_z
+```
+
+This however is awkward and requires us to name every intermediate step. Naming is one of the most exhausting tasks for a programmer and slows down the workflow of any analysis/coding task to a great extent.
+
+We may therefore consider computing all the steps above without storing the intermediate steps using **function composition**, meaning that if:
+
+-   `x` is the number we want the sequence to stop at.
+-   $y = f(x) = seq(1,x)$ is the function that generates the sequence.
+-   $z = g(y) = mean(y)$ is the function that computes the mean of the sequence.
+-   $h(z) = round(z, 0)$ is the function that rounds the results to zero decimals.
+
+Then using function composition we may have a single *composed* function in terms of only the variable x:
+
+-   $h(z) = h(g(y)) = h(g(f(x))) = round(mean(seq(1,x)), 0) = h(x)$
+
+I have written $h(x)$ at the end because now the function only requires the variable x as input.
+
+The R code for the above is:
+
+```{r}
+x <- 10
+round(mean(seq(1, x)), 0)
+```
+
+Given x, we perform all the computations in a single step.
+
+Although the example above is fairly easy to read, function composition can very quickly get unreadable or at least difficult to interpret.
+
+The pipe operator will allow us to both:
+
+1.  Circumvent naming many of our intermediate results
+2.  Avoid function composition to a great extent.
+
+Let us see how we could express the above with the pipe operator and then we will explain its behavior. To use the pipe we require the library `dplyr` (loaded along with `tidyverse` at the top of the notebook):
+
+```{r}
+x <- 10
+
+seq(1, x) %>% 
+  mean() %>% 
+  round(0)
+```
+
+**In essence the pipe operator works as follows:** the result of the operation on the left side of the pipe gets fed as **first argument** to the function on the right side of the pipe. The rest of the arguments are fed after this one. For example
+
+-   `x %>% f(y)` is equivalent to `f(x, y)`
+-   `x %>% f(y) %>% g(z)` is equivalent to `g(x %>% f(y), z) = g(f(x, y), z)`
+
+Let us explore different forms of writing chunks of the code above with and without the pipe:
+
+```{r}
+mean(seq(1, x))
+
+# This is equivalent to
+seq(1, x) %>% 
+  mean()
+```
+
+```{r}
+# Continuing with the rest of the example:
+seq(1, x) %>% 
+  mean() %>% 
+  round(0)
+
+# This is equivalent to:
+round(seq(1, x) %>% mean(), 0)
+
+# Which is also equivalent to:
+round(mean(seq(1,x)), 2)
+```
+
+Note how, when using the pipe, we may even split our code in multiple lines to increase its readability. Doing this is not always good practice (particularly for short statements), but you will develop a feel for it.
+
+### 2.4.1 `.` as a placeholder when using the pipe
+
+There are situations (which we will encounter very rarely in this course) where you need to feed the result of the previous step of the pipe not as the first argument of the function on the right side, but as an argument in another position. In this case we may use `.` as a placeholder with the meaning *whatever is at the left side of the pipe*.
+
+We could express our previous example using this `.` notation as follows:
+
+```{r}
+x <- 10
+
+x %>% 
+  seq(1, .) %>% # . used as placeholder of what is at the left side of the pipe
+                # x gets therefore fed as the second argument, not as the first.
+  mean() %>% 
+  round(0)
+```
+
+# 3. Videos: a very brief introduction to RStudio
+
+See the videos on the dedicated appendix on Blackboard to familiarize yourself with RStudio. A number of videos will be uploaded there covering among other things:
+
+-   Layout of RStudio
+-   Environment
+    -   Inspecting current variables
+    -   Deleting variables
+-   Re-starting R
+

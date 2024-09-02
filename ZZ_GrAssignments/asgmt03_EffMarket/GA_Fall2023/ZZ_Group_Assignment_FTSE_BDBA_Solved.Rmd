@@ -1,0 +1,260 @@
+---
+title: "Efficient Market Hypothesis (Group assignment)"
+author: "Prof. Juan Garbayo - TSeries - 2023"
+format: html
+editor: source
+params:
+  print_sol: true
+  print_sol_adv: true
+  hidden_notes: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r}
+library(fpp3)
+library(patchwork)
+library(zoo)
+```
+
+# References
+
+[1] Fama, Eugene (1970). "Efficient Capital Markets: A Review of Theory and Empirical Work". Journal of Finance. 25 (2): 383–417. doi:10.2307/2325486. JSTOR 2325486.
+
+[2] Investopedia - Efficient Market Hypothesis [Link](https://www.investopedia.com/terms/e/efficientmarkethypothesis.asp)
+
+# The Efficient Market Hypothesis
+
+The goal of this assignment is to compare a prediction strategy based on the Efficiet Market Hypothesis (EMH) with the first of the non-trivial models you will work with: exponential smoothing.
+
+Essentially, the EMH states that stocks are accurately priced and reflect all available information. This makes it impossible to consistently beat the market by analysis.
+
+In his influential 1970 paper ([1]), Eugene Fama proposes three categories of efficiency that differ in the information considered reflected in the prices:
+
+1. *Weak-form of the EMH*: considers information contained in historical prices.
+2. *Semi-strong form of EMH*: considers information publicly available beyond historical prices.
+3. *Strong-form*: considers private (privileged) information.
+
+Here we are going to consider the weak-form of the EMH and work only with the information contained in historical prices.
+
+# Assignment
+
+The assignment consists in:
+
+### **1. Download historical data from a Stock Market Index and generate a dataset with that data.** (0.5 point)
+
+<!-- The idea is that you **download the data using notebook 4_2**, **store it as a .csv** and **import it here.** -->
+
+<!--   * **Standard & Poor's 500 (S&P 500):** tracks the 500 companies with the largest market cap in USA. -->
+<!--   * **Financial Times Stock Exchange:** tracks the 100 companies with the largest market capitalization on the London Stock Exchange. -->
+
+<!-- The date ranges to be used are: -->
+
+<!--   * **Initial date**: 7-th of May 2017 -->
+<!--   * **Final date**: the current date. -->
+  
+**Your final dataset must be an object of type `tsibble` with the following characteristics**:
+
+* key = symbol
+* index = trading_day
+
+```{r}
+#IMPORT
+tr_data <- readr::read_csv("FTSE_Prices.csv")
+
+#TRANSFORMATION AND INTERPOLATION (tr day 165)
+tr_data <- tr_data %>% 
+              as_tsibble(key = symbol, index = 'trading_day') %>% 
+              mutate(close = na.approx(close))
+```
+### **1.1 Create a time-plot of your data and briefly describe it (max 75 words)** (0.5 points)
+
+```{r}
+autoplot(tr_data)
+```
+
+```{r}
+
+```
+
+The data presents successive periods of sustained growth with 2 recessions in-between. Despite the overall growth in the last five years the periods of recessions make this growth-trend arguable. 
+
+A cursory description could be that there is an overall increasing trend and two recessions around days 400 and 700.
+
+### **2. Create three training datasets containing 80 and 60% of your data** (0.5 points)
+
+```{r}
+#SOLUTION
+n_rows <- nrow(tr_data)
+train_1 <- filter(tr_data, trading_day <= (n_rows * 0.8))
+train_2 <- filter(tr_data, trading_day <= (n_rows * 0.6))
+```
+
+
+### **3. Fit the following model specifications to your data** (0 points).
+
+Once you have defined your training dataset, run the following code to fit the models below to your data:
+
+* Naive model: `NAIVE(close)`
+* Simple Exp. Smoothng: `ETS(close ~ error("A") + trend("N") + season("N"))`
+* ARIMA Model: `ARIMA(close ~ 1 + pdq(1,1,1) + PDQ(0,0,0))`
+
+```{r}
+fit_tr1 <- train_1 %>% 
+  model(
+    naive_tr1 = NAIVE(close),
+    ses_tr1 =  ETS(close ~ error("A") + trend("N") + season("N")),
+    arima_tr1 = ARIMA(close ~ 1 + pdq(1,1,1) + PDQ(0,0,0))
+  )
+
+fit_tr2 <- train_2 %>% 
+  model(
+    naive_tr2 = NAIVE(close),
+    ses_tr2 =  ETS(close ~ error("A") + trend("N") + season("N")),
+    arima_tr2 = ARIMA(close ~ 1 + pdq(1,1,1) + PDQ(0,0,0))
+  )
+
+
+# Bind all the models in a single mable to handle forecasts more easily.
+fit <- bind_cols(
+  fit_tr1 %>% select(-symbol), # Exclude column symbol to be able to bind columns
+  fit_tr2 %>% select(-symbol)
+)
+
+fit
+```
+
+### **4. Generate forecasts of 5 trading days for each of the trained models** (1 point)
+
+The result of this step should be a `fable` or forecast table. Name it `fc`
+
+Add a column `h` to `fc` indicating the forecast horizon of each forecast.
+
+* After adding that column, apply the following command: `as_fable(response = "close", distribution = close)`. This is to ensure that the output after performing these operations is still a fable.
+
+```{r}
+#SOLUTION
+fc <- fit %>% forecast(h=7)
+fc
+
+fc <- fc %>% 
+  group_by(.model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "close", distribution = close)
+```
+
+
+
+
+### **5. For each combination of model, training dataset and forecast horizon compute the RMSE and MAE. Store the result in a variable called `summary`** (1 point)
+
+```{r, warning=FALSE, message=FALSE}
+#SOLUTION
+summary <- accuracy(fc, tr_data, by = c("h", ".model")) %>% select(-c(MAPE, MPE, MASE, RMSSE, ACF1, ME))
+summary
+```
+### **6. Use facet wrap to produce 3 graphs, one for each of the three error metrics used** (2 points)
+
+The graphs should depict the RMSE for each forecast horizon and for each combination of model and training dataset.
+
+```{r}
+#SOLUTION
+summary %>%
+  pivot_longer(c(MAE, RMSE), names_to = "metric", values_to = "value") %>%
+  ggplot(aes(x = h, y = value, color = .model)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ metric, nrow = 2 , scales = "free")
+```
+
+```{r}
+
+```
+
+**Possible answer**
+
+From the graphs above we can observe that:
+
+* For a given train-test split the SES and naive model have a very close performance.
+* When the train-test split is changed, the performance of both models experiences a drastic change.
+* The performance of the ARIMA model also changes with the training dataset
+* The performance of the models change rather abruptly when only one test dataset is used.
+* The performance of some of the models is better for greater forecast horizons when using only one train-test split. This is not as expected (uncertainty increases with increasing forecast horizon) and is due to the randomness of choosing this particular split (the model may work well for this particular split but not for other splits).
+
+In short, it may be concluded that for the models at hand and this particular data, the particular split performed on the data has a greater effect on the model performance than the model itself chosen.
+
+**End possible answer**
+
+### **7. Evaluate the same metrics on the same models, but this time using cross validation** (2 points)
+
+The end-goal is that you produce the same final graph (facet_wrap graph on the error metrics), but this time only three lines per graph should be depicted. Recall that before we had 9 lines per graph (one line per model and training dataset)
+
+The smallest training dataset shall contain 60% of the trading days. The trading datasets shall increase in steps of 1 trading day.
+
+```{r}
+# SOLUTION
+tr_data_cv <- tr_data %>%
+  stretch_tsibble(.init= trunc(0.4*nrow(tr_data)), .step = 1)
+
+fit_cv <- tr_data_cv %>%
+  model(
+    naive = NAIVE(close),
+    # Note that we now fully specify the model
+    ses =  ETS(close ~ error("A") + trend("N") + season("N")),
+    # Note that we now fully specify the model
+    arima = ARIMA(close ~ 1 + pdq(1,1,1) + PDQ(0,0,0))
+  )
+
+fc_cv <- fit_cv %>% 
+  forecast(h = 7) %>%
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "close", distribution = close)
+
+summary_cv <- fc_cv %>%
+  accuracy(tr_data, by=c("h", ".model")) %>% select(-c(MAPE, MPE, MASE, RMSSE, ACF1, ME))
+
+summary_cv %>% 
+  pivot_longer(c(MAE, RMSE), names_to = "metric", values_to = "value") %>%
+  ggplot(aes(x = h, y = value, color = .model)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ metric, nrow = 2 , scales = "free")
+```
+
+```{r}
+
+```
+
+* What is the difference between these graphs and the ones we generated before? Answer briefly below?
+
+This graphs average the performance of each model over a much bigger number of train-test splits. Doing this results in:
+
+* More statistically robust result that are split-independent because they average the results over many train-test splits.
+* Smoother RMSE vs h curves (the performance of the models does not change abruptly and the error now grows, as expected since uncertainty grows with the forecast horizon).
+
+* Does one of the models outperform the other?
+
+* In terms of MAE, the performance of both models is very similar. So much so that the curves are practically indistinguishable.
+* In terms of RMSE, the NAIVE and SES model seem to slightly outperform the ARIMA model, particularly for longer forecast horizons. However the greatest difference in performance is around 10 dollars (see difference between graphs for h=7)... 
+  * Considering that the total price of the asset is of the order of thousands of dollars, this performance difference is not particularly relevant. In fact, it is two orders of magnitude smaller than the order of magnitude of the price (1E3 vs 1E1).
+  * If we considered the price increments from one day to another (see graph below) we also observe that, in this case, an RMSE of 10% could be relevant since there are some day-to-day price changes much smaller than 100. Therefore in this case it could be argued that a 10 dollar difference in the RMSE could be significant.
+  
+```{r}
+tr_data %>% autoplot(difference(close, 1))
+tr_data %>% ACF(difference(close, 1)) %>% autoplot()
+```
+```{r}
+
+```
+### **8. Present your conclusions** (1.5 points)
+
+Under the Efficient Market Hypothesis, which states that the current prices reflects all available information, it becomes impossible to consistently beat the market with modelling because the current price already reflects all the available information. In this situation, the Naive model (which simply extends the last value to produce forecasts) becomes the benchmark model against which to compare any other model.
+
+Our results show that the models we have fitted (simple exponential smoothing and ARIMA) are unable to outperform our benchmark, the NAIVE model. Despite their higher complexity, they are unable to capture patterns in this particular dataset that allow them to outperform the NAIVE model, which has no parameters at all. THis clearly means that these models are overparametrizing and their complexity is not justified for this dataset. If you look at the ACF plot, above, you may identify the white-noise nature of the data and, in this situation, fitting something else than white noise is an attempt to overparametrize the data.
+
+To summarize, remember the importance of performing cross-validation of any models you fit and of comparing it to the most sensible benchmarks models that are sensible for the data.

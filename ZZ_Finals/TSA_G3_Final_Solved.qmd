@@ -1,0 +1,168 @@
+---
+title: ""
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+```{r}
+ts_data <- 
+  us_gasoline %>% 
+  rename(value = Barrels)
+```
+
+# 1. Create a time plot of the data with mayor grids every 5 years and minor ticks every year (1 point)
+
+```{r}
+ts_data %>% 
+  autoplot() +
+  scale_x_yearweek(
+    breaks = "5 years",
+    minor_breaks = "1 year"
+  )
+```
+
+# 2. Create an STL decomposition of the series. If necessary, adjust the parameters as you deem necessary and explain why you have adjusted them in this manner.
+
+```{r}
+stl_cmp <- 
+  ts_data %>% 
+    model(
+      STL(value ~ trend(window = 21) + season(window = 5))
+      ) %>% 
+    components()
+
+stl_cmp %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (30 words)
+
+------------------------------------------------------------------------
+
+# 3. Detrend the time series in an additive manner using the previously produced components. Then answer the questions below.
+
+```{r}
+# Detrend the time series
+stl_cmp$detrended <- ts_data$value - stl_cmp$trend
+```
+
+------------------------------------------------------------------------
+
+3.1 In what parts could we further break down the detrended component?
+
+YOUR ANSWER GOES HERE (20 words max)
+
+3.2 Check that, in fact, the detrended component can be broken down exactly in these parts:
+
+```{r}
+all.equal(stl_cmp$detrended, stl_cmp$season_year + stl_cmp$remainder)
+```
+
+------------------------------------------------------------------------
+
+# 4. Compute the ACF of the seasonal component and of the detrended component. Then answer the question.
+
+```{r}
+stl_cmp %>% 
+  ACF(season_year, lag_max = 52*4) %>% 
+  autoplot()
+
+stl_cmp %>% 
+  ACF(detrended, lag_max = 52*4) %>% 
+  autoplot()
+```
+
+------------------------------------------------------------------------
+
+In which of the two graphs is the seasonal period more clear? Why is it not as clear in the other graph?
+
+YOUR ANSWER GOES HERE - 50 WORDS OR LESS
+
+------------------------------------------------------------------------
+
+# 5. Create a series of training datasets to perform cross-validation. They must fulfil the following: (1 point)
+
+-   The smallest training dataset must leave out the last 12 years. Count each year as 52 weeks.
+-   The training datasets must increase by 52 observations at a time.
+
+```{r}
+init_obs <- nrow(ts_data)-52*12
+
+ts_data_cv <- 
+  ts_data %>% 
+  stretch_tsibble(
+    .init = init_obs,
+    .step = 52
+  )
+```
+
+# 6. Fit the following models to each of the training datasets (1 point)
+
+1.  Exponential Smoothing Model fitted to the original data with a damped trend and appropriate seasonality. Give it the name `ETS_original`.
+2.  A `decomposition_model` that uses 2.1 STL Decomposition with the parameters you selected in Q2 to break down the time series. 2.2 ETS model with aditive damped trend and no seasonality for the seasonally adjusted component 2.3 Seasonal Naive model for the seasonal component Call this model `dcmp_model`
+
+```{r}
+fit_cv <- 
+  ts_data_cv %>% 
+  model(
+    ETS_original = ETS(value ~ error("A") + trend("Ad") + season("N")),
+    dcmp_model = decomposition_model(
+                      STL(value ~ trend(window = 21) + season(window = 5)),
+                      ETS(season_adjust ~ error("A") + trend("Ad") + season("N")),
+                      SNAIVE(season_year)
+                  )
+  )
+
+fc_cv <- 
+  fit_cv %>% 
+    forecast(h=52)
+```
+
+# 7. Compute the accuracy metrics of boths models averaged over all forecast horions
+
+```{r}
+fc_cv %>% 
+  accuracy(ts_data) %>% 
+  select(.model, ME, RMSE, MAE, MAPE)
+```
+
+# 8. The following code computes the forecast errors for each combination of training dataset and forecast horizon used in the cross-validation process.
+
+It starts with the forecast object `fc_cv`, generated in question 7.
+
+IMPORTANT: ignore all warnings generated when running this code.
+
+Given these errors, aggregate them in an appropriate manner to obtain the same MAE and MAPE as in question 7 using the formula definition of MAE and MAPE.
+
+`HINT`: an intermediate step required to compute the MAPE involves using a `left_join()` to bring the original data of `ts_data` into the dataset `cv_errors`.
+
+```{r}
+cv_errors <- 
+  fc_cv %>% 
+    group_by(.id, .model) %>% 
+    mutate(h = row_number()) %>% 
+    ungroup() %>% 
+    as_fable(response="value", distribution=value) %>% 
+    accuracy(ts_data, by=c(".id", ".model", "h", "Week")) %>% 
+    select(.id, .model, h, Week, RMSE) %>% 
+    rename(error=RMSE)
+
+cv_errors
+```
+
+```{r}
+cv_errors %>% 
+  left_join(ts_data, by="Week") %>% 
+  mutate(perc_error = error/value) %>% 
+  group_by(.model) %>% 
+  summarize(
+    MAE = mean(abs(error), na.rm=TRUE),
+    MAPE = mean(abs(perc_error), na.rm=TRUE)*100
+  )
+```

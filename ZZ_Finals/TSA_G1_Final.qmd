@@ -1,0 +1,148 @@
+---
+title: "Automatic Forecasting - Comparison"
+self-contained: true
+self-contained-math: false
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+# 0. Load the data
+
+```{r}
+ts_data <- readr::read_csv(file.choose())
+ts_data <- ts_data %>% 
+           mutate(ym=yearmonth(start_timestamp)) %>% 
+           as_tsibble(index = ym) %>% 
+           select(ym, value)
+
+ts_data
+```
+
+# 1. Plot the time series with an appropriate resolution of the time grid (minor breaks every year) (1 point)
+
+```{r}
+# Your code goes here
+```
+
+# 2. Perform an STL decomposition with default arguments and extract the trend component (1.5)
+
+Store the trend component in a vector called `trend`
+
+* IMPORTANT: disregard whether the data is additive or multiplicative, just perform an STL deocmposition with default arguments of the data and use the trend to detrend the original time series.
+
+```{r}
+# Your code goes here
+```
+
+# 3. Use the extracted trend to detrend the time series in an additive manner (1 point)
+
+Store the detrended component in a column called `detrended` in the original dataset (that is, in `ts_data`)
+
+```{r}
+# Your code goes here
+```
+
+# 4. Compute the ACF of the original and the detrended time series. Then answer the questions below (1.5 points)
+
+```{r} 
+# Your code goes here
+```
+
+
+In which of the two plots should we look for a seasonal pattern?
+
+------
+
+YOUR ANSWER GOES HERE (20 words or less)
+
+------
+
+If there is a seasonal pattern, what is its length? (how many months does a period have)
+
+------
+
+YOUR ANSWER GOES HERE (20 words or less)
+
+------
+
+# 5. Create a series of training datasets from the data. The smallest training dataset shall be such that it leaves out three years of data. The training datasets shall increase two obervations at a time (1.5 points).
+
+```{r}
+# Your answer goes here
+```
+
+
+# 6. Fit the following models to the training datasets (1 points)
+
+* Exponential smoothing with additive seasonality and a damped trend.
+* Seasonal naive model
+
+Store them in an object called `fit_cv`
+
+```{r}
+# Your answer goes here
+```
+
+# 7. Compute forecasts of up to 1 year ahead and compute the MAE, RMSE and MAPE for each combination of model and forecast horizon. Then answer the questions. (1.5 points)
+
+Store the forecasts in a variable called `fc_cv`. This is important for question 7.
+
+```{r}
+# Your code goes here
+```
+
+* Which model is better for a forecast horiozon of 9 months in terms of RMSE?.
+
+------
+
+Your answer goes here (20 words or less)
+
+------
+
+* Is this difference in performance significant in percent terms?
+
+------
+
+Your answer goes here (20 words or less)
+
+FEEDBACK: you where suppossed to compare both MAPES. Comparing them you see that the difference for h=9 is smaller than 1%
+
+------
+
+* What are the units of RMSE? and of MAPE?
+
+------
+
+Your answer goes here (20 words or less)
+
+------
+
+# 8. Starting with `fc_cv` (question 6) run the following code to compute the accuracy metrics for each of the point forecasts (1 point)
+
+This returns the error of every single forecast for every single training dataset.
+
+Taking into account the definition of the RMSE and the MAE, aggregate these results to obtain the same results as in question .
+
+Note: ignore any warnings you get in the process.
+
+```{r}
+forecast_errors <- 
+  fc_cv %>% 
+  accuracy(ts_data, by=c(".model", ".id", "h")) %>% 
+  select(.id, .model, h, MAE, RMSE) %>% 
+  as_tibble()
+```
+
+```{r}
+# YOUR CODE GOES HERE
+```

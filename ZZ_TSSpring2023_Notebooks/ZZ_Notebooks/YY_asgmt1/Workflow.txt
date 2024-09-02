@@ -1,0 +1,23 @@
+1- Prepare the .rmd file with the assignment. Place it in the top level directory.
+2- Go to worksheet "student_names" and introduce:
+	- assignment acronym.
+	- name of the master .rmd file (step 1).
+	- All names and surnames from students .
+3- Go to "st_template" and taylor the students template.
+4- Run macro "Create_Assignment_Files" to create the .Rmd files to be used by each student.
+5- Recover all the submissions and store them in the folder "corrected_files".
+6- Run macro "Create_Student_Tabs" to generate a tab for each students marks.
+7- For each student:
+	7.1 Open his .Rmd file.
+	7.2 Correct and introduce grades in his dedicated tab.
+	7.3 Change name of tab to add "_corrected".
+	7.4 Change name of .Rmd file to add "_corrected".
+8- Run macro Create_Students_Excels to generate an excel file for each student.
+	- The name of the excel file will be Filename_corrected.xlsx
+9- Run macro to pack each .Rmd and each .xlsx file together in a .zip file
+	- This macro only runs if we have both:
+		_corrected.Rmd
+		_corrected.xlsx
+10- Rum macro "FillSummarySheet" to import marks of students into summary sheet.
+11- Put notes on the gradebook.
+12- Deliver feedback on Blackboard.

@@ -1,0 +1,223 @@
+---
+title: "TS_PPLE_2023Spring_Midterm"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: visual
+params:
+  print_sol: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import data
+
+```{r}
+filepath = "./ZZ_Datasets/Spain_Arrivals_Monthly.csv"
+
+sp_arrivals <- readr::read_delim(filepath, delim = ",") %>% 
+            mutate(year = substr(period, 1, 4),
+                   month = substr(period, 6, 8),
+                   ym = make_yearmonth(year = year, month = month),
+                   value = as.numeric(gsub(".", "", value, fixed=TRUE))
+                   ) %>% 
+            select(ym, value) %>% 
+            as_tsibble()
+            # mutate(t = gsub(".", "", value, fixed=TRUE))
+            
+sp_arrivals
+```
+
+# 1. Create a time-plot of the series, adjusting the time grid so that it signals the beginning of every year
+
+```{r, include=params$print_sol}
+#SOLUTION
+autoplot(sp_arrivals) +
+scale_x_yearmonth(date_breaks = "1 year",
+                  date_minor_breaks = "1 year") +
+# Flip x-labels by 90 degrees
+theme(axis.text.x = element_text(angle = 90))
+```
+
+## 1.1 Looking at the timeplot prior to 2020, what is the seasonal period you would expect? (max. 30 words)
+
+```{r, include=params$print_sol}
+# There is clearly a pattern that repeats every year. We would therefore expect
+# a seasonal period of 1 year
+```
+
+## 1.2 Looking at the timeplot, judge briefly the strength of the seasonal vs the trend component:
+
+```{r, include=params$print_sol}
+# The plot shows that the trend component is much weaker than the seasonal component
+```
+
+# 2. TS Decomposition (2 points)
+
+## 2.1 Perform an X11 Decomposition with default parameters.
+
+Store the resulting components in a variable called `x11_dcmp`. Then depict the decomposition.
+
+```{r, include=params$print_sol}
+x11_dcmp <- sp_arrivals %>%
+  model(x11 = X_13ARIMA_SEATS(value ~ x11())) %>%
+  components()
+
+autoplot(x11_dcmp) +
+  labs(title =
+    "Decomposition using X-11.")
+```
+
+### 2.1.1 Is the result an additive, multiplicative or other type (mixed) decomposition? (30 words max.)
+
+```{r, include=params$print_sol}
+# The resulting decomposition is an additive scheme. We can spot this on the top of 
+# the graph of th X11 decomposition.
+```
+
+### 2.1.2 Check, in fact that the scheme is multiplicative / additive by combining the individual components to obtain the original time series. Check that the result that you obtain is in fact the original time series down to 5 decimal numbers.
+
+```{r}
+round(x11_dcmp$seasonal + x11_dcmp$trend + x11_dcmp$irregular, 5) == round(x11_dcmp$value, 5)
+```
+
+## 2.2 Perform an STL decomposition with default arguments.
+
+Store the resulting components in a variable called `STL_defaults`. Then depict the resulting decomposition.
+
+```{r, include=params$print_sol}
+STL_defaults <- sp_arrivals %>%
+    model(
+      STL(value)
+      ) %>%
+    components()
+
+autoplot(STL_defaults)
+```
+
+## 2.2.1 Asjust the parameters of the STL decomposition to see if you can improve it.
+
+```{r, include=params$print_sol}
+STL_dcmp_2 <- sp_arrivals %>%
+  model(
+    STL(value ~ trend(window = 5) + season(window = 5))
+    ) %>%
+  components()
+
+autoplot(STL_dcmp_2)
+```
+
+## 2.2.2 What are the most important assumptions when using the STL decomposition?
+
+## 2.3 Compare the STL and X11 decompositions in terms of:
+
+1.  Variance of their components
+2.  Autocorrelation of the remainder / irregular component
+
+Does any of the two decompositions look better?
+
+# 3. Classical TS Decomposition Algorithm
+
+Perform the classical decomposition of the time series implementing the algorithm from scratch (that is, do not use the function `classical deomposition()`):
+
+```{r}
+manual_decomposition <- sp_arrivals %>%
+  mutate(
+    `12-MA` = slider::slide_dbl(value, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    `2x12-MA` = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+
+# Plot the computed trend
+manual_decomposition %>%
+  autoplot(value, colour = "gray") +
+  geom_line(aes(y = `2x12-MA`), colour = "#D55E00")
+```
+
+```{r}
+# Compute the detrended component:
+manual_decomposition <- manual_decomposition %>%
+  mutate(detrended = value - `2x12-MA`,
+         n_month = month(ym)) # Add an identifier for the month (used later for a join statement)
+
+manual_decomposition %>% autoplot(detrended)
+```
+
+```{r}
+res <- manual_decomposition %>%
+  index_by(n_month) %>%
+  
+  #Compute seasonal component
+  summarise(
+    seasonal_c = mean(detrended, na.rm = TRUE)
+  ) %>%
+  
+  ungroup()
+
+res
+```
+
+```{r}
+# Depict the average seasonal component
+res %>%
+  autoplot(seasonal_c) +
+  scale_x_continuous(breaks = seq(1, 12),
+                     minor_breaks = seq(1, 12)) +
+  geom_point(color = "red")
+```
+
+```{r}
+#The sum does not add up to 0
+sum(res$seasonal_c)
+```
+
+```{r}
+res <- res %>%
+  # Correction so that the sum of the seasoan components is 0
+  mutate(seasonal_c = seasonal_c  - sum(seasonal_c)/12)
+
+sum(res$seasonal_c)
+```
+
+```{r}
+# Bring seasonal component into the dataset (I chose to use a "join" statement, very convenient)
+manual_decomposition <- left_join(manual_decomposition, res, by = "n_month")
+manual_decomposition
+```
+
+```{r}
+# Compute remainder component:
+manual_decomposition <- manual_decomposition %>%
+  mutate(remainder = detrended - seasonal_c)
+
+select(manual_decomposition, ym, `2x12-MA`, seasonal_c, remainder)
+```
+
+# 3.1 Compare the result of your decomposition to the result of the algorithm, down to 4 decimals.
+
+```{r}
+class_dcmp <- 
+  sp_arrivals %>% model(cls_dcmp = classical_decomposition(value)) %>% components()
+```
+
+```{r}
+sum(!(round(class_dcmp$trend, 4) == round(manual_decomposition$`2x12-MA`, 4)), na.rm = TRUE)
+sum(!(round(class_dcmp$seasonal, 4) == round(manual_decomposition$seasonal_c, 4)), na.rm = TRUE)
+sum(!(round(class_dcmp$random, 4) == round(manual_decomposition$remainder, 4)), na.rm = TRUE)
+```
+
+# 3.2 Depict the classical decomposition. For this, use `classical_decomposition()` instead of your manual decomposition.
+
+Compare this decomposition against the X11 and STL decompositions you obtained previously in terms of:
+
+1.  Variance of their components.
+2.  Autocorrelation of the remainder.
+
+```{r}
+class_dcmp %>% autoplot()
+```

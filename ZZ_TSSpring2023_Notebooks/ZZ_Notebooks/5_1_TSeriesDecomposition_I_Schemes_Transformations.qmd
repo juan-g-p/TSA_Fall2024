@@ -1,0 +1,754 @@
+---
+title: "5_1_Time_Series_Decomposition_I_Schemes_Transformations"
+format: html
+editor: visual
+params:
+  print_sol: true
+  hidden_notes: true
+  print_home_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+2.  Kourentzes, Nikolaus. *Additive and multiplicative seasonality - can you identify them correctly?* [Link](https://kourentzes.com/forecasting/2014/11/09/additive-and-multiplicative-seasonality/#comments)
+
+# Packages
+
+```{r}
+library(fpp3)
+```
+
+# Additive vs. Multiplicative decomposition
+
+A time series might be decomposed, in general terms, in three different components:
+
+-   A seasonal component $S_t$
+
+-   A trend-cycle component $T_t$
+
+    -   Some authors separate the trend and cycle component. Here **we consider trend-cycle** because the usual decomposition algorithms extract them together, not separately.
+
+-   The remainder component $R_t$
+
+Typically we distinguish between **two types of decomposition schemes**:
+
+-   An **additive scheme**: the variation around the trend-cycle of the seasonal pattern does NOT vary with the level of the time series (with the trend component value).
+
+```{=tex}
+\begin{align*}
+y_t = S_t + T_t + R_t
+\end{align*}
+```
+-   A **multiplicative scheme**: the variation around the trend-cycle of the seasonal pattern appears to be proportional to the level of the time series (to the value of the trend component).
+
+```{=tex}
+\begin{align*}
+  y_t = S_t\times{T_t}\times{R_t}
+\end{align*}
+```
+-   In this case, the logarithmic transformation is commonly used, in which case the resulting scheme is:
+
+```{=tex}
+\begin{align*}
+  log{y_t}= \log{S_t} + \log{T_t} + \log{R_t}
+\end{align*}
+```
+
+## Example 1 - Additive scheme
+
+We will work with the number of persons employed in retail in the US as shown in Figure 3.5. We can see the monthly number of persons in thousands employed in the retail sector across the US since 1990:
+
+```{r}
+us_retail_employment <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+autoplot(us_retail_employment, Employed) +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+```
+
+```{r}
+
+```
+
+With this code we can obtain the components using STL decomposition (more on that later in the chapter):
+
+```{r}
+dcmp <- us_retail_employment %>%
+  model(stl = STL(Employed))
+components(dcmp)
+```
+
+```{r}
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(Employed, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") +
+  labs(
+    y = "Persons (thousands)",
+    title = "Total employment in US retail"
+  )
+```
+
+```{r}
+
+```
+
+Using autoplot, we can have a look at the components:
+
+```{r}
+components(dcmp) %>% autoplot()
+```
+
+```{r}
+
+```
+
+## Example 2 - Multiplicative scheme:
+
+Let us resort again to the monthly medicare Australian prescription data, because it shows a clear multiplicative scheme:
+
+```{r}
+a10 <- PBS %>%
+  filter(ATC2 == "A10") %>%
+  select(Month, Concession, Type, Cost) %>%
+  summarise(TotalC = sum(Cost)) %>%
+  mutate(Cost = TotalC / 1e6)
+
+autoplot(a10, Cost) +
+  labs(y = "$ (millions)",
+       title = "Australian antidiabetic drug sales")
+```
+
+```{r}
+a10
+```
+
+With this code we can obtain the components using X11 decomposition. We use this method because the series is multiplicative (more about that later in the chapter):
+
+```{r}
+x11_dcmp <- a10 %>%
+  model(x11 = X_13ARIMA_SEATS(Cost ~ x11())) %>%
+  components()
+
+x11_dcmp
+```
+
+The following code overlays the trend component obtained by the decomposition on the original time-series
+
+```{r}
+x11_dcmp %>%
+  as_tsibble() %>%
+  autoplot(Cost, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") +
+  labs(
+    y = "$ (millions)",
+    title = "Australian antidiabetic drug sales"
+  )
+```
+
+```{r}
+
+```
+
+Again we can depict the components using autoplot:
+
+```{r}
+x11_dcmp %>% autoplot()
+```
+
+```{r}
+
+```
+
+### Multiplicative scheme under different transformations:
+
+Let us look at the effect of applying different transformations of increasing strength to stabilize variations. **The purpose is to turn the multiplicative scheme into an additive scheme.**
+
+Specifically we will apply a **square root**, a **cubic root** and a **log** transformation
+
+```{r}
+a10 <- mutate(a10, sqrt_cost = sqrt(Cost), 
+              cbrt_cost = Cost^(1/3), 
+              log_cost = log(Cost), 
+              inv_cost = -1/Cost)
+a10
+```
+
+```{r}
+
+```
+
+Now let us explore the effect of each transformation on the data (please excuse the spaghetti code style, in a production environment dedicated functions or at least a for loop should have been written to avoid code repetition)
+
+```{r}
+dcmp <- a10 %>%
+  model(stl = STL(sqrt_cost))
+components(dcmp)
+
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(sqrt_cost, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") +
+  labs(
+    y = "square root $ (millions)",
+    title = "Australian antidiabetic drug sales"
+  )
+```
+
+```{r}
+dcmp <- a10 %>%
+  model(stl = STL(cbrt_cost))
+components(dcmp)
+
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(cbrt_cost, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") +
+  labs(
+    y = "cubic root $ (millions)",
+    title = "Australian antidiabetic drug sales"
+  )
+```
+
+```{r}
+dcmp <- a10 %>%
+  model(stl = STL(log_cost))
+components(dcmp)
+
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(log_cost, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") +
+  labs(
+    y = "log root $ (millions)",
+    title = "Australian antidiabetic drug sales"
+  )
+
+```
+
+```{r}
+dcmp <- a10 %>%
+  model(stl = STL(inv_cost))
+components(dcmp)
+
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(inv_cost, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") +
+  labs(
+    y = "Inverse cost $ (millions)",
+    title = "Australian antidiabetic drug sales"
+  )
+```
+
+```{r}
+
+```
+
+## Further visual examples of additive vs. multiplicative
+
+The following image further clarifies the basic difference between an additive and a multiplicative time series. It has been borrowed from reference \[2\].
+
+```{r, echo=FALSE, out.width='100%', fig.align="center", fig.cap="Multiplicative vs additive schemes. From reference [2]."}
+knitr::include_graphics('./figs/5_1_AdditiveScheme.png')
+```
+
+In **reference \[2\]**, there is an **interesting interactive game where you can practice to recognize visual cues in additive and multiplicative schemes**. I strongly encourage you to spend some minutes doing this.
+
+## Automating the identification of additive vs multiplicative schemes
+
+Visual inspection is a first approach to assessing the scheme type and it is interesting for developing your intuition as analysts. However, when you are faced with batches of time series you need to process, it is definitely not the best approach. There are different ways in which the type of scheme could be evaluated.
+
+One way of systematically assessing whether we should consider an additive or multiplicative scheme is to:
+
+1.  Decompose the series using a method that is appropriate for additive schemes and a method appropriate for a multiplicative scheme.
+
+2.  Assess the goodness of fit of each method. For example, assessing the amount of autocorrelation in the remainder of each decomposition.
+
+Another possibility would be to:
+
+1.  Fit an exponential smoothing with an additive scheme
+2.  Fit an exponential smoothing with a multiplicative scheme.
+3.  Compare their Akaike Information Criteria ($AIC$ or $AIC_c$) to see which fits best
+
+By the end of the course you should be able to understand all this completely.
+
+# Mixed schemes
+
+In many occasions schemes cannot be unequivocally classified as additive or multiplicative. We will deal with such cases when studying the box-cox transformation.
+
+A common scheme that is not fully additive or multiplicative is a so called *mixed scheme* of the form:
+
+```{=tex}
+\begin{align*}
+y_t = (S_t \times T_t ) + R_t
+\end{align*}
+```
+-   Trend-cycle and seasonality components relate in a multiplicative manner.
+-   The remainder component is super-imposed in an additive scheme.
+
+This scheme is relevant when:
+
+-   The irregular component of the oscillations $R_t$ does not grow with the level of the time series (and therefore is super-imposed in an additive manner)
+-   The seasonal component grows with the level of the time series, and therefore is combined with the trend in a multiplicative manner.
+
+# Mathematical transformations
+
+The transformations we are going to use in the context of time series are **useful**:
+
+1.  If the data shows **variation that increases or decreases with the level of the series**. That is, if it is multiplicative to a certain extent.
+2.  If the data is a simple exponential trend they can help linearize it (at the cost of interpretability).
+
+Notation:
+
+-   Original series: $y_1,\;...,y_t$.
+-   Transformed series: $w_1,\;...,w_t$. \## log() transformations
+
+## log() transformations
+
+```{=tex}
+\begin{align*}
+  \boxed{w_t = log(y_t)}
+\end{align*}
+```
+**NOTE:** the **log** function returns the **natural logarithm**. Natural logarithms (base $e$) are actually the reference for the rest of the logarithms. There are multiple reasons for this (beyond the scope of this course), the main one being that the derivative of $e^x$ is actually $e^x$. This has very important implications, particularly in the field of differential equations (general culture comment, beyond the scope of this course).
+
+As a reminder of the properties of logarithms, **you should be comfortable enough with the basic properties of lograithms that you are able to always easily derive these two equations**. It is not necessary for this course but being able to prove those two statements would help you refresh your logarithm algebra (left for the student who wants to devote some time to this):
+
+-   $a^x = e^{xLn(a)}$
+
+-   $log_a(x) = \frac{log_b(x)}{log_b(a)}$
+
+### Interpretation of logarithms
+
+Changes in a log value are relative (or percentage changes) on the original scale. Example with log 10:
+
+-   An increase of 1 on the $log_{10}$ scale corresonds to multiplying by 10 on the original scale.
+
+We do not have time to see this in class and this should already have been clarified to you by other professors (particularly by those giving you Data Visualisation). I will upload a video to blackboard covering this.
+
+### Transformation $log(1+x)$
+
+**If the data contains either zeros or negative values, logarithms are not possible, since the real logarithm is only defined for** $x > 0$.
+
+**If the data contains zeros and no negative values, then the transformation** $log(1+x)$ can be useful:
+
+-   $log(1+x)$ can be useful for data with zeros that we feel would benefit from a log transformation. You can use the function `log1p()` directly for this:
+
+**Question** can anybody tell me why this transformation is good when we have data with zeros? Specifically why $1$ and no other constant is chosen:
+
+```{r}
+#| echo: false
+#| warning: false
+breaks = seq(0, 10)
+data <- tibble(
+  x = seq(0.001, 10, 0.01),
+  y = log(x),
+  line_x = c(0, 2, rep(NA, 998)),
+  line_y = c(-1, 1, rep(NA, 998))
+)
+
+ggplot(data) + 
+geom_line(aes(x=x, y=y)) +
+geom_line(aes(x=line_x, y=line_y), color="red", linetype="dashed") +
+geom_point(aes(x=1, y=0), color="red") +
+scale_x_continuous(breaks = breaks,
+                   minor_breaks = breaks) +
+ggtitle("y = log(x)")
+```
+
+```{r}
+#| echo: false
+#| warning: false
+breaks = seq(-1, 10)
+data <- tibble(
+  x = seq(-0.999, 9, 0.01),
+  y = log(1+x),
+  line_x = c(-1, 1, rep(NA, 998)),
+  line_y = c(-1, 1, rep(NA, 998))
+)
+
+ggplot(data) + 
+geom_line(aes(x=x, y=y)) +
+geom_line(aes(x=line_x, y=line_y), color="red", linetype="dashed") +
+geom_point(aes(x=0, y=0), color="red") +
+scale_x_continuous(breaks = breaks,
+                   minor_breaks = breaks) +
+ggtitle("y = log(1+x)")
+```
+
+```{r, include=params$hidden_notes, eval=FALSE}
+1. The first advantage is that 0s in the original scale are also 0s in the
+   transformed scale (if x = 0 then y = log(1+x) = 0)
+   
+2. Thesecond advantage is that the function log(1+x) can be linearly 
+   approximated by log(1+x) in the viccinity of 0
+```
+
+## Power transformations
+
+```{=tex}
+\begin{align*}
+  w_t = y_t^p
+\end{align*}
+```
+They are not as interpretable as the logarithmic transformation. They also tend to stabilize seasonal variations, as we saw in the example of the adiabatic anti-drug sales.
+
+## Box-Cox transformations
+
+This transformation includes both logarithms and power transformations. They depend on the parameter $\lambda$.
+
+```{=tex}
+\begin{equation}
+  w_t  =
+    \begin{cases}
+      \log(y_t) & \text{if $\lambda=0$};  \\
+      (\text{sign}(y_t)|y_t|^\lambda-1)/\lambda & \text{otherwise}.
+    \end{cases}
+\end{equation}
+```
+**Question:** what is the difference between a variable and a parameter?
+
+GOTO: **Book example with slider** TODO: include interactive graph with lambda
+
+Again, the transformation attempts to stabilize the seasonal fluctuations and random variations.
+
+-   The logarithm in a Box-Cox transformation is **always a natural logarithm**.
+    -   $\lambda = 1$: no substantial transformation. Data is simply shifted downwards. ($w_t = y_t -1$)
+    -   $\lambda = 0$: transformation equivalent to a natural logarithm.
+    -   $\lambda = 1/2$: Square root + scaling transformation
+    -   $\lambda = 1/3$: Cubic root + scaling transformation
+    -   $\lambda = -1$: Inverse transformation (+ 1)
+-   **Considerations when using this transformation**\`
+    -   **If some data are zero or negative, use** $\lambda > 0$, since the real logarithm is not defined in this case.
+    -   Always check your results depicting the time series.
+    -   A **low value of** $\lambda$ can result in extremely large prediction intervals.
+    -   **If the best value of** $\lambda$ is very close to 0, it is *preferable to use a log transformation* because it has *much better interpretability*.
+    -   The **final judge of the transformation** will be the **performance of the model you are trying to use** and the **uncertainty associated to its predicions** (prediction intervals). This is very important. Throughout the course we will learn how to evaluate the performance of our models.
+
+### Caveat of Box-Plot like transformations
+
+Power transformations (such as the box-plot transformation) **require the variability of the series to vary proportionally to the level of the series**.
+
+Let us look at data about the production of gas in Canada:
+
+```{r}
+canadian_gas %>%
+  autoplot(Volume) +
+  labs(
+    x = "Year", y = "Gas production (billion cubic meters)",
+    title = "Monthly Canadian gas production"
+  )
+```
+
+```{r}
+
+```
+
+-   The **variation of the series is not proportional to the amount of gas produced in Canada.**
+    -   **For small and large production levels:** small variations in the seasonal pattern
+    -   **Moderate production leveks:** between 1975 and 1990. The variation in the seasonal pattern is large.
+
+In this case the box-cox transformation would not be of much help to render the variance of the seasonal component independnet from the level of the series.
+
+### Guerrero feautre to pick a variable for the parameter lambda
+
+The Guerrero feature suggest a value of lambda that results in the best Box-Cox transformation to make the scheme of the series additive. Like everything It does not work 100%, but for most cases it will result in a good value to render the scheme of the series additive.
+
+In the example below we apply it to the `Gas` time series within the dataset `aus_production`, loaded along with `fpp3`.
+
+```{r}
+lambda <- aus_production %>%
+  features(Gas, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+
+The suggested value of lambda is 0.1, which is neither too close to 0 (log) or 1 (no transformation). So in principle we will apply the box-cox transformation.
+
+```{r}
+aus_production %>%
+  autoplot(box_cox(Gas, lambda))
+```
+
+### Usual wrokflow with the box-cox tranformation
+
+1.  Check the value of lambda suggested by the `guerrero` feature.
+2.  If the value of lambda is very close to 0, apply a $log()$ transformation instead, since their effect will be very close and the log transformation preserves the interpretability
+3.  If the value of lambda is very close to 1, do not apply a transformation, since the Box-Cox transformation will barely have a noticeable effect.
+4.  If the value of lambda is neither close to 0, nor close to 1, apply the Box-cox transformation.
+
+The exercises and homework at the end of the notebook will bring clarity to this process.
+
+## Advanced - other transformations for data with 0s or negative values
+
+The following [article](https://robjhyndman.com/hyndsight/transformations/) is worth reading. This is beyond the scope of the course, but it is a good reference if you ever face this issue.
+
+## Some notes on transformations
+
+-   **Often no transformation is needed** and we are able to produce a good forecast with the original data. **Do not transform just for the sake of transforming**, the end goal is to **make data more palatable for a model so that it improves its performance**.
+    -   The **final judge of the transformation** will be the **performance of the model you are trying to use** and the **uncertainty associated to its predicions** (prediction intervals). This is very important. Throughout the course we will learn how to evaluate the performance of our models.
+-   Transformations that have good interpretability (such as log transformations) are preferred if they work well enough.
+-   Transformations **can have a very large effect on Prediction Intervals**.
+-   Transformations **must be reversed to obtain forecasts on the original scale**.
+
+# Exercises
+
+For each of the following series, make a graph of the data. If transforming seems appropriate, do so and describe the effect.
+
+-   United states GDP from `global economy`
+-   Slaughter of Victorian "Bulls, bullocks and steers" in `aus_livestock`
+-   Victorian Electricity Demand from `vic_elec`
+-   Tobacco from aus_production
+-   The following retail series:
+
+```{r}
+retail_series <- aus_retail %>%
+  filter(`Series ID` == "A3349767W")
+```
+
+```{r}
+
+```
+
+### Ex 1. United states gdp from global economy:
+
+```{r}
+us_economy <- global_economy %>%
+  filter(Country == "United States")
+us_economy %>%
+  autoplot(GDP)
+```
+
+```{r, include=params$print_sol}
+# The trend is exponential. We could render it linear it with a transformation
+us_economy %>%
+  autoplot(box_cox(GDP, 0))
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+A log transformation (Box plot with $\lambda = 0$) appears too strong.
+Let's see what guerrero's method suggests:
+```
+
+```{r, include=params$print_sol}
+lambda <- us_economy %>%
+  features(GDP, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+
+```{r, include=params$print_sol}
+us_economy %>%
+  autoplot(box_cox(GDP, lambda))
+```
+
+```{r, include=params$print_sol, eval = FALSE}
+This transformation looks more linear. Still it is not worth
+it because we have lost all the interpretability of the response variable.
+We no longer have a simple, interpretable relationship between the transformed
+ variable and the original variable
+```
+
+### Ex 2. Slaughter of Victorian "Bulls, bullocks and steers"
+
+```{r}
+vic_bulls <- aus_livestock %>%
+  filter(State == "Victoria", Animal == "Bulls, bullocks and steers")
+vic_bulls %>%
+  autoplot(Count)
+```
+
+```{r}
+
+```
+
+```{r, include=params$print_so, eval=FALSE}
+The variation of the series appears to slightly vary with the numbers of bulls
+slaughtered. A transformation could be useful.
+
+Let us see what the guerrero feature suggests:
+```
+
+```{r, include=params$print_sol}
+vic_bulls %>%
+  features(Count, features = guerrero)
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+The value of lambda suggestes is so small that it is best to perform a log
+transformation (which would correspond to lambda = 0) that at least preserves
+the interpretability of the data.
+```
+
+```{r, include=params$print_sol}
+vic_bulls %>%
+  autoplot(log(Count))
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+A log transformation (lambda = 0) is pretty close and has much better interpretability.
+```
+
+### Ex 3. Tobacco from aus_production
+
+```{r}
+aus_production %>%
+  autoplot(Tobacco)
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+This variation in this series appears to be mostly constant
+across different levels of the series.
+Lets look at the guerrero feature.
+```
+
+```{r, include=params$print_sol}
+lambda <- aus_production %>%
+  features(Tobacco, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+
+```{r, include=params$print_sol}
+# The value appears to be very close to 1.
+aus_production %>%
+  autoplot(box_cox(Tobacco, lambda))
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+Would you perform this transformation?
+
+No. The value of lambda is very close to 1 (no transformation). 
+There is no substantial gain and we completely lose the interpretability
+of the response variable.
+```
+
+### Ex 4. Retail series
+
+```{r}
+retail_series <- aus_retail %>%
+  filter(`Series ID` == "A3349767W")
+
+autoplot(retail_series)
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+The variation appears to be proportional to the level of the series.
+
+Lets inspect the guerrero feature
+```
+
+```{r, include=params$print_sol}
+retail_series %>%
+  features(Turnover, features = guerrero)
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+**Question** given this value of lambda, what would you do?
+
+Since the value is so close to 0, the sensible thing is to perform a logarithmic
+transformation, which is much more interpretable.
+```
+
+```{r, include=params$print_sol}
+retail_series %>%
+  autoplot(log(Turnover)) + 
+  labs(
+    title = retail_series$Industry[1],
+    subtitle = retail_series$State[1]
+  )
+```
+
+# Homework
+
+**NOTE:** For these exercises you need separate datasets that will be uploaded to blackboard.
+
+Judge if one of the mathematical transformations explained in class is sensible or not.
+
+If so, specify which transformation you have chosen and provide adequate justification
+
+```{r, include=FALSE, eval=FALSE}
+# Install these packages if you do not have them installed 
+install.packages("devtools") 
+devtools::install_github("FinYang/tsdl") # Bank of time-series data`
+```
+
+```{r, include=FALSE, message=FALSE, warning=FALSE}
+library(tsdl)
+```
+
+## Australian imports from Japan
+
+```{r}
+aus_import_japan <- as_tsibble(subset(tsdl, "Macroeconomic", 12)[[3]])
+
+aus_import_japan %>% 
+  autoplot() +
+  labs(x = "year-month",
+       y = "Australian imports from Japan (thousands $)")  
+```
+
+```{r, include=params$print_home_sol}
+aus_import_japan %>%
+  features(value, features = guerrero)
+```
+
+```{r, include=params$print_home_sol, eval=FALSE}
+The amplitude of the seasonal component appears to be proportional to the level
+of the series
+
+Guerreros feature (lambda) is very close to 0, so in this case we will opt for
+a log transformation because it is much more interpretable
+```
+
+```{r, include=params$print_home_sol}
+aus_import_japan %>%
+  mutate(log_imports = log(value)) %>%
+  autoplot(log_imports)
+```
+
+## Private housing units started - USA
+
+```{r}
+private_housing_Us <- as_tsibble(subset(tsdl, "Microeconomic", 12)[[2]])
+
+autoplot(private_housing_Us) +
+labs(x = "year-month",
+     y = "Private housing units started, USA: monthly")  
+```
+
+```{r, include=params$print_home_sol, eval=FALSE}
+Data does not appear to vary with the level of the series
+There seems to be different seasonal periods in the time series...
+These issues are probably solved better with modeling rather than transformations.
+```
+
+```{r, include=params$print_home_sol}
+lambda <- private_housing_Us %>%
+  features(value, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+
+```{r, include=params$print_home_sol}
+private_housing_Us %>%
+  autoplot(box_cox(value, lambda))
+```
+
+```{r, include=params$print_home_sol, eval=FALSE}
+To judge if this transformation brings something it would be essential to assess
+the performane of the model with cross-validation or other technique.
+
+We will discuss these crucial concepts throughout the course.
+```

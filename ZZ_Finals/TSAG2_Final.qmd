@@ -1,0 +1,136 @@
+---
+title: "Untitled"
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+# Load data
+
+Run the code below and select the file `TSA_G2_2023Fall_Final.csv` when a pop-up window appears.
+
+```{r}
+ts_data <- 
+  read_csv(file.choose()) %>% 
+  mutate(Month = yearmonth(Month)) %>% 
+  as_tsibble(index=Month)
+
+ts_data
+```
+
+# 1. Create a time plot of the data with mayor grids every 5 years and minor ticks every year (1 point)
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+# 2. Create an ACF plot of the series. Explain the pattern / patterns you observe (1.5 points)
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+------------------------------------------------------------------------
+
+WHICH COMPONENT OR COMPONENTS CAN YOU OBSERVE IN THIS PATTERN?
+
+Your answer goes here (30 words max)
+
+------------------------------------------------------------------------
+
+# 3. Estimate the trend using the same moving average as classical decomposition would. Consider $m=12$. Then detrend the time series assuming it is multiplicative in nature. Compute the ACF of the resulting detrended component and answer the questions (1.5 points)
+
+-   Store the trend and the detrended components as new columns within the original dataframe `ts_data`.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+------------------------------------------------------------------------
+
+What is the difference between this ACF and that of the entire time series?
+
+30 words max.
+
+------------------------------------------------------------------------
+
+# 4. Find a transformation that is appropriate to stabilize the variance of the time series. Check if it really stabilizes the variance depicting the transformed data with the same resolution as in question 1. (1 point)
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+# 5. Create a series of training datasets to perform cross-validation. They must fulfil the following: (1 point)
+
+-   The smallest training dataset must leave out 48 datapoints.
+-   The training datasets must increase by four observations at a time.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+# 6. Fit the following models to each of the training datasets (1 point)
+
+1.  Exponential Smoothing Model fitted to the original data with a damped trend and appropriate seasonality. Give it the name `ETS_original`
+2.  Exponential Smoothing Model fitted to the data under the transformation you found in 4. It must have a damped trend and appropriate seasonality. Give it the name `ETS_transformed`.
+3.  A seasonal naive model fitted to the original data. This will be our benchmark. Call it `snaive`.
+
+Store the models in an object called `fit_cv`
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+# 7. Perform forecasts of up to 2 years ahead. Then compute the cross-validated MAE, RMSE and MAPE for each combination of model and forecast horizon. Then answer the questions below. (2 points)
+
+-   Store the forecasts in an object called `fc_cv`.
+-   Store the accuracy metrics in an object called `summary_cv_h`
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+For a forecast horizon of 5:
+
+-   Which model has the smallest MAPE?
+-   What are the units of this MAPE?
+-   What is the interpretation of this MAPE?
+
+------------------------------------------------------------------------
+
+Your answer goes here (50 words max)
+
+------------------------------------------------------------------------
+
+For of two years ahead,
+
+-   Which is the most accurate model in terms of RMSE?
+-   What are the units of the RMSE?
+
+------------------------------------------------------------------------
+
+Your answer goes here (20 words max)
+
+------------------------------------------------------------------------
+
+# 8. Starting with `fc_cv` computed in question 7, the following code computes the forecast errors for every forecast horizon and training dataset. Considering the definition of the MAE and the RMSE, aggregate these to obtain the same results as in `summary_cv_h`. (1 point)
+
+-   IMPORTANT: ignore `Warnings` printed when executing this code.
+
+```{r}
+forecast_errors <- 
+  fc_cv %>% 
+  accuracy(ts_data, by=c(".id", "h", ".model")) %>% 
+  select(.id, .model, h, RMSE) %>% 
+  rename(error = RMSE) 
+
+forecast_errors
+```
+
+```{r}
+# YOUR CODE GOES HERE
+```

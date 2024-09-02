@@ -1,0 +1,12 @@
+---
+title: "5_2_TSDecomposition_MAverages_TrendEstimation"
+author: "Juan Garbayo - TS Analysis - Spring 2023"
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+--- %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% = = = = 

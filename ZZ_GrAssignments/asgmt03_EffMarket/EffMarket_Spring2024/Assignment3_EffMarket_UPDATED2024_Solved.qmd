@@ -1,0 +1,443 @@
+---
+title: "Efficient Market Hypothesis (Group assignment)"
+self-contained: true
+self-contained-math: true
+format: html
+editor: source
+params:
+  solutions: false
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+```{r}
+library(fpp3)
+library(patchwork)
+```
+
+# References
+
+[1] Fama, Eugene (1970). "Efficient Capital Markets: A Review of Theory and Empirical Work". Journal of Finance. 25 (2): 383–417. doi:10.2307/2325486. JSTOR 2325486.
+
+[2] Investopedia - Efficient Market Hypothesis [Link](https://www.investopedia.com/terms/e/efficientmarkethypothesis.asp)
+
+# The Efficient Market Hypothesis
+
+The goal of this assignment is to compare a prediction strategy based on the Efficiet Market Hypothesis (EMH) with some of the first non-trivial models you have learnt: simple exponential smoothing and trended exponential smoothing (additive and additive damped versions).
+
+Essentially, the EMH states that stocks are accurately priced and reflect all available information. If it holds true, it implies that it is impossible to consistently beat the market by analysis.
+
+In his influential 1970 paper ([1]), Eugene Fama proposes three categories of efficiency that differ in the information considered reflected in the prices:
+
+1. *Weak-form of the EMH*: considers information contained in historical prices.
+2. *Semi-strong form of EMH*: considers information publicly available beyond historical prices.
+3. *Strong-form*: considers private (privileged) information.
+
+Here we are going to consider the weak-form of the EMH and work only with the information contained in historical prices.
+
+# Assignment
+
+The assignment consists in:
+
+### **1. Load the historical data and create an index associated to the training day** (0 points)
+
+As an additional resource, a notebook is provided to download stock market data.
+  
+The date ranges to be used are:
+
+  * **Initial date**: 7-th of May 2017
+  * **Final date**: the current date.
+  
+**Your final dataset must be an object of type `tsibble` with the following characteristics**:
+
+* key = symbol
+* index = trading_day
+
+```{r}
+tr_data <- readr::read_csv("FTSE_prices.csv")
+tr_data <- tr_data %>% 
+           as_tsibble(key = symbol, index = 'trading_day') %>% 
+           fill(close, .direction="downup") # Interpolate missing values
+```
+
+### **1.1 Create a time-plot of your data and briefly describe it (max 75 words)** (1 points)
+
+```{r}
+autoplot(tr_data)
+```
+
+------
+
+The data shows a period of overall growth alternating growth and recession in the
+price.
+
+However there are difficulties associated with judging the overall trend of aggregated
+indexes such as SP500 or FTSE100. Among others:
+  
+* Complexity and diversity of constituent stocks
+* Changes in constituent stocks
+* Economic cycles (for example, the data selected leaves out the COVID crisis)
+* Geopolitical factors
+* Market irrationality
+* Lagging nature of indices (reflect what happened rather than what will happen)
+* ...
+
+------
+
+### **2. Create two training datasets containing 80% and 60% of your data** (0 points)
+
+For this, run the code below. In the end you will have a single tsibble where each training dataset is identified by the key column `.id`.
+
+NOTE: we do not use stretch-tsibble in this case because we only want to produce two trading datasets. If we used stretch-tsibble, we would obtain more than two training datasets.
+
+```{r}
+n_obs_80 <- as.integer(nrow(tr_data)*0.8)
+n_obs_60 <- as.integer(nrow(tr_data)*0.6)
+n_obs_list <- c(n_obs_60, n_obs_80)
+train_sets <- tibble() # EMPTY TIBBLE
+
+for (i in seq_along(n_obs_list)) {
+  train_i <- tr_data %>% slice(1:n_obs_list[i]) %>% mutate(.id=i)
+  train_sets <- bind_rows(train_sets, train_i)
+}
+
+# tsibble with two training datasets, each of which is identified by the
+# value of .id.
+# Each taining dataset can be though of as a time series of its own.
+train_sets <- as_tsibble(train_sets, 
+                         key=.id, # Each training dataset considered as a separate time series
+                         index=trading_day # Trading day used as the index
+                         )
+```
+
+### **3. Fit the following models to each of the training datasets:** (1 points)
+
+* a Naïve model (`naive`).
+* a Simple Exponential Smoothing model. Call it `ses_tr`
+* a Trended Exponential Smoothing model with and additive dampled trend and no seasonality. Call it `holts_damped`
+
+Name the object where you store the fitted objects `fit_train_sets`
+
+```{r}
+# YOUR CODE GOES HERE, DO NOT CREATE ADDITIONAL CODE SNIPPETS
+fit_train_sets <- train_sets %>% 
+  model(
+    naive = NAIVE(close),
+    ses =  ETS(close ~ error("A") + trend("N") + season("N")),
+    holts_damped = ETS(close ~ error("A") + trend("Ad") + season("N"))
+  )
+
+fit_train_sets
+```
+
+### **4. Generate forecasts of 10 trading days for each of the trained models** (1 point)
+
+The result of this step should be a `fable` or forecast table. Name it `fc_train_sets`
+
+Add a column `h` to `fc_train_sets` indicating the forecast horizon of each forecast.
+
+* After adding that column, apply the following command: `as_fable(response = "close", distribution = close)`. This is to ensure that the output after performing these operations is still a `fable`, which can be used in combination with the function `accuracy()`
+
+**Follow the syntax in the session on cross-validation for this.**
+
+```{r}
+fc_train_sets <- 
+  fit_train_sets %>% 
+  forecast(h=10) %>% 
+  group_by(.id, .model) %>% 
+  mutate(h=row_number()) %>% 
+  ungroup() %>% 
+  as_fable(response = "close", distribution = close) %>% 
+  select(h, everything())
+```
+
+### **5. Compute the forecasts errors. Do this in two ways to fully understand the process:
+
+Option 1: **Manually**.
+
+```{r}
+# 1. Use a left_join() with tr_data to incorporate the actual value of the 
+# variable "close" to fc_train_sets. Store the result in "error_metrics".
+# NOTE: since fc_train_sets already has a column called close, the result of the
+# left_join() will have two columns: close.x and close.y to resolve that conflict.
+fc_errors_manual <- 
+  fc_train_sets %>% 
+  left_join(tr_data, by="trading_day")
+
+# 2. Create two new columns: abs_error and abs_perc_error corresponding to the
+# absolute error and the absolute percentage error for each combination of model
+# training dataset and forecast horizon.
+fc_errors_manual <- 
+  fc_errors_manual %>% 
+  mutate(
+    abs_error = abs(close.y - .mean), # close.y used due to name conflict during join operation
+    abs_perc_error = abs((close.y - .mean)/close.y)*100 # close.y used due to name conflict during join operation
+  )
+
+# 3. Inspect result
+fc_errors_manual <- 
+  fc_errors_manual %>% 
+  as_tibble() %>% 
+  arrange(.model, .id, h)
+```
+
+Option 2: **Using the funciton accuracy** and telling it to compute errors for each combination of forecast horizon, training dataset and model.
+
+After that answer: why are RMSE and MAE the same in this case?
+
+```{r}
+fc_errors <- 
+fc_train_sets %>% 
+  accuracy(tr_data, by=c("h", ".id", ".model"))
+```
+
+----------
+
+YOUR ANSWER GOES HERE
+
+----------
+
+----------
+
+In this case RMSE and MAE coincide because we are computing the error for each model and forecast horizon separately, that is, we are computing the error at every point without averaging by model or by h.
+
+We have only one observation. Squaring a single number, computing its mean (the number itself, since there is only one observation) and then taking its square root is the same as taking the absolute value of the number and computing its mean (the number itself, since there is only one observation).
+
+----------
+
+### **6. Produce the following graphs and answer the questions** (2.5 points) 
+
+Produce two graphs, one for the absolute errors and one for the absolute percentage errors, that fulfil:
+
+1. The x-axis is discrete and corresponds to the forecast horizon
+2. The y-axis correspondds to the values of the error (absolute or absolute percentage error)
+3. Each graph has 6 curves, one for each combination of model and training dataset.
+
+```{r}
+# Create column that combines both .model and .id to color.
+error_metrics <- 
+error_metrics %>% 
+  mutate(
+    model_trset = paste0(error_metrics$.model, "_", error_metrics$.id)
+  )
+
+# Percentage error graph
+error_metrics %>% 
+  ggplot(aes(x = h, y = abs_error, 
+             colour = .model
+             )
+         ) + 
+  geom_point(alpha = 0.5) + 
+  geom_line(alpha = 0.5) + 
+  scale_x_continuous(
+    breaks=1:max(error_metrics$h),
+    minor_breaks=1:max(error_metrics$h)
+                     ) + 
+  # Expand to compare the effect of the training dataset
+  facet_wrap(".id") + 
+   ggtitle("absolute errors")
+
+# Percentage error graph
+error_metrics %>% 
+  ggplot(aes(x = h, y = abs_perc_error, 
+             colour = .model
+             )
+         ) + 
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) + 
+  scale_x_continuous(
+    breaks=1:max(error_metrics$h),
+    minor_breaks=1:max(error_metrics$h)
+                     ) + 
+  facet_wrap(".id") + 
+  ggtitle("absolute percentage errors")
+```
+
+Then answer these questions:
+
+* Does the training dataset have an effect on the errors?
+
+------
+
+**YOUR ANSWER GOES HERE**
+MAX 30 WORDS
+
+------
+
+* Does one of the models outperform the other?
+
+------
+
+**YOUR ANSWER GOES HERE**
+MAX 30 WORDS
+
+------
+
+### **7. Evaluate the same metrics on the same models, but this time using cross validation** (2.5 points)
+
+The smallest training dataset shall contain 60% of the trading days. The trading datasets shall increase in steps of 2 trading days.
+
+Produce a graph that details, for each model type, the MAE and MAPE for each forecast horizon
+
+```{r}
+# Create training datasets
+init_obs <- as.integer(nrow(tr_data)*0.6)
+
+tr_data_cv <- 
+  tr_data %>% 
+  stretch_tsibble(
+    .init = init_obs,
+    .step = 2
+  )
+
+# Fit models to all training datasets
+fit_cv <- 
+tr_data_cv %>% 
+  model(
+    naive = NAIVE(close),
+    ses =  ETS(close ~ error("A") + trend("N") + season("N")),
+    holts_damped = ETS(close ~ error("A") + trend("Ad") + season("N"))
+  ) 
+
+# Produce forecasts for each training dataset
+# and generate column h to segregate the accuracy metrics.
+fc_cv <- 
+  fit_cv %>% 
+  forecast(h=10) %>% 
+  group_by(.id, .model) %>% 
+  mutate(h=row_number()) %>% 
+  ungroup() %>% 
+  as_fable(response="close", distribution=close) 
+
+# Accuracy metrics by forecast horizon:
+summary_cv <- 
+  fc_cv %>% 
+    accuracy(tr_data, by = c("h", ".model")) %>% 
+    select(h, .model, MAE, MAPE)
+
+# Convert to long format to use with ggplot
+summary_cv_long <- 
+  summary_cv %>% 
+    pivot_longer(
+      cols = c("MAE", "MAPE"),
+      names_to = "metric", 
+      values_to = "value"
+    ) 
+
+# Figure for MAE
+summary_cv_long %>% 
+  filter(metric=="MAE") %>% 
+  ggplot(aes(x = h, y = value, 
+             colour = .model
+             )
+         ) + 
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) + 
+  scale_x_continuous(
+    breaks=1:max(error_metrics$h),
+    minor_breaks=1:max(error_metrics$h)
+                     ) +
+  ggtitle("Cross-validated Mean Absolute Errors")
+
+# Figure for MAPE
+summary_cv_long %>% 
+  filter(metric=="MAPE") %>% 
+  ggplot(aes(x = h, y = value, 
+             colour = .model
+             )
+         ) + 
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) + 
+  scale_x_continuous(
+    breaks=1:max(error_metrics$h),
+    minor_breaks=1:max(error_metrics$h)
+                     ) +
+  ggtitle("Cross-validated Mean Absolute Percentage Errors")
+```
+
+* What is the difference between these graphs and the ones we generated before? Answer briefly below.
+
+------
+
+YOUR ANSWER GOES HERE: MAX 30 WORDS
+
+------
+
+------
+
+1. This graph depicts the average MAE and RMSEs for a multiplicity of training datasets. In other words, this graph is the average of graphs like the ones produced before, each for each training dataset. The number of training datasets we have created is:
+
+```{r}
+# Number of training datasets
+max(tr_data_cv$.id) #132
+```
+
+132, so these graphs are the averages of 132 graphs, one for each training dataset.
+
+2. On average, the expected behavior emerges: the error gets bigger with increasing forecast horizon.
+
+------
+
+* Does one of the models outperform the other?
+
+------
+
+YOUR ANSWER GOES HERE: MAX 30 WORDS
+
+------
+
+------
+
+No, the fact that all the curves almost overlap indicates there is not a significant difference in the performance of either of the models. Neither in absolute (MAE) or relative (MAPE) terms.
+
+------
+
+```{r}
+# ADDITIONAL: manual computation of the accuracy metrics 
+# (NOT NECESSARY, JUST FOR YOUR UNDERSTANDING)
+errors <- 
+  fc_cv %>% 
+  left_join(select(tr_data, close), by="trading_day") %>% 
+  mutate(
+    error = .mean - close.y, # close.y because of name conflict, we have two variablex close.x and close.y
+    perc_error = (.mean - close.y) / close.y
+  ) 
+
+summary_cv_manual <- 
+  errors %>% 
+  as_tibble() %>% # Downcast from tsibble to tibble for groupby to work properly
+  group_by(h, .model) %>% 
+  summarise(
+    MAE = mean(abs(error), na.rm = TRUE),
+    RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+    MAPE = mean(abs(perc_error), na.rm = TRUE)*100
+  ) %>% 
+  arrange(h, .model)
+
+# COMPARE MANUAL COMPUTATION AND FINAL COMPUTATION
+all.equal(summary_cv$MAE, summary_cv_manual$MAE)
+all.equal(summary_cv$RMSE, summary_cv_manual$RMSE)
+all.equal(summary_cv$MAPE, summary_cv_manual$MAPE)
+```
+
+
+### **8. Reflect on the results and present some conclusions** (0 point)
+
+------
+
+YOUR ANSWER GOES HERE.
+MAX 100 WORDS.
+
+------
+
+------
+
+The main takeaway of this assignment is the fact that you should always have a benchmark model for your analysis against which you compare models of increasing complexity.
+
+In our case, the benchmark model is the naive model, in accordance with the efficient market hypothesis.
+
+As we can see, none of the models we have proposed beat the benchmark, so their complexity is not justified.
+
+------

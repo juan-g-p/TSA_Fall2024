@@ -1,0 +1,392 @@
+---
+title: "6_1_D_SES_Assignment1"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: false
+---
+
+```{r}
+library(fpp3)
+```
+
+
+# Assignment 1
+
+Based on the theory seen in class for Simple Exponential Smoothing (SES), we are going to write some functions that implement this forecasting method. We are going to implement the entire model fitting process and produce initial estimates for $\alpha$ adn $l_0$ 
+
+```{r, echo=FALSE, out.width='70%', fig.align="center", fig.cap=""}
+knitr::include_graphics('./figs/ses_fit.png')
+```
+
+```{r}
+
+```
+
+## 1. Write a function `SES_fvals_fc` that computes the fitted values and the SES forecast and returns them in a single vector of length $n+1$.
+
+Inputs:
+
+* `y` (the time series) - vector of length `n`
+* `alpha` (the smoothing parameter $\alpha$)
+* `l_0` (the initial level $l_0$)
+
+Outputs:
+
+* `yhat` (fitted values) - if the vector `y` (the time series) is of length `n`, the vector `yhat` shall be of length `n+1`, because **the last element of `yhat` will be the SES forecast that extends beyond our data $\hat{y}_{T+1|T}$**, while **the previous `n` elements will contain the fitted values $\hat{y_1}\dots\hat{y}_{T|T-1}$**.
+
+Below the template function. Complete the lines where a TODO is given
+
+```{r, include=params$print_sol}
+SES_fvals_fc <- function(y, alpha, l_0) {
+
+  # Returns the vector of fitted values for simple exponential smoothing 
+  # includeing the flat forecast produced by SES 
+  
+  # ARGUMENTS:
+  # @y: a vector containing the y values of our time series. Length n.
+  # @alpha: parameter alpha of simple exponential smoothing.
+  # @level: initial level of simple exponential smoothing.
+  
+  # RETURN:
+  # @yhat: vector of length n+1
+    # - first n elements contain the fitted values
+    # - element n+1 contains the flat forecast of SES
+  
+  yhat <- numeric(length(y) + 1) # Prepares the output of the for loop
+  
+  yhat[1] <- l_0 # From forecast equation applied at t=1
+  
+  for (i in 2:(length(yhat))) {
+    # Smoothing equation applied at t = i
+    yhat[i] <- alpha*y[i-1] + (1-alpha)*yhat[i-1]
+  }
+  
+  return(yhat)
+}
+```
+
+```{r, eval=FALSE, include=!params$print_sol}
+SES_fvals_fc <- function(y, alpha, l_0) {
+
+  # Returns the vector of fitted values for simple exponential smoothing 
+  # includeing the flat forecast produced by SES 
+  
+  # ARGUMENTS:
+  # @y: a vector containing the y values of our time series. Length n.
+  # @alpha: parameter alpha of simple exponential smoothing.
+  # @level: initial level of simple exponential smoothing.
+  
+  # RETURN:
+  # @yhat: vector of length n+1
+    # - first n elements contain the fitted values
+    # - element n+1 contains the flat forecast of SES
+  
+  yhat <- numeric(length(y) + 1) # Prepares the output of the for loop
+  
+  yhat[1] <- # TODO: COMPLETE THIS EXPRESSION
+
+  for (i in 2:(length(yhat))){
+
+    yhat[i] <- # TODO: COMPLETE THIS EXPRESSION
+
+  }
+  
+  return(yhat)
+}
+```
+
+### Test your code
+
+After you have written your function, compute $yhat$ for the time series below (algerian_exports):
+
+```{r}
+# Time series to test the method
+algerian_exports <- global_economy %>% 
+  filter(Country == "Algeria") %>% 
+  select(Year, Exports)
+```
+
+The result should be equal to the `yhat_test` vector that results if you run the code below and open the file `yhat_SES_test`, which is provided in the folder `ZZ_Datasets`from google drive. 
+
+Check this with `all.equal()`, where `yhat` would be the output of applying your function to the data in `algerian_exports`. The code below does all this for you, you just have to select the file `yhat_SES_test` when the pop-up window shows:
+
+```{r, eval=FALSE}
+y <- algerian_exports$Exports
+alpha <- 0.8399875 # Initial estimates for the test
+l_0 <- 39.5389994 # Initial estimates for the test
+yhat <- SES_fvals_fc(y=y, l_0=l_0, alpha=alpha)
+
+# Read yhat_test object, file contained in ZZ_Datasets
+yhat_test <- dget(file.choose())
+
+# Tests for equality
+# This should evaluate to TRUE
+all.equal(yhat, yhat_test)
+```
+
+## 2. Write a function that computes the sum of squared errors given $y$ (the time series) and $\hat{y}$ (the fitted values).
+
+* Inputs:
+  * `y` (the time series) - of length $n$
+  * `yhat` - vector of fitted values. Must be **also of length $n$**. That is, **it contains only the first n elements of the output of `SES_fvals_fc`**. Recall that the last value of the output of `SES_fvals_fc` is $\hat{y}_{T+1|T}$, which is the SES forecast and not a fitted value.
+* Outputs:
+  * `SSE` - Sum of Squared Residuals: $\sum_{i=0}^{i=n}(y_i-\hat{y_i})^2$
+  
+```{r, include=params$print_sol}
+SSE_func <- function(y, yhat) {
+
+  # Returns the vector of fitted values for simple exponential smoothing 
+  # includeing the flat forecast produced by SES 
+  
+  # ARGUMENTS:
+  # @y: a vector containing the y values of our time series. Length n.
+  # @yhat: Vector of fitted values. Length n. It may contain NA values (although
+  # not for the SES case).
+  
+  # RETURN:
+  # @SSE: Sum of Squared Errors
+  
+  errors <- y - yhat
+  
+  return(sum((errors^2), na.rm=TRUE))
+  
+}
+```
+
+Once you have written your function, you may test it with the code below:
+
+```{r}
+# Test
+y <- algerian_exports$Exports
+alpha <- 0.8399875 # Initial estimates for the test
+l_0 <- 39.5389994 # Initial estimates for the test
+n <- length(y)
+yhat <- SES_fvals_fc(y=y, l_0=l_0, alpha=alpha)
+yhat_fvals <- yhat[1:n] # Exclude last value, which is the SES forecast
+
+# Compute the SSE
+SSE_test <- SSE_func(y, yhat_fvals)
+
+# Check. A little bit informal, but sufficient for our purposes.
+1995.285 == round(SSE_test, 3)
+```
+
+## 3. Combine the functions `SES_fvals_fc` and `SSE_func` to define a function `my_ses_sse` that takes as inputs an estimate of both $\alpha$ and $l_0$ and returns the Sum of Squared Errors SSE.
+
+**Important**: the estimates of $\alpha$ and $l_0$ are to be passed to this function wrapped in a vector *`par`* of two components. This will make this function compatible with `optim`, which we will apply in the next and final step. 
+
+Use the template below for the function, completing the `TODO` parts:
+
+```{r, eval=FALSE, include=!params$print_sol}
+my_ses_sse <- function(par, y) {
+  
+  # Computes the Sum of Squared Errors of simple exponential smoothing
+  
+  # ARGUMENTS:
+  # @y: a vector containing the y values of our time series
+  # @par: a vector containing the parameters of the model (alpha and l_0)
+  #   - par[1] is alpha
+  #   - par[2] is l_0
+  
+  # RETURN:
+  # @SSE: Sum of squre residuals
+  
+  # Unwrap the model parameters
+  alpha <- par[1]
+  l_0 <- par[2]
+  
+  # Compute the length of the time series
+  n <- length(y)
+  
+  # TODO: complete this line
+  yhat <- 
+  
+  # TODO: complete this line
+  # Need to exclude the forecast from the output of SES_fvals_fc
+  yhat_fvals <- 
+    
+  # TODO: complete this line
+  SSE <- 
+  
+  return(SSE)
+  
+}
+```
+
+
+```{r, include=params$print_sol}
+my_ses_sse <- function(par, y) {
+  
+  # Computes the Sum of Squared Errors of simple exponential smoothing
+  
+  # ARGUMENTS:
+  # @y: a vector containing the y values of our time series
+  # @par: a vector containing the parameters of the model (alpha and l_0)
+  #   - par[1] is alpha
+  #   - par[2] is l_0
+  
+  # RETURN:
+  # @SSE: Sum of squre residuals
+  
+  # Unwrap the model parameters
+  alpha <- par[1]
+  l_0 <- par[2]
+  
+  # Compute the length of the time series
+  n <- length(y)
+  
+  # TODO: complete this line
+  yhat <- SES_fvals_fc(y=y, alpha=alpha, l_0=l_0)
+  
+  # TODO: complete this line
+  yhat_fvals <- yhat[1:n]
+    
+  # TODO: complete this line
+  SSE <- SSE_func(y=y, yhat=yhat_fvals)
+  
+  return(SSE)
+  
+}
+```
+
+### Step 3 test:
+
+```{r}
+y <- algerian_exports$Exports
+alpha <- 0.8399875
+l_0 <- 39.5389994
+
+# SSE_test should be 1995.285
+SSE_test <- my_ses_sse(c(alpha, l_0), y)
+
+# Check. A little bit informal, but sufficient for our purposes.
+1995.285 == round(SSE_test, 3)
+```
+
+## 4. Understand `optim()`, a general function optimization function, and how it may be used to fit an SSE model:
+
+The function `optim()` is a general-purpose optimization function within the library `stats`. The details of its implementation are way beyond the scope of this course, but we may use it to minimize the SSE in simple exponential smoothing.
+
+`optim()` is able to minimize a target function, but this function must have the following structure in its arguments:
+
+`target_function(par, ...)` where:
+
+* `par` are the parameters that `optim()` will optimize over to minimize `target_function`
+* `...` are futher arguments of the `target_function`
+
+In our case the `target_function` is `my_ses_sse` and remember we defined the signature of my_ses_sse as follows:
+
+* `my_ses_sse(par, y)`
+
+  * `par` is the vector of parameters ($\alpha$ and $l_0$). We will provide initial values for these parameters and `optim()` will start from these initial values trying out different values until it fulfils some minimality criteria for `my_ses_sse`.
+  * `y` is the time series data (the vector of observations of the time series). This is not something that we want `optim()` to change, and therefore we pass it as an argument outside the `par` vector.
+
+For our purposes (minimizing SSE) we may therefore use the function as follows (see clarifications after code execution):
+
+```{r}
+opt <- optim(par = c(0.1, algerian_exports$Exports[1]), # vector of parameters
+                                                        # to be minimized
+             fn = my_ses_sse, # The function to be minimized
+             y = algerian_exports$Exports)
+```
+
+Let us discuss the code above:
+
+* `par`: is a vector providing initial values of the parameters for which we would like to find optimal values
+  + We specify `0.1` as an initial value for $\alpha$ because it corresponds to an exponential smoothing method that takes sufficient past information into account (for small alpha more weight is assigned to observations in the past). This is sensible as a starting point for the search for $\alpha$.
+  + We specify the first value of the series as an estimate of $l_0$ because it is a good estimation of the level of a series. All we are saying is that, since $l_0$ is equal to the fitted value at $t=1$ (forecast equation at $t=1$ with $h=1$), a good estimate of $l_0$ is $y_1$, since $y_1$ is a good estimate of $\hat{y_{1|0}}$ (the series can be used as estimate of the fitted values).
+  
+$$
+l_0 = \hat{y_{1|0}} \sim y_1
+$$
+  
+Now let us examine the output:
+
+```{r}
+opt
+```
+The object contains the following subobjects we may extract using the `$` sign:
+
+* `par`: optimal value of the parameters after having run the optimization process. The first one is the value of $\alpha$ and the second one the value of $l_0$. This is the order we defined for the vector `par`.
+* `value`: is the value of the function to be minimized. In our case, the sum of squared errors. It is therefore the SSE for the final values of $\alpha$ and $l_0$ returned.
+* `counts`: indicates the amount of calls to `fn` during the iterative process followed for optimization. The bigger this number, the longer the optimization process took.
+* `convergence` = 0 indicates that the optimization algorithm successfully converged.
+
+Note that we may extract the optimal value of the parameters resulting from the optimization process as a vector with the code below:
+
+```{r}
+optimal_params <- opt$par
+optimal_params
+```
+
+For comparison purposes, let us fit a simple exponential smoothing method using the `fable` library:
+
+```{r}
+fit <- algerian_exports %>%
+  model(ETS(Exports ~ error("A") + trend("N") + season("N")))
+
+optimal_params_fable <- tidy(fit) %>% pull(estimate)
+
+optimal_params_fable 
+```
+
+```{r}
+# Print for comparison
+opt$par
+```
+
+We can see that the values returned by `optim()` match quite closely the values returned by `fable`. The slight difference between them is most likely due to the **initial values picked for the parameters $\alpha$ and $l_0$**. The optimization method used by optim may also be different. The initial values picked up in an iterative optimization have an impact both on the convergence of the algorithm as well as on the final value reached. In this case they led to successful convergence, but the values attained have small differences compared to those yielded by `fable`.
+
+It is also not fully clear that `optim()` and `fable` are using the same optimization algorithm, but for the problem at hand they lead to very similar values.
+
+## 5. Use the functions you have written in combination with `optim()` to find the values of $\alpha$ and $l_0$ that result in a best fit for an SES model applied to Argentinian exports:
+
+Note that, due to the overall lack of trend on the time series, an SES model can be appropriate in this case.
+
+```{r}
+arg_exports <- global_economy %>%
+                  filter(Country == "Argentina") %>%
+                  select(Year, Exports)
+
+arg_exports %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+y <- arg_exports$Exports
+alpha <- 0.1
+l_0 <- arg_exports$Exports[1]
+
+opt <- optim(par = c(alpha, l_0), # vector of parameters
+                                  # to be optimized
+             fn = my_ses_sse, # The function to be minimized
+             y = arg_exports$Exports)
+
+opt
+```
+
+### 5.1 Compare these values of $\alpha$ and $l_0$ to those generated when fitting an SES model to this data using the `fable()` library. Are they close?
+
+```{r, include=params$print_sol}
+fit <- arg_exports %>%
+  model(ETS(Exports ~ error("A") + trend("N") + season("N")))
+
+optimal_params_fable <- tidy(fit) %>% pull(estimate)
+
+optimal_params_fable 
+```
+
+```{r, include=params$print_sol}
+all.equal(optimal_params_fable, opt$par)
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+# We can see that there is a slight difference between the parameters due to 
+# the numerical effects presented in section 4 on this notebook. But overall, 
+# they match very closely.
+```
+

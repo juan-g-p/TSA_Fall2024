@@ -1,0 +1,290 @@
+---
+title: "6_7_CV_Practice_1_Solved"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# Example: Algeria's exports
+
+```{r}
+alg_exports <- global_economy %>% filter(Country == "Algeria") %>% select(Year, Exports)
+
+autoplot(alg_exports)
+```
+
+```{r}
+
+```
+
+## Section 1. Taking a look at the time-plot of the data, which one of the following methods do you think coud work best for this data?
+
+* Mean model
+* Naïve model
+* Seasonal Naïve model
+* Drift model
+* Simple Exponential Smoothing
+
+**Answer:** since we have data that does not appear to have clear trend or seasonality, we are going to pick the `Naïve` and the `Mean` model and an `SES` model as something in between those two models. Recall that, for $\alpha = 1$, `SES` becomes a Naïve model (see session 14_1).
+
+## Section 2. Pick three models from the foregoing list and fit them to the data, performing cross validation to assess their performance:
+
+### S2. Step 1: Create the set of training datasets using `stretch_tsibble()`:
+
+Be sure to specify an initial size of the training dataset sufficient for a forecasting horizon of 8.
+
+```{r, include=params$print_sol}
+alg_exports_cv <- alg_exports %>%
+  stretch_tsibble(.init = 8, .step = 1)
+
+# Inspect result
+alg_exports_cv
+```
+#### Briefly explain the output of step 1
+
+* What type of object is obtained as a result of step 1? 
+
+`alg_exports_cv` is a tsibble containing all the training datasets created by `stretch_tsibble()`. The column `.id` is an identifier indicating the training dataset to which an observation belongs.
+
+* How many training datasets have been generated?
+
+```{r}
+alg_exports_cv %>% pull(.id) %>% max
+```
+* What are the dimensions of this object?
+
+```{r}
+dim(alg_exports_cv)
+```
+
+* Compute a table that includes both the `.id` of the training dataset and the number of observations in each dataset.
+
+```{r, include=params$print_sol}
+# Talbe detailing dimensions of each training dataset
+alg_exports_cv %>%
+  as_tibble() %>% # Cast to a tibble to be able to do away with time index
+  group_by(.id) %>%
+  summarize(
+    size = n()
+  )
+```
+
+### S2. Step 2: Fit the models
+
+```{r, include=!params$print_sol}
+# Fit the models
+```
+
+```{r, include=params$print_sol}
+# Fit the models
+alg_fit_cv <- alg_exports_cv %>%
+  model(
+    `Naïve` = NAIVE(Exports),
+    Mean = MEAN(Exports),
+    SES = ETS(Exports ~ error("A") + trend("N") + season("N"))
+  )
+
+alg_fit_cv
+```
+#### Briefly explain the output of step 2:
+
+* What type of object is obtained as a result of step 2?
+
+Using the terminology of the `fable` the result is a `mable`, that is a model table containing three models (three columns) per training dataset (51 rows).
+
+* What are the dimensions of this object?
+
+4 columns: the first one indicating the training dataset and the rest indicating the fitted model
+
+51 rows: one row per training dataset
+
+* How many models have been fitted in this step?
+
+```{r}
+51 * 3 
+```
+### S2. Step 3: Generate the forecasts
+
+#### S2. Step 3.1: generate forecasts of up to 8 steps into the future.
+
+```{r, include=params$print_sol}
+alg_fc_cv <- alg_fit_cv %>%
+  forecast(h = 8)
+
+alg_fc_cv
+```
+
+##### Briefly explain the output of step 3.1
+
+* What does each row represent?
+
+Each row is the forecast at a specific horizon for a given training dataset (column `.id`) and a given model (column `.model`).
+
+* How many forecasts have been generated?
+
+Since we set the forecast horizon to 8, the number of forecast generated is
+
+```{r}
+8 * 3 * 51
+```
+
+We see that this is equal to the number of rows in the `fable`
+
+```{r}
+nrow(alg_fc_cv) == 8*3*51
+```
+
+* What are the dimensions of the output and why?
+
+The table has 1224 rows because we have set a forecast horizon of 8 and are working with 3 models and 51 training datasets.
+
+#### S2. Step 3.2: create a new column `h` signaling the number of steps into the future of each of the forecasts:
+
+```{r, include=params$print_sol}
+alg_fc_cv <- alg_fc_cv %>%
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "Exports", distribution = Exports)
+
+alg_fc_cv
+```
+### S2. Step 4: generate cross-validated accuracy metrics for each forecast horizon
+
+Retain only the MAE, RMSE, MAPE, MASE, RMSSE columns
+
+```{r, include=params$print_sol, warning=FALSE, message=FALSE}
+summary_cv <- alg_fc_cv %>%
+                accuracy(alg_exports, by = c("h", ".model")) %>%
+                select(h, .model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+
+summary_cv
+```
+
+#### Briefly explain the output of step 4:
+
+NOTE: I have generated the accuracy metrics on the `Test` dataset. This is what should be done by default unless otherwise specified/necessary for whatever the reason, since the proper way to test a model is to expose it to data it has not previously been trained on.
+
+* What does each row represent?
+
+Each row of the result provides the accuracy metrics of a specific model (`Mean`, `Naïve` or `SES`) for a given forecast horizon (column `h`). 
+
+These metrics have been generated averaging the performance of each of the 153 models fitted initially for every forecast horizon. Each model has been tested against its corresponding testing dataset. That is:
+
+* For a given forecast horizon `h`:
+  + The forecast of all the 153 models for that forecast horizon is produced.
+  + The forecast is compared against its corresponding true value contained in its matching test dataset.
+  + The error of each forecast is computed and they are averaged to produce the resulting metric.
+
+We will see how this is done in section 3 of the assignment.
+
+* What are the dimensions of the output?
+
+We had chosen three different kind of models and we wanted to produced cross validated accuracy metrics for a forecast horizon of up to 8. The resulting table has therefore 24 rows. One row per model and forecast horizon.
+
+```{r}
+3*8
+```
+
+* How do these metrics relate to the metrics of each of the models generated in the previous steps?
+
+As explained before the metrics are the result of averaging the performance of all of the 153 models fitted during cross validation for each forecast horizon.
+
+## Section 3. Starting from the output of step 3.2 of section 2 (S2. Step 3.2)
+
+This part of the assignment is designed to show you how the averaging process over all the training datasets to produce cross-validated accuracy metrics is performed.
+
+### S3. Step 1: Compute accuracy metrics for each combination of training dataset (`.id`), model (`.model`) and forecast horizon (`h`). 
+
+* Retain the columns for `.id, h, .model, .type, MAE, RMSE`
+
+```{r}
+#NOTE: running this snippet actually generates many warning messages due to NAs that have been ommitted here
+summary_cv_spread <- alg_fc_cv %>%
+                      accuracy(alg_exports, by = c(".id", "h", ".model")) %>%
+                      select(.id ,h, .model, .type, MAE, RMSE)
+
+summary_cv_spread
+```
+
+```{r}
+
+```
+
+* **What does the result represent?**
+
+By computing accuracy metrics for every combination of training dataset (`.id`), model (`.model`) and forecast horizon (`h`), we are essentially computing the `MAE` and `RMSE` of every single forecast. Look at session 15 and remember that, in cross-validation as implemented in the `fable` library, the test datasets have size 1.
+
+* Recall that, on `S2. Step 3.1`, we had generated a table with 1224 forecast and the tsibble with the accuracy metrics above has exactly that number of rows.
+
+* **Why do the columns for MAE and RMSE coincide**
+
+If $e_t$ is the vector of forecast errors, recall that the formulas for the $MAE$ and $RMSE$ are:
+
+$$
+  \text{MAE} = \text{mean}(|e_t|)
+$$
+
+$$
+  \text{RMSE} = \sqrt{\text{mean}({e_t}^2)}
+$$
+
+If the vector of forecast errors consists of a single element (as is the case here since we are evaluating the MAE and RMSE for every single forecast), the MAE and RMSE coincide.
+
+To better understand this have a look at session 15, specifically at the two exercises where the error metrics are computed manually.
+
+* **Have NAs been generated?**
+
+Yes. Let us extract the rows of the result for which at least one column is NA.
+
+```{r}
+summary_cv_spread[rowSums(is.na(summary_cv_spread)) > 0,]
+```
+
+We see that the `NAs` generated correspond to the final training datasets. For these training datasets, the matching test dataset is smaller than 8 (the desired forecast horizon) because we are reaching the end of the dataset. 
+
+Think of it in terms of the figure below. Just as in the figure below the last three training datasets do not have a  matching test dataset for a forecast horizon of 4, in our case from training dataset 44 onwards (see output of code snippet above) the same occurs.
+
+```{r, echo=FALSE, out.width='80%', fig.align="center"}
+knitr::include_graphics('./figs/15_2_Cross_Valid_3.png')
+```
+
+### S3. Step 2: starting from the output of S3. Step 1, average the results adequately over all the training datasets to produce an overall MAE and RMSE for every combination of model (`.model`) and forecast horizon (`h`)
+
+```{r}
+summary_cv_manual <- summary_cv_spread %>%
+  group_by(h, .model, .type) %>%
+  summarize(
+    MAE = mean(MAE, na.rm = TRUE), # Due to the missing values, we require na.rm = TRUE
+    RMSE = sqrt(mean(RMSE^2, na.rm = TRUE)) # Due to the missing values, we require na.rm = TRUE 
+  ) %>%
+  ungroup()
+
+summary_cv_manual
+```
+
+### S3. Step 3: compare the output of S3. Step2 to the output of S2. Step4
+
+```{r}
+sum(!(summary_cv %>% select(MAE, RMSE) == summary_cv_manual %>% select(MAE, RMSE)))
+```
+The above comparison indicates that all the elements of the columns MAE and RMSE coincide. Essentially it compares the two vectors component by component. If the components are equal, the component of the output is true. Then it negates the output so that `TRUE` becomes `FALSE` and vice-versa and then it performs the sum, indicating that all elements coincide.
+
+Another way implemented in R to compare two numeric (float) vectors element by element is:
+
+```{r}
+identical(summary_cv %>% select(MAE, RMSE), summary_cv_manual %>% select(MAE, RMSE))
+```
+
+In conclusion, we have manually averaged the accuracy metrics over all the training datasets and reached the output of the cross-validation metrics we computed before using the library `fable`. This was a great exercise to enhance our understanding. 
+
+You should now understand what we mean when we say that cross-validation returns metrics averaged over all the training datasets.

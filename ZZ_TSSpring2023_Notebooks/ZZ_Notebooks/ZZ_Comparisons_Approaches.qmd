@@ -1,0 +1,106 @@
+---
+title: "MAs of MAs - comparison of approaches"
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r}
+library(fpp3)
+```
+
+# Approach explained in class
+
+Requires to compute only two moving averages: 4-MA and 2x4-MA.
+
+```{r}
+beer <- aus_production %>%
+  mutate(year = year(Quarter)) %>% 
+  filter(year >= 1992) %>%
+  select(Quarter, Beer)
+```
+
+```{r}
+beer_ma_1 <- 
+  beer %>%
+  mutate(
+    
+    # Initial window: from y_t-1 to y_t+2
+    `4-MA` = slider::slide_dbl(Beer, mean,
+                .before = 1, .after = 2, .complete = TRUE),
+    
+    # Subsequent moving average including 4-MA_t-1 and 4-MA_t
+    # to have a final result that is centered.
+    `2x4-MA` = slider::slide_dbl(`4-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+
+beer_ma_1 %>% select(Quarter, Beer, `4-MA`, `2x4-MA`)
+``` 
+
+# Your approach
+
+Requires computing 3 moving averages.
+
+* 4-MA_fwd:
+* 4-MA-bwd:
+* 2x4MA
+
+```{r}
+beer_ma_2 <-
+  beer %>% 
+  mutate(
+    # Window: from y_t-1 to y_t+2
+    `4-MA_fwd` = slider::slide_dbl(Beer, mean,
+                .before = 1, .after = 2, .complete = TRUE),
+    
+    # Window: from y_t-1 to y_t+2
+    `4-MA_bwd` = slider::slide_dbl(Beer, mean,
+                .before = 2, .after = 1, .complete = TRUE),
+    
+    # Average both
+    `2x4-MA` = 0.5 * (`4-MA_fwd` + `4-MA_bwd`)
+  )
+```
+
+# Check that both are the same
+
+## Option 1: use the function `identical()`
+
+Capable of bitwise comparison. 
+
+```{r}
+identical(beer_ma_1$`2x4-MA`, beer_ma_2$`2x4-MA`)
+```
+
+## Option 2: round to a specific number of decimals and compare
+
+When comparing decimals, particularly if the operations performed to reach the final result differ, there may be some round-off errors that result in small differences for small decimal points. That is why rounding makes sense
+
+```{r}
+n_decimals = 10
+
+# Select values where both vectors are not NA
+ma_1 <- beer_ma_1$`2x4-MA`[!is.na(beer_ma_1$`2x4-MA`)]
+ma_2 <- beer_ma_2$`2x4-MA`[!is.na(beer_ma_2$`2x4-MA`)]
+
+# Round vectors
+round_beerma1 <- round(ma_1, n_decimals)
+round_beerma2 <- round(ma_2, n_decimals)
+
+# Check if vectors are equal
+sum(!(round_beerma1 == round_beerma2))
+```
+This result is 0, which meand that the vectors are equal at least down to 10 decimals precision. Think about it.
+
+
+```{r}
+
+!is.na(beer_ma_1$`2x4-MA`)
+```
+

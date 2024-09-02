@@ -1,0 +1,904 @@
+---
+title: "06_2_A_ESmoothing_Trended"
+format: html
+editor: source
+params:
+  print_sol_part: false
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Libraries
+
+```{r}
+library(fpp3)
+library(patchwork)
+```
+
+# References
+
+1. Hyndman, R.J., & Athanasopoulos, G. (2021). *Forecasting: principles and practice* (3rd ed.). [https://otexts.com/fpp3/](https://otexts.com/fpp3/)
+
+2. Fable package documentation. Retrieved from: 
+    * [https://fable.tidyverts.org/index.html](https://fable.tidyverts.org/index.html) and 
+    * [https://fable.tidyverts.org/articles/fable.html](https://fable.tidyverts.org/articles/fable.html)
+
+3. Hyndman, R. J., Koehler, A. B., Ord, J. K., & Snyder, R. D. (2008). *Forecasting with exponential smoothing: The state space approach*. Springer-Verlag.
+
+# Note
+
+This notebook is not original material, but rather based on ref. 1 with notes expanding on some of the concepts contained in the book.
+
+# **Motivation**
+
+So far we have seen **Simple Exponential Smoothing**, a forecasting model that lied in between the Mean and the Naive models:
+
+-   The [**naive**]{.underline} model assigned **a constant value to all future forecasts**, the **last observation**. It assigns all the weight to the latest observation
+
+-   The [**mean**]{.underline} model **assigned a constant value to all future forecasts** with an [**equal weight for each observation regardless of when it occurred**]{.underline}**.**
+
+-   [**Simple Exponential Smoothing**]{.underline} also assigns a [**constant value to all future forecast**]{.underline}, but this value is a weighted average that assigns the bigger weights to the most recent observations. The further in the past an observation lies, the smaller its assigned weight.
+
+We now want to **introduce trend and seasonality in exponential smoothing**
+
+Let us first recall the component form of simple exponential smoothing:
+
+```{=tex}
+\begin{align*}
+  \text{Forecast equation}  && \hat{y}_{t+h|t} & = \ell_{t}\\
+  \text{Smoothing equation} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
+\end{align*}
+```
+-   $l_t$ is the level (or the smoothed value) of the series at time $t$
+
+-   $h = 1$ gives the fitted values
+
+-   $t = T$ gives the true forecasts beyond the training data
+
+**Forecast equation**
+
+-   The forecast at *t+1* is the *estimated level at time t*.
+
+**Smoothing equation**
+
+-   The *smoothing equation* gives the *estimated level of the series at each period t*.
+
+**Flat forecasts**
+
+-   SES has a flat forecast function --\> all forecasts take the same value, equal to the last level component.
+
+```{=tex}
+\begin{align*}
+\hat{y}_{T+h|T} = \hat{y}_{T+1|T}= l_T \qquad h=2,3,\dots.
+\end{align*}
+```
+
+# Holt's Linear Trend Method
+
+Holt extended Simple Exponential Smoothing to allow the forecasting of data with trend.
+
+## Component form of the equations
+
+Unlike for Simple Exponential Smoothing, we will not derive the equations. We will accept them and then interpret them further down below. For those interested, see reference 3.
+
+**Differences with Simple Exponential Smoothing:**
+
+* Introduces new parameter for the **trend:** $b_t$ (analogous to the level $l_t$).
+    * This implies inroducing a **new equation for the trend**.
+* The trend has its own smoothing parameter $\beta^*$ (analogous to $\alpha$).
+
+$$
+\begin{align*}
+  \text{Forecast equation}&& \hat{y}_{t+h|t} &= \ell_{t} + hb_{t} \\
+  \text{Level equation}   && \ell_{t} &= \alpha y_{t} + (1 - \alpha)(\ell_{t-1} + b_{t-1})\\
+  \text{Trend equation}   && b_{t}    &= \beta^*(\ell_{t} - \ell_{t-1}) + (1 -\beta^*)b_{t-1}
+\end{align*}
+$$
+
+where:
+
+* $lt$ denotes an **estimate of the level of the series at time t.**
+* $b_t$ denotes an **estimate of the trend (slope) of the series at time t.**
+* $\alpha$ is the **smoothing paraeter for the level.** $0 <= \alpha <= 1$
+* $\beta^*$ is the **smoothing parameter for the trend**. $0 <= \beta^* <= 1$.
+    * The reason for using $\beta^*$ instead of $\beta$ will be explained when talking about innovations state space models.
+
+## Equations for the fitted values
+
+To understand how these equations help fit a time series with trend, let us particularize the forecast equation for $h=1$ (fitted values are one-step ahead forecasts on the training data). We will subsequently particularize the equation at time $t$ instead of the resulting $t+1$ to make it consistent with the level and trend equations:
+
+$$
+\begin{align*}
+  \text{Forecast equation for h = 1} && \hat{y}_{t+1|t} &= \ell_{t} + 1 \cdot b_{t} \\
+  \text{Particularize for t instead t+1} && \hat{y}_{t|t-1} &= \ell_{t-1} + 1 \cdot b_{t-1} && \text{(fitted value at t)} \\
+\end{align*}
+$$
+
+Therefore, the **equations for the fitted values are:**
+
+$$
+\begin{align*}
+\text{Fitted value at t}&& \hat{y}_{t|t-1} &= \ell_{t-1} + b_{t-1} \\
+  \text{Level at t}   && \ell_{t} &= \alpha y_{t} + (1 - \alpha)(\ell_{t-1} + b_{t-1})\\
+  \text{Trend at t}   && b_{t}    &= \beta^*(\ell_{t} - \ell_{t-1}) + (1 -\beta^*)b_{t-1}
+\end{align*}
+$$
+
+**These equations allow us to determine the fitted values if given**: 
+
+1. The values of the smoothing parameters $\alpha$, $\beta^*$.
+2. An initial value for the level $l_{0}$.
+3. An initial value for the trend $b_{0}$.
+
+The **process to compute the fitted values having this data is as follows:**
+
+* For $t = 1$:
+    1. $\hat{y}_{1|0} = \ell_{0} + b_{0}$
+    2. $l_{1} = \alpha y_{1} + (1 - \alpha)(l_{0} + b_{0})$
+        * The value of $l_1$ will be used in the trend equation next.
+    3. $b_{1} = \beta^*(l_{1} - l_{0}) + (1 -\beta^*)b_{0}$
+    
+* For $t = 2$: we proceed in the same manner after having computed $l_1$ and $b_1$
+* For $t = 3$: we proceed in the same manner after having computed $l_2$ and $b_2$
+* ...
+
+The figure below helps picture the process:
+
+![](figs/trended_ets.png){fig-align="center" width="100%"}
+
+### Interpreting the equations
+
+Now we are ready to make an interpretation of the equations.
+
+#### Level equation
+
+The **level equation** shows that $l_t$ **is a weighted average of the observation** $y_t$ and the **one-step-ahead training forecast for time t**. This weighted average is determined by the parameter $\alpha$. That is, $\alpha$ is the smoothing parameter for the level.
+
+$$
+\begin{align*}
+  \text{Level equation}   && \ell_{t} &= \alpha \underbrace{y_{t}}_{\substack{\text{observation} \\ \text{at time } t}} + (1 - \alpha)\underbrace{(\ell_{t-1} + b_{t-1})}_{\substack{\text{one-step ahead} \\ \text{forecast at } t}}
+\end{align*}
+$$
+
+* **NOTE:** we can see that $\ell_{t-1} + b_{t-1}$ is the one step ahead forecast at time $t$ by particularizing the forecast equation at time $t$ and substituting for $h = 1$. That is: $1 \cdot b_{t}$
+
+$$
+\begin{align*}
+  \text{Forecast equation for h = 1} && \hat{y}_{t+1|t} &= \ell_{t} + 1 \cdot b_{t} \\
+  \text{Particularize for t instead t+1} && \hat{y}_{t|t-1} &= \ell_{t-1} + 1 \cdot b_{t-1} \\
+\end{align*}
+$$
+
+* As you can see, this shows that $\ell_{t-1} + b_{t-1}$ is the one step ahead forecast at time $t$.
+
+#### Trend equation
+
+The **trend equation** shows that $b_t$ **is a weighted average of the estimated trend at time t and the previous estimate of the trend**. This weighted average is determined by the parameter $\beta^*$
+
+$$
+\begin{align*}
+  \text{Trend equation}   && b_{t}    &= \beta^*\underbrace{(\ell_{t} - \ell_{t-1})}_{\substack{\text{estimated trend} \\ \text{at time } t}} + (1 -\beta^*)\underbrace{b_{t-1}}_{\substack{\text{previous} \\ \text{estimate} \\ \text{of the trend}}}
+\end{align*}
+$$
+
+* **NOTE:** $\ell_{t} - \ell_{t-1}$ is an **estimate of the trend at time $t$ in terms of $l_t$ and $l_{t-1}$**. That is, only in terms of the information up to $t$ (not beyond $t$). 
+    * If we take the level $l_t$ as an estimate of the value of time series, then the difference between consecutive levels divided by 1 (the distance in timesteps between $l_t$ and $l_{t-1}$) is an estimate of the slope at time t. The figure below should clarify this:
+
+![](figs/trend_estimate.png){fig-align="center" width="65%"}
+
+#### Equation for the fitted values
+
+The fitted value at time t is simply the previous level plus the previous slope. That is: **starting at $l_{t-1}$ advancing one timestep with the slope $b_{t-1}$ the fitted value at $t$ is obtained.**
+
+$$
+\begin{align*}
+  \text{Fitted value at t}&& \hat{y}_{t|t-1} &= \ell_{t-1} + 1 \cdot b_{t-1} \\
+\end{align*}
+$$
+
+## Equation for the forecasts
+
+Once the fitted values $\hat{y_t}$, the levels $l_t$ and the slopes $b_t$ have been computed **for every value of $t$ in the training region (from $t=1$ to $t=T$)** (that is, once we have computed the fitted values), the forecasts are given by:
+
+$$
+\begin{align*}
+\text{Forecast equation}&& \hat{y}_{T+h|T} &= \ell_{T} + hb_{T}
+\end{align*}
+$$
+
+
+By design, the **forecast function** is **no longer flat but trending with a constant slope $b_T$ (the last estimate of the trend)**
+
+-   **h-step ahead forecast** is equal to the **last estimated level $l_T$** plus **h times the last estimated trend value $b_T$** As such, the forecasts are a **linear function of h**.
+
+## Effect of the value of $\beta*$
+
+A value of the parameter beta that is too high can result in a trend component that is too responsive and leads to fitted values that follow the data too closely. Following all the small floctuations in the data leads to overfitting. 
+
+The following graph shows a time series (in red) and the corresponding fited values for $\alpha=0.4$ and $\beta$ ranging from 0 to 1.
+
+```{r, include=FALSE}
+aus_economy <- global_economy %>%
+  filter(Code == "AUS") %>%
+  mutate(Pop = Population / 1e6)
+
+betas = seq(0, 1, 0.01)
+
+df <- 
+  aus_economy %>% 
+    as_tibble() %>% 
+    mutate(Pop = Population / 1e6) %>% 
+    select(Year, Pop)
+
+n = nrow(df)
+y = df$Pop
+
+for (beta in betas) {
+
+  # alpha = max(beta, 1*beta)
+  alpha = 0.4
+  # alpha = min(0.4, 3.5*beta)
+  l = numeric(n)
+  b = numeric(n)
+  yhat = numeric(n)
+  
+  l_0 = y[1]
+  b_0 = y[2] - y[1]
+  
+  # First iteration in terms of initial estimates (alpha = 0.1)
+  l[1] = alpha*y[1] + (1-alpha)*(l_0 + b_0)
+  b[1] = beta*(l[1] - l_0)  + (1-beta)*(b_0)
+  yhat[1] = l_0 + b_0
+  
+  # Compute fitted values (alpha = 0.1)
+  for (i in seq(2, nrow(df))) {
+  
+      l[i] = alpha*y[i] + (1-alpha)*(l[i-1] + b[i-1])
+      b[i] = beta*(l[i]-l[i-1]) + (1-beta)*b[i-1]
+      yhat[i] = l[i-1] + b[i-1]
+  
+  } 
+  
+  df[[paste0("l_" , beta)]] = l
+  df[[paste0("b_" , beta)]] = b
+  df[[paste0("y_" , beta)]] = yhat
+
+}
+
+df <- 
+  df %>%
+    pivot_longer(
+      cols = l_0:y_1,
+      names_to = "var",
+      values_to = "value"
+    ) %>%
+    mutate(
+      beta = sapply(strsplit(var, "_"), `[`, 2),
+      beta = as.numeric(beta)
+    ) %>% 
+    arrange(beta, var, Year)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(plotly)
+library(stringr)
+
+df_data <- 
+  aus_economy %>% 
+  as_tibble() %>% 
+  select(Year, Pop) %>% 
+  mutate(value = Pop)
+
+
+fig <- 
+  df %>%
+  filter(str_starts(var, "y")) %>% 
+  plot_ly(
+    x = ~Year, 
+    y = ~value, 
+    frame = ~beta,
+    type = "scatter",
+    mode = "lines",
+    name = "fitted"
+  ) %>% 
+  add_lines(x = df_data$Year, 
+            y = df_data$Pop, 
+            inherit = FALSE,
+            line = list(
+                        width = 1,
+                        color = "red",
+                        dash = "dot"
+                        ),
+            name = "data"
+            )
+
+
+fig %>% animation_opts(frame = 25, redraw = FALSE)
+```
+
+## Fitting process
+
+Fitting Holt's Method to a time series implies the following process to minimize the Sum of Squared Residuals (SSE). In this case, we are not going to implement this from scratch as we did for simple exponential smoothing. An understanding of the process is sufficient.
+
+![](figs/flowchart_trended_exp_smoothing.png){fig-align="center"}
+
+As an example, the table below shows steps 1 and 2 assuming initial estimated values $\hat{\alpha} = 0.9999$, $\hat{\beta^*} = 0.3267$, $l_t = 10.05$ and $b_t = 0.22$. The table also extends ten steps beyond the training data, generating the corresponding forecasts, based on the latest fitted values of the level, the slope and the smoothing parameters:
+
+| Year | Time     | Observation | Level    | Slope    | Forecast          |
+|------|----------|-------------|----------|----------|-------------------|
+|      | $t$      | $y_t$       | $l_t$    |          | $\hat{y}_{t+1|t}$ |
+| 1959 | 0        |             | 10.05    | 0.22     |                   |
+| 1960 | 1        | 10.28       | 10.28    | 0.22     | 10.28             |
+| 1961 | 2        | 10.48       | 10.48    | 0.22     | 10.50             |
+| 1962 | 3        | 10.74       | 10.74    | 0.23     | 10.70             |
+| 1963 | 4        | 10.95       | 10.95    | 0.22     | 10.97             |
+| 1964 | 5        | 11.17       | 11.17    | 0.22     | 11.17             |
+| 1965 | 6        | 11.39       | 11.39    | 0.22     | 11.39             |
+| 1966 | 7        | 11.65       | 11.65    | 0.23     | 11.61             |
+|      | $\vdots$ | $\vdots$    | $\vdots$ | $\vdots$ | $\vdots$          |
+| 2014 | 55       | 23.50       | 23.50    | 0.37     | 23.52             |
+| 2015 | 56       | 23.85       | 23.85    | 0.36     | 23.87             |
+| 2016 | 57       | 24.21       | 24.21    | 0.36     | 24.21             |
+| 2017 | 58       | 24.60       | 24.60    | 0.37     | 24.57             |
+|      | $h$      |             |          |          | $\hat{y}_{T+h|T}$ |
+| 2018 | 1        |             |          |          | 24.97             |
+| 2019 | 2        |             |          |          | 25.34             |
+| 2020 | 3        |             |          |          | 25.71             |
+| 2021 | 4        |             |          |          | 26.07             |
+| 2022 | 5        |             |          |          | 26.44             |
+| 2023 | 6        |             |          |          | 26.81             |
+| 2024 | 7        |             |          |          | 27.18             |
+| 2025 | 8        |             |          |          | 27.55             |
+| 2026 | 9        |             |          |          | 27.92             |
+| 2027 | 10       |             |          |          | 28.29             |
+
+------------------------------------------------------------------------
+
+### Exercise: reproduce this table in excel (template given by the professor)
+
+## R Example: Australian Population
+
+Australia's population from 1960 to 2017.
+
+```{r}
+aus_economy <- global_economy %>%
+  filter(Code == "AUS") %>%
+  mutate(Pop = Population / 1e6)
+autoplot(aus_economy, Pop) +
+  labs(y = "Millions", title = "Australian population")
+```
+
+Clearly, this is trended data. Trended exponential smoothing is therefore sensible.
+
+The `fable` library performs all the fitting automatically using the following commands
+
+```{r}
+fit <- aus_economy %>%
+  model(
+    AAN = ETS(Pop ~ error("A") + trend("A") + season("N"))
+  )
+```
+
+Remember the output is a `mable` or `model table`. In other words, a table object containing the model objects we fitted (in this case only one model)
+
+```{r}
+fit
+```
+
+As always, we can check the values of the parameters using the function `tidy`
+
+```{r}
+tidy(fit)
+```
+
+We may also extract the fitted values and other information using augment. In he example below I also compute the sum of square residuals compute the sum of square residuals using `augment()`
+
+```{r}
+fitted_vals <- 
+  fit %>% 
+  augment()
+
+resid <-  fitted_vals$.innov
+
+# Sum of squared residuals
+SSE <- sum(resid^2)
+SSE
+```
+
+We may generate forecasts as usual using `forecast()` on the fitted object:
+
+```{r}
+fc <- 
+  fit %>% 
+  forecast(h = 10)
+
+fc %>% autoplot(aus_economy, level = NULL) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+As expected, the **h-step ahead forecast** is equal to the **last estimated level** plus **h times the last estimated trend value.** As such, the forecasts are a **linear function of h**.
+
+### Components of the model
+
+They way in which exponential smoothing proceedes may be considered as a decomposition of the time series in terms of multiple components. In the trended case, in **level $l_t$** and **slope $b_t$**.
+
+**We may use the function `components()` on an ETS model to retrieve the values of these components in the training region**. In the code above, note that we get **an additional year 1959 corresponding to $t=0$, where we have $l_0$ and $b_0$**.
+
+```{r}
+holts_components <- 
+  fit %>% 
+    components()
+
+holts_components
+```
+
+```{r}
+# Depict the components
+holts_components %>% autoplot()
+```
+
+Just as we did in the separate excel files, the fitted values may be computed from the trend and the slope returned when using `components()`, using the forecast equation particularized at $h=1$ and $t=t$ (equation derived previousl in this notebook):
+
+$$
+\begin{align*}
+\text{Fitted value at t}&& \hat{y}_{t|t-1} &= \ell_{t-1} + b_{t-1}
+\end{align*}
+$$
+
+```{r}
+# Use the equation for the fitted values
+holts_components <- 
+  holts_components %>% 
+  mutate(
+    .fitted = lag(level) + lag(slope) # Equation for the fitted vals
+  )
+```
+
+We may check that these are the same fitted values returned when using `augment()` on the model:
+
+```{r}
+# Vector of fitted values computed using augment
+fitted_augment <- 
+  fit %>% 
+    augment() %>% 
+    pull(.fitted)
+
+# Vector of fitted values computed using the components() and the equation
+fitted_components <- 
+  holts_components %>% 
+  pull(.fitted)
+
+# Remove NAs
+fitted_components <-  fitted_components[!is.na(fitted_components)]
+
+all.equal(fitted_augment, fitted_components)
+```
+
+# Damped trend methods
+
+-   **Holt's linear method** $\rightarrow$ constant trend
+    -   Problematic for longer forecasts horizons (forecasts too high)
+-   **Dampening parameter** $\rightarrow$ dampens the trend line to a flat line at some point in the future.
+    -   Very popular method, proven to be quite successful
+
+    -   **Additional parameter** on top of those included in Holt's method $0<\phi<1$
+
+    -   For $\phi = 1$ the method is equivalent to Holt's method
+
+    -   For $0 < \phi < 1$ the trend is dampened and the forecasts approach a constant value some time into the future. Specifically the value is:
+
+        -   $\ell_T+\phi b_T/(1-\phi)$ as $h \rightarrow \infty$
+
+The reason for the above value is that the dampening term is actually a geometric progression of ratio $\phi$:
+
+```{=tex}
+\begin{align*}
+  \text{Forecast equation dampened method} && \hat{y}_{t+h|t} &= \ell_{t} + (\phi+\phi^2 + \dots + \phi^{h})b_{t} \\
+  \text{Forecast equation Holt's method} && \hat{y}_{t+h|t} &= \ell_{t} + hb_{t} \\
+\end{align*}
+```
+As you can see the $h$ factor has been replaced by the following geometric progression:
+
+```{=tex}
+\begin{align*}
+  (\phi+\phi^2 + \dots + \phi^{h})
+\end{align*}
+```
+Since the ratio $\phi$ is smaller than 1, the geometric progression converges and its sum amounts to $\ell_T+\phi b_T/(1-\phi)$ as $h \rightarrow \infty$
+
+Usual values for $\phi$
+
+-   Rarely less than 0.8 (very strong effect for smaller values)
+-   Rarely greater than 0.98 (otherwise very similar to undamped model)
+
+## Damped example 1: specify a value for $\phi$ 
+
+```{r}
+fit_damped_1 <- 
+  aus_economy %>%
+    model(
+      holts = ETS(Pop ~ error("A") + trend("A") + season("N")),
+    
+    # Damping parameter explicitly set to 0.9
+     damped_holts = ETS(Pop ~ error("A") + trend("Ad", phi = 0.9) + season("N"))
+  )
+
+fc_damped_1 <-  
+  fit_damped_1 %>% 
+  forecast(h = 15) 
+
+fc_damped_1 %>%
+  autoplot(aus_economy, level = NULL) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+Let us re-format that output to build a table comparing the forecasts of both models:
+
+```{r}
+fc_damped_1 %>%
+  as_tibble() %>%
+  select(Year, .model, .mean) %>% 
+  pivot_wider(values_from = c(`.mean`), names_from = c(`.model`))
+```
+
+You can see that the damped method returns a lower forecast for every point, as expected.
+
+## Damped example 2: specify a range of possible values for $\phi$ and let ETS() picked the best
+
+**Specifying a grid of values for the value of phi**: we can specify a range of values for the parameter `phi` and let the `fpp3` library try multiple values until it finds the best fit:
+
+```{r}
+fit_damped_2 <-
+  aus_economy %>%
+      model(
+        holts = ETS(Pop ~ error("A") + trend("A") + season("N")),
+        
+        # Specify a grid of values c(0.8, 0.95) for phi
+        damped_holts = ETS(Pop ~ error("A") + 
+                                 trend("Ad", phi = NULL, phi_range=c(0.8, 0.95)) +
+                                 season("N")
+                      )
+    )
+```
+
+```{r}
+tidy(fit_damped_2)
+```
+
+```{r}
+fc_damped_2 <- 
+  fit_damped_2 %>% 
+  forecast(h = 15)
+
+fc_damped_2 %>%
+  autoplot(aus_economy, level = NULL) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+## Damped example 3: model without specifying $\phi$ and letting `ETS()` pick best value.
+
+Again, the best value picked will be that which minimizes SSE.
+
+```{r}
+fit_damped_3 <-
+  aus_economy %>%
+      model(
+        holts = ETS(Pop ~ error("A") + trend("A") + season("N")),
+        damped_holts = ETS(Pop ~ error("A") + trend("Ad") + season("N"))
+      )
+```
+
+```{r}
+tidy(fit_damped_3)
+```
+
+```{r}
+fit_damped_3 <- 
+  fit_damped_3 %>% 
+  forecast(h = 15)
+
+fit_damped_3 %>%
+  autoplot(aus_economy, level = NULL) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+# Exercise 1: internet usage
+
+Number of users connected to the internet via a server. Data observed over 100 minutes. Type `WWWusage` to find out more details aboout the dataset (loaded along the fpp3 package).
+
+```{r}
+# Convert time series object to tsibble object for compatibility with fable methods and tools
+www_usage <- as_tsibble(WWWusage)
+
+# Plot the data
+www_usage %>% 
+  autoplot(value) +
+  labs(x="Minute", y="Number of users",
+       title = "Internet usage per minute")
+```
+
+## 1. Fit models
+
+Fit the following models:
+
+1. A Simple exponential smoothing model
+2. A Holts additive model (exp. smoothing with additive trend)
+3. A damped Holts additive model (exp. smoothing with additive damped trend)
+
+```{r, include=params$print_sol_part}
+fit <-
+  www_usage %>%    
+    model(
+      ses = ETS(value ~ error("A") + trend("N") + season("N")),
+      holts = ETS(value ~ error("A") + trend("A") + season("N")),
+      damped_holts = ETS(value ~ error("A") + trend("Ad") + season("N"))
+      )
+
+fit
+```
+
+## 2. Briefly compare residuals of Holt's model and damped Holt's model
+
+```{r, include=params$print_sol_part}
+# Fitted values fr all models
+fitted_vals <- 
+  fit %>% 
+  augment()
+```
+
+```{r, include=params$print_sol_part}
+# Overcview of residuals for Holts model
+fit %>% 
+  select(holts) %>% 
+  gg_tsresiduals()
+```
+
+```{r, include=params$print_sol_part}
+# qq-plot and box-plot for Holts model
+model_vals <- 
+  fitted_vals %>% 
+  filter(.model == "holts")
+
+# Generate qq_plot
+p1 <- ggplot(model_vals, aes(sample = .innov))
+p1 <- p1 + stat_qq() + stat_qq_line()
+
+# Generate box-plot
+p2 <- ggplot(data = model_vals, aes(y = .innov)) +
+      geom_boxplot(fill="light blue", alpha = 0.7) +
+      stat_summary(aes(x=0), fun="mean", colour= "red") # Include the mean
+
+p1 + p2
+```
+
+```{r, include=params$print_sol_part}
+# Small bias. Could be corrected subtracting it from forecasts
+# It is probably negligible compared to the magnitude of what we are trying
+# to forecast.
+fitted_vals %>% 
+  filter(.model == "holts") %>% 
+  pull(.innov) %>% 
+  mean()
+```
+
+
+```{r, eval=FALSE,  include=params$print_sol_part}
+Residuals seem to be uncorrelated and fairly homoskedastic except perhaps for
+some local heteroskedasticity around 25.
+
+qqplot shows absence of normality
+
+Small bias that could probably be neglected
+```
+
+```{r, include=params$print_sol_part}
+# Damped holt model
+fit %>% 
+  select(damped_holts) %>% 
+  gg_tsresiduals()
+```
+
+```{r, include=params$print_sol_part}
+model_vals <- 
+  fitted_vals %>% 
+  filter(.model == "damped_holts")
+
+# Generate qq_plot
+p1 <- ggplot(model_vals, aes(sample = .innov))
+p1 <- p1 + stat_qq() + stat_qq_line()
+
+# Generate box-plot
+p2 <- ggplot(data = model_vals, aes(y = .innov)) +
+      geom_boxplot(fill="light blue", alpha = 0.7) +
+      stat_summary(aes(x=0), fun="mean", colour= "red") # Include the mean
+
+p1 + p2
+```
+
+```{r, include=params$print_sol_part}
+# Bigger bias than holts model. Probably still negligible against what we are
+# trying to forecast.
+# Nonetheless, it could be corrected
+fitted_vals %>% 
+  filter(.model == "damped_holts") %>% 
+  pull(.innov) %>% 
+  mean()
+```
+
+```{r, eval=FALSE,  include=params$print_sol_part}
+Residuals seem to be uncorrelated and fairly homoskedastic except perhaps for
+some local heteroskedasticity around 25.
+
+qqplot follows normality much better than in the holts case
+
+Small bias that could probably be neglected.
+```
+
+## 3. Perform forecasts
+
+Use the three models and depict the forecasts. Create two separate graphs:
+
+* **Graph 1:** forecasts of all model along with the historical data. Do not print confidence intervals
+* **Graph 2:** forecasts of the damped model with confidence intervals
+
+```{r, include=params$print_sol_part}
+fc <-  
+  fit %>% 
+  forecast(h=10) 
+```
+
+```{r, include=params$print_sol_part}
+fc %>% 
+  autoplot(www_usage, level=FALSE)
+```
+
+```{r, include=params$print_sol_part}
+fc %>% 
+  filter(.model == "damped_holts") %>% 
+  autoplot(www_usage)
+```
+
+# Exercise 2: Internet usage
+
+This exercise is somewhat of a repetition of exercise 1, only this time using cross validation.
+
+Fit the following models:
+
+1. A Simple exponential smoothing model
+2. A Holts additive model (exp. smoothing with additive trend)
+3. A damped Holts additive model (exp. smoothing with additive damped trend)
+
+
+```{r}
+# Convert time series object to tsibble object for compatibility with fable methods and tools
+www_usage <- as_tsibble(WWWusage)
+
+# Plot the data
+www_usage %>% 
+  autoplot(value) +
+  labs(x="Minute", y="Number of users",
+       title = "Internet usage per minute")
+```
+
+Use **cross-validation to assess which method works best for the data at hand**. 
+
+* Consider forecasts of up to a horizon of up to 10.
+* The smallest training dataset shall cover 80% of the observations.
+* Compute the accuracy metrics both for each forecast horizon and model as well as for each model averaged over all forecast horizons.
+
+When you are done, take your best model on average over all forecast horizons and:
+
+* Assess its residuals
+* Forecast 10 timesteps ahead and depict the forecasts along with the prediction intervals and the historical data.
+
+### Step 1: create training datasets
+
+Create the different datasets used for cross validation using `stretch_tsibble()`. Smallest dataset set to 10 observations.
+
+```{r, include=params$print_sol}
+www_usage_cv <- 
+  www_usage %>%
+  stretch_tsibble(.init = 10, .step=1)
+
+# Examine the table created
+www_usage_cv
+
+# Examine the number of datasets created
+www_usage_cv %>% pull(.id) %>% max()
+```
+
+### Step 2: fit models to training datasets
+
+Fit the models to be compared to the datasets used for cross-validation:
+
+```{r, include=params$print_sol}
+fit_cv <-
+  www_usage_cv %>%  
+    model(
+      SES = ETS(value ~ error("A") + trend("N") + season("N")),
+      Holt = ETS(value ~ error("A") + trend("A") + season("N")),
+      Damped = ETS(value ~ error("A") + trend("Ad") + season("N"))
+      )
+
+fit_cv
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+Recall that the output of this step is a `mable`, a model table containing 
+all the model objects fitted to the different datasets. The number of models 
+fitted is:
+
+3 model types * 91 datasets = 273 models.
+```
+
+### Step 3: Perform forecasts and compute accuracy metrics
+
+```{r, include=params$print_sol}
+fc_cv <- 
+  fit_cv %>% 
+  forecast(h=10) 
+
+fc_cv %>% 
+  accuracy(www_usage) %>% 
+  select(.model, MAE, RMSE)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+The damped model seems to perform substantially better both in terms of
+MAE and RMSE, so it will be the one selected.
+```
+
+```{r, include=params$print_sol}
+# We now FIT THE SELECTED MODEL TO THE ENTIRETY OF THE DATA AND FORECAST
+# BEYOND THE AVAILABLE DATA DATA.
+
+fit <- 
+  www_usage %>%
+  model(
+    Damped = ETS(value ~ error("A") + trend("Ad") + season("N"))
+  )
+
+tidy(fit)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+- alpha close to 1: the level is sensitive to each new observation
+- phi around 0.8: noticeable dampening of the trend. Recall from the theory
+                  part that phi is very rarely set below 0.8.
+
+**NOTE**: we should now evaluate residuals. We will not do it here to keep 
+          this simple example lean.
+
+**NOTE ABOUT CROSS-VALIDATION** sometimes different accuracy measures will 
+suggest different forecasting methods. A decision is required as to which 
+forecasting method we prefer to use.
+
+- Think about the **primary dimensions of your forecasting task**: length of 
+forecast horizon, size of test set, forecast error measures, 
+frequency of data...
+
+- Unlikely that one method will be better than all other in all dimensions. 
+Therefore important to think about the task at hand to select the best model
+for the specific task at hand
+```
+
+```{r, include=params$print_sol}
+#Finally let us perform and depict forecasts:
+fit %>%
+  forecast(h = 10) %>%
+  autoplot(www_usage) +
+  labs(x="Minute", y="Number of users",
+       title = "Internet usage per minute")
+```
+

@@ -1,0 +1,227 @@
+---
+title: "5_3_Ex2_Solution"
+author: "Juan Garbayo - TS Analysis - Spring 2023"
+format: html
+editor: source
+params:
+  print_sol: true
+  print_sol_int: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Exercise 2
+
+```{r}
+library(fpp3)
+```
+
+
+1. Take the dataset `vic_elec` and aggregate the data to obtain the daily demand using `index_by()`. The command below computes the classical decomposition considering a period of 1 week (instead of 1 year) having filtered for the year 2012.
+
+```{r}
+vic_elec_w <-
+  vic_elec %>%
+    index_by(Date) %>%
+    summarize(avg_demand = mean(Demand)) %>%
+    filter(year(Date) == 2012)
+
+vic_elec_w_dcmp <-
+  vic_elec_w %>%
+      model(decomp = classical_decomposition(avg_demand ~ season(period = 7), 
+                                             type = "additive")) %>%
+      components() 
+
+
+vic_elec_w_dcmp %>% autoplot()
+```
+
+Compute manually this decomposition (no need to depict it, just compute the values within vic_elec_w_dcmp manually).
+
+```{r, include=params$print_sol}
+# Compute moving averages to estimate the trend
+# Because the seasonal period is 7 (week = 7 days) we use a 7-MA
+manual_decomposition <- vic_elec_w %>%
+  mutate(
+    `7-MA` = slider::slide_dbl(avg_demand, mean,
+                .before = 3, .after = 3, .complete = TRUE)
+  )
+
+# Plot the computed trend
+manual_decomposition %>%
+  autoplot(avg_demand, colour = "gray") +
+  geom_line(aes(y = `7-MA`), colour = "#D55E00") +
+  labs(y = "average demand (MWh)",
+       title = "Average weekly electricity demand")
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+Let us do a first sanity check and compare the trend computed by the function
+and the resulting of our moving average
+```
+
+```{r, include = params$print_sol}
+trend_func <- 
+  vic_elec_w_dcmp$trend %>% 
+  .[!is.na(.)]
+  
+
+trend_man <- 
+  manual_decomposition$`7-MA` %>% 
+  .[!is.na(.)]
+
+# Absolute errors at each point in time of the trend
+abs_err <- abs(vic_elec_w_dcmp$trend - manual_decomposition$`7-MA`)
+
+# Biggest numerical difference
+# of order 1E-12 -> numerical noise, look at the order of magnitude
+max(abs_err, na.rm = TRUE)
+
+# Lets round to the 3rd decimal (accuracy of up to KWh) and then
+# check equality
+# This sum equals 0, which means that they are the same at least down
+# to the third decimal (give it some thought)
+sum(!(round(trend_func, 3) == round(trend_man, 3)))
+
+# Alternative way to check this in R.
+# This returns TRUE, meaning they are the same at least
+# down to the third decimal
+identical(round(trend_func, 3) , round(trend_man, 3))
+```
+
+```{r, include=params$print_sol}
+# Compute the detrended component:
+manual_decomposition <- manual_decomposition %>%
+  mutate(
+        # Compute detrended component
+        detrended = avg_demand - `7-MA`,
+        
+        # Identifier added for the day of the week
+        wday = wday(Date, label = FALSE, abbr = FALSE)
+      )
+
+
+# Plot detrended component (additive + seasonal)
+manual_decomposition %>% autoplot(detrended)
+```
+
+```{r, include=params$print_sol}
+# Include the seasonal component
+
+res <- manual_decomposition %>%
+  index_by(wday) %>%
+  
+  #Compute seasonal component
+  summarise(
+    seasonal_c = mean(detrended, na.rm = TRUE)
+  ) %>%
+  
+  ungroup()
+
+res
+
+#Check the aspect of the obtained seasonal component
+res %>%
+  autoplot(seasonal_c) +
+  scale_x_continuous(breaks = seq(1, 7),
+                     minor_breaks = seq(1, 7)) +
+  geom_point(color = "red")
+```
+
+```{r, eval=FALSE, inclue=params$print_sol}
+Now we make the necessary correction so that the sum of the seasonal
+component over an entire season = 0
+```
+
+```{r, include=params$print_sol}
+corr <- sum(res$seasonal_c) / 7
+
+res <- 
+  res %>% 
+  mutate(
+    seasonal_c = seasonal_c - corr
+  )
+```
+
+
+
+```{r, include=params$print_sol}
+# Bring back our seasonal component to the time series
+manual_decomposition <-
+  manual_decomposition %>% 
+    left_join(res, by = "wday")
+```
+```{r, eval=FALSE, inclue=params$print_sol}
+Let us introduce a new sanity check and check that our seasonal component
+matches the component from the function `classical_decomposition()`
+```
+
+```{r, include=params$print_sol}
+seasonal_func <- round(vic_elec_w_dcmp$seasonal, 3)
+seasonal_man <-  round(manual_decomposition$seasonal_c, 3)
+
+# This sum is 0, meaning that both vectors coincide at least down to
+# 3 decimals. Give this some thought to understand it.
+sum(!(seasonal_func == seasonal_man))
+
+# Max absolute error of order 1E-14
+max(vic_elec_w_dcmp$seasonal - manual_decomposition$seasonal_c)
+```
+
+```{r, include=params$print_sol}
+# Finally, compute the remainder component
+manual_decomposition <- 
+  manual_decomposition %>% 
+  mutate(
+    remainder = detrended - seasonal_c
+  )
+```
+
+```{r, include=params$print_sol}
+# Last check - compare both remainders (a.k.a random)
+remainder_func <- round(vic_elec_w_dcmp$random, 3)
+remainder_man <-  round(manual_decomposition$remainder, 3)
+
+# This sum is 0, meaning that both vectors coincide at least down to
+# 3 decimals. Give this some thought to understand it.
+sum(!(remainder_func[!is.na(remainder_func)] == remainder_man[!is.na(remainder_man)]))
+```
+
+```{r, include=params$print_sol}
+# As an additional ggplot visualization exercise, below the code to visualize
+# the decomposition we have computed manually
+
+# If you have any questions about the code, do not hesitate to ask.
+factor_levels = c("avg_demand", "trend", "seasonal_c", "remainder")
+
+manual_decomposition_long <- 
+  
+  manual_decomposition %>% 
+
+    # Rename so that the labels are consistent
+    rename(trend = `7-MA`) %>% 
+  
+    # Select the columns of interest
+    select(Date, avg_demand, trend, seasonal_c, remainder) %>% 
+  
+    # Generate long format based on a single variable so that we can
+    # facet_grid following this variable
+    pivot_longer(cols = avg_demand:remainder, names_to = "component") %>% 
+    
+    # Convert to factor to ensure proper ordering in the figure
+    mutate(
+      component = factor(component, levels=factor_levels)
+    )
+
+# Now generate the graph
+manual_decomposition_long %>% 
+  
+  ggplot(aes(x = Date, y = value)) +
+  
+  geom_line() +
+  
+  # scales = "free_y" so that each component has an adapted y-axis range
+  facet_grid(component ~ ., scales = "free_y")
+```

@@ -1,0 +1,238 @@
+---
+title: "04_D_ClassicalDecomposition_Assignment"
+format: html
+editor: source
+params:
+  print_sol: true
+  print_sol_int: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Instructions
+
+* Fill the code snippets that you will find throughout the document with your solutions.
+* Fill as well the spaces between `---` characters that you will find if you are required to provide an explanation. Respect the maximum number of words.
+
+* DO NOT ADD ADDITIONAL CODE SNIPPETS.
+* DO NOT CHANGE THE ORDER OF SECTIONS AND CODE SNIPPETS IN THE NOTEBOOK
+
+# Libraries
+
+```{r}
+library(fpp3)
+```
+
+# 1. 
+
+Take the dataset `vic_elec` and aggregate the data to obtain the daily demand using `index_by()`. Store the result in a new variable called `vic_elec_d` and call the averaged variable `avg_demand`. Then filter `vic_elec_d` to retain only data from 2012.
+
+```{r}
+vic_elec_d <- 
+  # YOUR CODE GOES HERE
+```
+
+# 2. 
+
+Produce a timeplot of the data resulting from section 1. The timeplot should have major breaks every 5 weeks and minor breaks every week.
+
+```{r}
+vic_elec_d %>% 
+  # TOUR CODE GOES HERE
+```
+
+# 3. 
+
+## 3.1
+
+Fit a `classical_decomposition()` model to the data `vic_elec_d`. Make the decomposition *multiplicative*. Store the result in a variable called `dcmp_model`
+
+NOTE: an additive decomposition would be more sensible for this data. We are using a multiplicative decomposition so that you implement the multiplicative variant of the algorithm.
+
+```{r}
+dcmp_model <-
+  # YOUR CODE GOES HERE
+```
+
+QUESTION: **Answer in 30 words or less**
+* What are the dimensions of `dcmp_model`? (number of rows, number of columns). Why?
+
+---
+`YOUR ANSWER GOES BETWEEN THESE LINES (DELETE THIS TEXT)`
+---
+
+## 3.2
+
+Use the function `components()` on `dcmp_model` to extract the different components. Store the result in a variable called `dcmp_components`
+
+```{r}
+dcmp_components <- 
+  
+  # YOUR CODE GOES HERE
+```
+
+## 3.3 
+
+Extract the column `seasonal` from `dcmp_components`. Check that the sum of its first 7 elements adds up to 7. This is because the seasonal period being considered is one week (7 days) and, as explained in the notebook covering the specifics of the classical decomposition algorithm. 
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+## 3.4 
+
+Make a plot of the decomposition (4 panels showing the original time series and the components combined in a single graph) and an ACF plot of the random component of the decomposition.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+# 4.
+
+Implement the same decomposition manually followinG the steps detailed in 04_C. There the complete code for the additive case was given. You may adapt that code to make it valid for the multiplicative case.
+
+## Step 1:
+
+* Estimate the trend. Since m is 7, you need to use a 7-MA. Store the result of the trend in a column called `7-MA`. Note that, since the column name starts with a number, you will need to specify this name within backticks (backtick symbol: "`"). 
+
+Store the result in a new dataframe called `manual_decomposition`, just like we did in notebook 04_C for the additive case.
+
+```{r}
+manual_decomposition <- 
+  # YOUR CODE GOES HERE
+```
+
+* Plot the computed trend along with the original time series:
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+* Compare your manually computed trend with the trend component resulting from question 3 with the following code, which should evaluate to true:
+
+```{r}
+# INTERMEDIATE SANITY CHECK
+all.equal(dcmp_components$trend, manual_decomposition$`7-MA`)
+```
+
+## Step 2:
+
+* Detrend the time series. Do not forget we are dealing with a multiplicative decomposition. Store the result in a new column called `detrended` within the dataframe `manual_decomposition`.
+* NOTE: because the column 7-MA starts with a number, you will need to refer to it using backticks in your code.
+
+```{r}
+manual_decomposition <- 
+  # YOUR CODE GOES HERE
+```
+
+* Depict the detrended component. No need to adjust the x-axis.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+## Step 3: 
+
+Compute the seasonal component
+
+### Step 3.1:
+
+* Create a new column called `n_day` that identifies the day of the week. Use the following function to produce it: `wday(Date, label = FALSE, abbr = FALSE)`
+
+```{r}
+manual_decomposition <- 
+  # YOUR CODE GOES HERE
+```
+
+* Create a new dataframe called `df_seasonal` that contains the averaged values of the detrended time series for each day of the week (that is, for each of the values of `n_day`, the previously computed column). Make sure that the final output is a `tsibble`. The averaged values shall be stored in a column called `s_unadj`.
+
+```{r}
+df_seasonal <- 
+  
+  manual_decomposition %>%
+  # YOUR CODE GOES HERE
+```
+
+* Create a plot of the obtained unadjusted seasonal component:
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+### Step 3.2:
+
+Adjust the seasonal component
+
+* Compute `a`, the sum of `s_unadj`:
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+* Compute `x = m - a`, the difference between the sum of `s_unadj` and `m`.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+* Divide `x` by `m` and create a new column within `df_seasonal` called `seasonal_c` equal to `s_unadj` + `x/7`
+
+```{r}
+df_seasonal <- 
+  # YOUR CODE GOES HERE
+```
+
+* Check that the sum of the column `seasonal_c` in `df_seasonal` is now 7, as desired:
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+* Bring back the seasonal component from `df_seasonal` to the dataframe `manual_decomposition` using a `left_join`:
+
+```{r}
+manual_decomposition <- 
+  # YOUR CODE GOES HERE
+```
+
+* Check that the column `seasonal_c` from `manual_decomposition` matches the column `seasonal` from `dcmp_components` with the following code, which should evaluate to `TRUE`. Specifically, this code means that both computations coincide down to the third decimal.
+
+NOTE: there are reasons that they do not exactly match beyond three decimals. These have to do with the internals of `classical_decomposition()` and floating point arithmetic. We will not investigate this further. But this accuracy is enough for us to understand what the algorithm is doing. Besides, betond three decimals the difference are very small.
+
+```{r}
+# INTERMEDIATE SANITY CHECK
+n_dec <-  3
+all.equal(round(manual_decomposition$seasonal_c, n_dec), 
+          round(dcmp_components$seasonal, n_dec)
+        )
+```
+
+## Step 4:
+
+Compute the random component by removing the seasonal component from the detrended time series. Bear in mind we are dealing with a classical decomposition. Store the result in a new column called `random` within `manual_decomposition`
+
+```{r}
+# Compute remainder component:
+manual_decomposition <- 
+  # YOUR CODE GOES HERE
+```
+
+# 5. 
+
+Check your result computing the maximum difference between all the vectors in your decomposition and all the vectors in the classical decomposition, in absolute value terms.
+
+NOTE: there are reasons that they do not exactly match beyond three decimals. These have to do with the internals of `classical_decomposition()` and floating point arithmetic. We will not investigate this further. But this accuracy is enough for us to understand what the algorithm is doing. Besides, betond three decimals the difference are very small.
+
+```{r}
+
+```
+
+# 6. 
+
+Produce a ggplot graph that depicts the decomposition you just produced:
+
+```{r}
+# YOUR CODE GOES HERE
+```

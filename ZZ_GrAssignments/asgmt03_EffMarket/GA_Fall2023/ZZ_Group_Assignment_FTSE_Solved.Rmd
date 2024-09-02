@@ -1,0 +1,405 @@
+---
+title: "Efficient Market Hypothesis (Group assignment)"
+author: "Juan Garbayo - Time Series Analysis"
+date: "4/8/2022"
+output:
+  bookdown::html_document2:
+    number_sections: no
+    toc: true
+    toc_depth: 6
+    toc_float: false
+    toc_collapsed: false
+    self_contained: true
+    lib_dir: libs
+params:
+  run_snippet: FALSE
+  print_sol: FALSE
+  hidden_notes: FALSE
+---
+
+```{r}
+library(fpp3)
+library(patchwork)
+```
+
+# References
+
+[1] Fama, Eugene (1970). "Efficient Capital Markets: A Review of Theory and Empirical Work". Journal of Finance. 25 (2): 383–417. doi:10.2307/2325486. JSTOR 2325486.
+
+[2] Investopedia - Efficient Market Hypothesis [Link](https://www.investopedia.com/terms/e/efficientmarkethypothesis.asp)
+
+# The Efficient Market Hypothesis
+
+The goal of this assignment is to compare a prediction strategy based on the Efficiet Market Hypothesis (EMH) with the first of the non-trivial models you will work with: exponential smoothing.
+
+Essentially, the EMH states that stocks are accurately priced and reflect all available information. This makes it impossible to consistently beat the market by analysis.
+
+In his influential 1970 paper ([1]), Eugene Fama proposes three categories of efficiency that differ in the information considered reflected in the prices:
+
+1. *Weak-form of the EMH*: considers information contained in historical prices.
+2. *Semi-strong form of EMH*: considers information publicly available beyond historical prices.
+3. *Strong-form*: considers private (privileged) information.
+
+Here we are going to consider the weak-form of the EMH and work only with the information contained in historical prices.
+
+# Assignment
+
+The assignment consists in:
+
+### **1. Download historical data from a Stock Market Index and generate a dataset with that data.** (0.5 point)
+
+The idea is that you **download the data using notebook 4_2**, **store it as a .csv** and **import it here.**
+
+  * **Standard & Poor's 500 (S&P 500):** tracks the 500 companies with the largest market cap in USA.
+  * **Financial Times Stock Exchange:** tracks the 100 companies with the largest market capitalization on the London Stock Exchange.
+  
+The date ranges to be used are:
+
+  * **Initial date**: 7-th of May 2017
+  * **Final date**: the current date.
+  
+**Your final dataset must be an object of type `tsibble` with the following characteristics**:
+
+* key = symbol
+* index = trading_day
+
+```{r}
+#SOLUTION
+tr_data <- readr::read_csv("ZZ_Group_Assignment/SP500_Prices.csv")
+tr_data <- tr_data %>% as_tsibble(key = symbol, index = 'trading_day')
+tail(tr_data)
+```
+### **1.1 Create a time-plot of your data and briefly describe it (max 75 words)** (0.5 points)
+
+```{r}
+autoplot(tr_data)
+```
+
+```{r}
+
+```
+
+The data presents successive periods of sustained growth with 2 recessions in-between. Despite the overall growth in the last five years the periods of recessions make this growth-trend arguable. 
+
+A cursory description could be that there is an overall increasing trend and two recessions around days 400 and 700.
+
+### **2. Create three training datasets containing 80, 60 and 40% of your data** (0.5 points)
+
+```{r}
+#SOLUTION
+n_rows <- nrow(tr_data)
+train_1 <- filter(tr_data, trading_day <= (n_rows * 0.8))
+train_2 <- filter(tr_data, trading_day <= (n_rows * 0.6))
+train_3 <- filter(tr_data, trading_day <= (n_rows * 0.4))
+```
+
+### **3. Fit both a Naïve model and a Simple Exponential Smooting model to each of these training datasets** (0.5 points)
+
+```{r}
+#SOLUTION
+fit_tr1 <- train_1 %>% 
+  model(
+    naive_tr1 = NAIVE(close),
+    ses_tr1 =  ETS(close ~ error("A") + trend("N") + season("N"))
+  )
+
+fit_tr2 <- train_2 %>% 
+  model(
+    naive_tr2 = NAIVE(close),
+    ses_tr2 =  ETS(close ~ error("A") + trend("N") + season("N"))
+  )
+
+fit_tr3 <- train_3 %>% 
+  model(
+    naive_tr3 = NAIVE(close),
+    ses_tr3 =  ETS(close ~ error("A") + trend("N") + season("N"))
+  )
+
+# Bind all the models in a single mable to handle forecasts more easily.
+fit <- bind_cols(
+  fit_tr1 %>% select(-symbol), # Exclude column symbol to be able to bind columns
+  fit_tr2 %>% select(-symbol),
+  fit_tr3 %>% select(-symbol)
+)
+
+fit
+```
+
+### **4. Generate forecasts of 5 trading days for each of the trained models** (1 point)
+
+The result of this step should be a `fable` or forecast table. Name it `fc`
+
+Add a column `h` to `fc` indicating the forecast horizont of each forecast.
+
+* After adding that column, apply the following command: `as_fable(response = "close", distribution = close)`. This is to ensure that the output after performing these operations is still a fable.
+
+```{r}
+#SOLUTION
+fc <- fit %>% forecast(h=7)
+fc
+
+fc <- fc %>% 
+  group_by(.model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "close", distribution = close)
+```
+### **5. For each combination of model, training dataset and forecast horizon compute the RMSE, MAE and MAPE. Store the result in a variable called `summary`** (1 point)
+
+```{r, warning=FALSE, message=FALSE}
+#SOLUTION
+summary <- accuracy(fc, tr_data, by = c("h", ".model")) %>% select(-c(MPE, MASE, RMSSE, ACF1, ME))
+summary
+```
+### **6. Use facet wrap to produce 3 graphs, one for each of the three error metrics used** (2 points)
+
+The graphs should depict the RMSE for each forecast horizon and for each combination of model and training dataset.
+
+* Does the training dataset have an effect on the errors?
+* Does one of the models outperform the other?
+
+```{r}
+#SOLUTION
+summary %>%
+  pivot_longer(c(MAE, RMSE, MAPE), names_to = "metric", values_to = "value") %>%
+  ggplot(aes(x = h, y = value, color = .model)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ metric, nrow = 2 , scales = "free")
+```
+```{r}
+
+```
+
+**Possible answer**
+
+From the graphs above we can observe that:
+
+* For a given train-test split the SES and naive model have a very close performance.
+* When the train-test split is changed, the performance of both models experiences a drastic change.
+
+It may therefore be concluded that for the two models at hand and this particular data, the particular split performed on the data has a greater effect than the model chosen.
+
+**End possible answer**
+
+### **7. Evaluate the same metrics on the same models, but this time using cross validation** (2 points)
+
+The end-goal is that you produce the same final graph (facet_wrap graph on the error metrics), but this time only two lines per graph should be depicted (one line per model).
+
+The smallest training dataset shall contain 40% of the trading days. The trading datasets shall increase in steps of 1 trading day. You may later repeat this for .steps of 5 and note the difference in running time.
+
+```{r}
+# SOLUTION
+tr_data_cv <- tr_data %>%
+  stretch_tsibble(.init= trunc(0.4*nrow(tr_data)), .step = 1)
+
+fit_cv <- tr_data_cv %>%
+  model(
+    naive = NAIVE(close),
+    ses =  ETS(close ~ error("A") + trend("N") + season("N"))
+  )
+
+fc_cv <- fit_cv %>% 
+  forecast(h = 7) %>%
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "close", distribution = close)
+
+summary_cv <- fc_cv %>%
+  accuracy(tr_data, by=c("h", ".model")) %>% select(-c(MPE, MASE, RMSSE, ACF1, ME))
+
+summary_cv %>% 
+  pivot_longer(c(MAE, RMSE, MAPE), names_to = "metric", values_to = "value") %>%
+  ggplot(aes(x = h, y = value, color = .model)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ metric, nrow = 2 , scales = "free")
+```
+```{r}
+
+```
+
+* What is the difference between these graphs and the ones we generated before? Answer briefly below.
+* Does one of the models outperform the other?
+
+These graphs differ from the ones created before in that they represent the average error metrics of each of the models for each forecast horizon over a large set of train-test splits. In the previous graph the choice of a particular train-test split influenced the performance of our model to a great extent, while in this one this performance has been averaged over many splits to provide more statistically robust metrics.
+
+The errors for both models seem to be virtually the same, indicating that the models perform in a remarkable similar manner on this particular dataset despite the naive model being much more simple.
+
+* The fact that their MAE and MAPE coincide indicates that the mean of the absolute values of their errors coincide both in absolute terms (MAE) and relative (percent) terms (MAPE). See session 15 to review the definition of these metrics.
+* The fact that their RMSE coincide indicates that the standard deviation of the errors is the same, indicating that the spread of the errors is similar.
+
+### **8. Present your conclusions** (1.5 points)
+
+From the foregoing graphs it looks like the performance of the SES and the naive model over this dataset for forecast horizons of up to 7 is virtually identical in terms of MAE, MAPE and RMSE. In other words: despite its greater complexity, the SES model fails to outperform our benchmark method, the Naïve model, which is consistent with the EMH for short term forecasts.
+
+Remember that, when fitting an SES model, we need an iterative optimization process to find the values for two parameters: $\alpha$ and $l_0$ (the initial level). The criteria we have applied is to find the values that minimize the sum of squared residuals. By contrast the Naïve model has no parameters and simply extends the last value of the series into the future. 
+
+In an SES, $\alpha$ ranges between 0 and 1. A value of $\alpha = 1$ results in an SES model identical to a Naïve model. This can be checked with the formula given in session 14 for the coefficients of each of the terms of the weighted average that Simple Exponential Smoothing represents:
+
+\[
+\text{Weight assigned by SES to the term }y_{T-j}\text{  :  } \alpha(1-\alpha)^j
+\]
+
+The formula above provides the coefficient for the term $y_{T-j}$. Giving different values to $\alpha$ and using the formula above we may compute the weight assigned by simple exponential smoothing to each term. Note that the table would extend until the initial term of the time series with ever decreasing weights whose total sum would tend to 1 (see session 14_1).
+
+||$\alpha=0.2$|$\alpha=0.4$|$\alpha=0.6$|$\alpha=0.8$|$\alpha=1$|
+|:--- |:--- |:--- |:--- |:--- |:--- |
+|$y_{T}$|0.2000|0.4000|0.6000|0.8000|1.0000|
+|$y_{T-1}$|0.1600|0.2400|0.2400|0.1600|0.0000|
+|$y_{T-2}$|0.1280|0.1440|0.0960|0.0320|0.0000|
+|$y_{T-3}$|0.1024|0.0864|0.0384|0.0064|0.0000|
+|$y_{T-4}$|0.0819|0.0518|0.0154|0.0013|0.0000|
+|$y_{T-5}$|0.0655|0.0311|0.0061|0.0003|0.0000|
+|⋮|⋮|⋮|⋮|⋮|⋮|
+
+The code below computes two things:
+
+1. The absolute value of the differences in the predictions yielded. This will be used in the final, additional section.
+2. The values of $\alpha$ corresponding to each of the fitted SES models to study how close the SES models fitted during CV are to a naïve model (remember for $\alpha = 1$ an SES model becomes a naïve model)
+
+```{r}
+# Code to compute the absolute value of the difference between the predictions
+fc_cv_ses <- fc_cv %>% 
+             filter(.model == "ses") %>%
+             as_tibble() %>%
+             group_by(.id, .model) %>%
+             summarise(
+               ses_fc = mean(.mean)
+             ) %>%
+             pull(ses_fc)
+
+fc_cv_naive <- fc_cv %>% 
+             as_tibble() %>%
+             filter(.model == "naive") %>%
+             group_by(.id, .model) %>%
+             summarise(
+               naive_fc = mean(.mean)
+             ) %>%
+             pull(naive_fc)
+
+abs_diff = abs(fc_cv_ses - fc_cv_naive)
+
+# Code to compute the values of alpha
+alpha_vals <-fit_cv %>% 
+              select(-(naive)) %>%
+              tidy() %>%
+              filter(term == "alpha") %>%
+              pull(estimate)
+
+# Store in a tibble for use with ggplot
+ses_vs_naive = tibble(
+                        diff = abs_diff,
+                        alpha = alpha_vals
+                      )
+
+diff_hist <- ggplot(data = ses_vs_naive, aes(diff)) +
+             geom_histogram(fill="light blue", colour= "black", alpha = 0.7, bins = 20) +
+             labs(x = "Difference in stock price prediction ($)")
+
+diff_bplot <-  ggplot(data = ses_vs_naive, aes(y = diff)) +
+               geom_boxplot(fill="light blue", alpha = 0.7) +
+               stat_summary(aes(x=0), fun="mean", colour= "red") +  # Include the mean
+               labs(y = "Difference in stock price prediction ($)") +
+               theme(axis.title.x = element_blank(),
+                     axis.ticks.x = element_blank(),
+                     axis.text.x = element_blank())
+
+alpha_hist <- ggplot(data = ses_vs_naive, aes(alpha)) +
+              geom_histogram(fill="light blue", colour= "black", alpha = 0.7, bins = 20) +
+              labs(x = "Values of alpha for SES models fitted")
+
+
+alpha_bplot <- ggplot(data = ses_vs_naive, aes(y = alpha)) +
+               geom_boxplot(fill="light blue", alpha = 0.7) +
+               stat_summary(aes(x=0), fun="mean", colour= "red") +  # Include the mean
+               labs(y = "Values of alpha for SES models fitted") +
+               theme(axis.title.x = element_blank(),
+                     axis.ticks.x = element_blank(),
+                     axis.text.x = element_blank())
+
+patchwork_alpha <- alpha_hist + alpha_bplot
+patchwork_alpha + plot_annotation(
+                            title = "Histogram and boxplot of alpha values"
+                            )
+```
+```{r}
+
+```
+
+Looking at the distribution of the values of $\alpha$ we see that the average value is around 0.87 and that the min value is very close to 0.8. The table we created above with the weights assigned by SES for a different values of alpha shows that, for a value of $0.8$ the first term $y_T$ gets a weight of 0.8 (80%), $y_{T-1}$ gets a weight of 0.16 (16%) and the remaining 4% of the total weight $(1-0.8-0.16 = 0.04)$ is distributed across all the other terms of the time series with ever decreasing coefficients. This is very similar to a Naïve model, which assigns 100% of the weight to the first term and 0% to the rest.
+
+Hence the very similar performance of the SES and Naïve models. 
+
+For this particular dataset SES is unable to outperform the representation of the EMH given by the Naïve model for short term forecasts.
+
+---
+
+### **FURTHER ANALYSIS FOR YOUR UNDERSTANDING. THIS LEVEL OF ANALYSIS IS NOT EXPECTED IN THE EXAM**
+
+The analysis below provides further insight but goes a bit beyond what was requested in the assignment:
+
+Let us now plot a histogram and box-plot of the differences in the predictions returned by the two models:
+
+```{r}
+patchwork_diff <- diff_hist + diff_bplot
+patchwork_diff + plot_annotation(
+                            title = "Histogram and boxplot of differences in price prediction"
+                            )
+```
+```{r}
+
+```
+
+The boxplot shows that the average difference in price predictions is around 5 USD, with the median value being even smaller. This confirms that both models provide remarkably similar predictions, as expected from the analysis of the values of $\alpha$.
+
+In order to judge the performance of a model **one of the most important aspects is to clearly define what we want to predict prior to assessing the performance**. In this case we could focus on multiple things, for example:
+
+1. Our main goal could be to **predict the total value of the asset**
+2. Our main goal could be to **predict the price variation of the asset for different forecast horizons**.
+
+**Performance regarding the total value of the asset**:
+
+* The value of the MAPE ranges between 0.9 and 2.3. This indicates that the error of the predictions ranges between 0.9% and 2.3% of the total value of the asset.
+* Depending our goal this performance might be sufficient or not. Changes of a percent value greater than the MAPE would be predicted well by the model
+
+**Performance regarding the price changes of the asset**:
+
+Let us first compute the price changes of the asset for horizons of 1, 2... up to 7 trading days and then depict these as box-plots to have a visual representation:
+
+```{r}
+for (i in seq(1, 7)) {
+  col = paste0("h", i, "_diff")
+  values = abs(tr_data$close - lag(tr_data$close, i)) # Compute the differences in value
+  tr_data[[col]] = values # Store the differences in value in the original dataset
+}
+
+# Change to long format to be able to create a single graph of box-plots
+increments <- tr_data %>% 
+                as_tibble() %>%
+                select(h1_diff, h2_diff, h3_diff, h4_diff, h5_diff, h6_diff, h7_diff) %>%
+                pivot_longer(c(h1_diff, h2_diff, h3_diff, h4_diff, h5_diff, h6_diff, h7_diff), 
+                             names_to = "period", values_to = "value") %>%
+                na.omit()
+
+# Create the box-plot
+ggplot(increments, aes(x = period, y = value)) +
+  geom_boxplot()
+
+# Ceate a table with mean and median values for each change horizon
+increments %>%
+  group_by(period) %>%
+  summarise(
+    mean = mean(value),
+    median = median(value)
+  )
+```
+```{r}
+
+```
+
+The graph and tables above indicate that:
+
+* As expected, the greater the horizon the greater the actual difference in prices (remember we have computed this from the trading data. These are actual values, not forecasts)
+* The median value of the price changes (perhaps most appropriate due to the high number of outliers shown in the box-plots) ranges between 15 and 45 dollars, while the mean change ranges between 25 and 64. These values are of the same order of the Mean Absolute Error (MAE) determined for both models during cross validation, indicating that none of the models seems to be very good at accurately predicting these price changes.

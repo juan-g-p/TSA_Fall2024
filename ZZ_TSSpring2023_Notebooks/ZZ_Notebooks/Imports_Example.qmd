@@ -1,0 +1,59 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)º
+```
+
+
+```{r}
+library(readr)
+library(fpp3)
+
+# String pointing to the directory where you stored the files
+folderpath = "G:/My Drive/IE_Classes/2023_Spring/TSAnalysis/TS_Spring2023_Students/ZZ_Datasets/"
+
+# filename (with extension)
+filename = "australian_imports_japan.csv"
+filepath <-  paste0(folderpath, filename)
+
+aus_import_japan  <-  
+  
+  # Imports data as a tibble
+  read_csv(filepath) %>%
+  
+  # Create yearmonth object from the index
+  # Originally (when imported) the index column is of type character
+  mutate(index = yearmonth(index)) %>%
+  
+  # Turn into a tsibble
+  as_tsibble(index = index)
+
+# filename (with extension)
+filename = "private_housing_US.csv"
+filepath <-  paste0(folderpath, filename)
+
+private_housing_US <- 
+  
+  # Imports data as a tibble
+  read_csv(filepath) %>% 
+  
+  # Create yearmonth object from the index
+  # Originally (when imported) the index column is of type character
+  mutate(index = yearmonth(index)) %>%
+  
+  # Turn into a tsibble
+  as_tsibble(index = index)
+
+
+autoplot(aus_import_japan)
+autoplot(private_housing_US)
+```
+
+```{r}
+list.files(".")
+```
+

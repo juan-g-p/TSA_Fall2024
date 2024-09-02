@@ -1,0 +1,196 @@
+---
+title: ""
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+```{r}
+ts_data <- 
+  read_csv(file.choose()) %>% 
+  mutate(Week=yearweek(Week)) %>% 
+  as_tsibble(index=Week)
+
+ts_data
+```
+
+# 1. Create a time plot of the data with major grids every 5 years and minor ticks every year (1 point)
+
+```{r}
+ts_data %>% 
+  autoplot() +
+  scale_x_yearweek(
+    breaks = "5 years",
+    minor_breaks = "year"
+  )
+```
+
+# 2. Create an STL decomposition of the series. If necessary, adjust the parameters as you deem necessary and explain why you have adjusted them in this manner (1 point)
+
+```{r}
+stl_components <- 
+  ts_data %>% 
+    model(
+      stl = STL(value ~ trend(window=21) + season(window=5))
+    ) %>% 
+    components()
+
+stl_components %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+Why have you adjusted the parameters in the STL decomposition as you did?
+
+We reduced the width of the seasonal window to improve the variance of the seasonal component.
+
+------------------------------------------------------------------------
+
+# 3. Detrend the time series in an additive manner using the previously produced components. Then answer the questions below (1.5 points)
+
+```{r}
+# Syntax 1
+ts_data %>% 
+  mutate(
+    detrended = value - stl_components$trend
+  )
+
+# Syntax 2
+ts_data$detrended = ts_data$value - stl_components$trend
+```
+
+------------------------------------------------------------------------
+
+3.1 Check that the detrended series is equal to the sum of two other things:
+
+value = trend + seasonal + remainder
+
+detrended = value - trend = seasonal + remainder
+
+```{r}
+all.equal(ts_data$detrended, (stl_components$season_year + stl_components$remainder))
+```
+
+# 4. Compute the ACF of the seasonal component and of the detrended component. Then answer the question. (1.5 points)
+
+```{r}
+stl_components %>% 
+  ACF(season_year, lag_max = 52 * 3) %>% 
+  autoplot()
+
+ts_data %>% 
+  ACF(detrended, lag_max = 52 * 3) %>% 
+  autoplot()
+```
+
+------
+
+* In which of the two graphs is the seasonal period more clear? 
+* Why is it not as clear in the other graph?
+
+YOUR ANSWER GOES HERE - 30 WORDS OR LESS
+
+------
+
+# 5. Create a series of training datasets to perform cross-validation. They must fulfil the following: (1 point)
+
+-   The smallest training dataset must leave out 12 * 52 observations.
+-   The training datasets must increase by 52 observations at a time.
+
+```{r}
+init_obs <- nrow(ts_data) - 12 * 52
+
+ts_data_cv <- 
+  ts_data %>% 
+  stretch_tsibble(
+    .init = init_obs,
+    .step = 52
+  )
+
+# Sanity check
+ts_data_cv %>% 
+  as_tibble() %>% 
+  group_by(.id) %>% 
+  summarize(size = n())
+```
+
+# 6. Fit the following models to each of the training datasets (1.5 points)
+
+1.  Exponential Smoothing Model fitted to the original data with a damped trend and NO seasonality. Give it the name `ETS_original`.
+2.  A `decomposition_model` that uses
+    2.1 STL Decomposition with the parameters you selected in Q2 to break down the time series.
+    2.2 ETS model with additive damped trend and no seasonality for the seasonally adjusted component
+    2.3 Seasonal Naive model for the seasonal component
+    Call this model `dcmp_model`
+    
+Store all these models in a variable called `fit_cv`
+    
+```{r}
+fit_cv <- 
+ts_data_cv %>% 
+  model(
+    ETS_original = ETS(value ~ error("A") + trend("Ad") + season("N")),
+    dcmp_model = decomposition_model(
+          STL(value ~ season(window = 5)), # STL decomposition used,
+          ETS(season_adjust ~ error("A") + trend("Ad") + season("N")), # Model for season_adjust
+          SNAIVE(season_year)
+    ),
+  )
+```
+
+# 7. Compute forecasts for each of the training datasets, up to a horizon of h = 52. Then compute the accuracy metrics associated to those forecasts of both models averaged over all horizons (1.5 points).
+
+Store all the forecasts in a variable called `fc_cv`. Store the resulting metrics in a variable called `summary_cv`.
+
+```{r}
+fc_cv <- fit_cv %>% forecast(h=52)
+
+# fc_cv %>% 
+#   group_by(.id, .model) %>% 
+#   mutate(h = row_number) %>% 
+#   
+
+summary_cv <- 
+  fc_cv %>% accuracy(ts_data)
+```
+
+* Which is the best model in terms of MAPE?
+* Provide an interpretation of the MAPE of that model.
+
+------
+
+YOUR ANSWER GOES HERE
+
+------
+
+# 8. The following code computes the forecast errors for each combination of training dataset and forecast horizon used in the cross-validation process (1 point)
+
+It starts with the forecast object `fc_cv`, generated in question 7.
+
+IMPORTANT: ignore all warnings generated when running this code.
+
+Given these errors, aggregate them in an appropriate manner to obtain the same MAE and MAPE as in question 7 using the formula definition of MAE and MAPE.
+
+`HINT`: an intermediate step required to compute the MAPE involves using a `left_join()` to bring the original data of `ts_data` into the dataset `cv_errors`.
+
+```{r}
+cv_errors <- 
+  fc_cv %>% 
+    group_by(.id, .model) %>% 
+    mutate(h = row_number()) %>% 
+    ungroup() %>% 
+    as_fable(response="value", distribution=value) %>% 
+    accuracy(ts_data, by=c(".id", ".model", "h", "Week")) %>% 
+    select(.id, .model, h, Week, RMSE) %>% 
+    rename(error=RMSE)
+
+cv_errors
+```
+
+```{r}
+# YOUR ANSWER GOES HERE
+```

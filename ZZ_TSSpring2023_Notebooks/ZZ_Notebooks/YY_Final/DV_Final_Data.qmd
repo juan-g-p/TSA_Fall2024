@@ -1,0 +1,83 @@
+---
+title: "Untitled"
+format: html
+---
+
+```{r}
+library(USgas)
+library(fpp3)
+library(writexl)
+```
+
+```{r}
+usgas
+```
+
+```{r}
+# Create year month day variables and change nane of y
+usgas_2 <- 
+  usgas %>% 
+    # filter(state == "California") %>% 
+    # filter(process %in% processes) %>% 
+    mutate(
+      year = year(date),
+      month = month(date),
+      day = day(date),
+      gas = y
+    ) %>% 
+    select(process, state, year, month, day,  gas) 
+
+usgas_2
+```
+
+Check values to understand units. 
+The units are MMCF. I compared against this table
+
+```{r}
+usgas_2 %>% 
+  filter(year == 2022) %>% 
+  filter(state == "U.S.") %>% 
+  group_by(process) %>% 
+  summarize(
+    total = sum(gas)
+  )
+```
+
+
+```{r}
+usgas_y_m <- 
+  usgas_2 %>% 
+    group_by(process, state, year, month) %>% 
+    summarize(
+      monthly_gas = sum(gas)
+    ) %>% 
+    mutate(
+      date = make_date(year, month)
+    ) %>% 
+    select(process:month, date, monthly_gas) %>% 
+    filter(year >= 2010) %>% # Every series has data points
+    filter(!(state %in% c("District of Columbia", "U.S."))) %>% 
+    filter(process != "Delivered to Consumers") %>% 
+    arrange(year, month)
+
+usgas_y_m %>% write_xlsx("usgas_y_m.xlsx")
+```
+```{r}
+usgas_y <- 
+  usgas_y_m %>% 
+  group_by(year, state, process) %>% 
+  summarize(
+    yearly_gas = sum(monthly_gas)
+  ) %>% 
+  ungroup()
+```
+
+```{r}
+usgas_y %>% 
+  mutate(
+    country = "United States"
+  ) %>% 
+  select(country, state, year, process, yearly_gas) %>%
+  write_xlsx("usgas_y.xlsx")
+```
+

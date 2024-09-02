@@ -1,0 +1,204 @@
+---
+title: "DV_Spring2023_Final"
+format: html
+editor: source
+params:
+  print_sol: true
+  hidden_notes: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+## libaries
+
+These are the libraries you are going to need for the exam. Load them. Of course, if you do not have them installed, install them.
+
+```{r}
+library(readxl)
+library(tidyverse)
+```
+
+
+## Datasets description
+
+For this exam we are going to use two datasets:
+
+1. `usgas_y_m`: this dataset contains information about the monthly gas consumption in the US for different purposes and states. Below a description of the columns:
+  * `process:` purpose for which the gas was consumed.
+  * `state:` state of the data point.
+  * `year:` year of the data point.
+  * `month:` month of the data point.
+  * `date:` date of the data point. Note each data point was registered at the first day of every month.
+  * `monthly_gas:` amount of gas consumed by the particular process at the particular state in the given month. **Units:** Million Cubic Feet (`MMCF`)
+  
+2. `usgas_y`: this dataset contains information about the yearly gas consumption in the US for different purposes and states. Below a description of the columns:
+  * `process:` purpose for which the gas was consumed.
+  * `state:` state of the data point.
+  * `year:` year of the data point.
+  * `date:` date of the data point. Note each data point was registered at the first of every month.
+  * `yearly_gas:` amount of gas consumed by the particular process at the particular state in the given year. **Units:** Million Cubic Feet (`MMCF`)
+
+To load them: 
+
+1. Run the code and select the excel file `usgas_y_m.xlsx`. Note that you need to load the libraries `readxl` and `tidyverse` as indicated at the beginning of the notebook.
+
+```{r, eval=FALSE}
+usgas_y_m <- 
+  read_xlsx(file.choose())
+```
+
+2. Run the code below selecting the excel `usgas_y.xlsx`. Note that you need to load the libraries `readxl` and `tidyverse` as indicated at the beginning of the notebook.
+
+```{r, eval=FALSE}
+usgas_y <- 
+  read_xlsx(file.choose())
+```
+
+```{r, include=FALSE}
+usgas_y_m <-
+  read_xlsx("usgas_y_m.xlsx")
+
+usgas_y <- 
+  read_xlsx("usgas_y.xlsx")
+```
+
+## Exercise 1 - ggplot - lineplots - 2 point
+
+Have a look at the theory notebook on line plots.
+
+Then reproduce the graph below, which uses the monthly data in the state of *California*`:
+
+```{r, echo=params$print_sol}
+usgas_y_m %>% 
+  filter(state == "California") %>% 
+  ggplot(aes(x = date, y = monthly_gas, color=process)) +
+  geom_line() +
+  geom_smooth(se = FALSE) +
+  ggtitle("Natural gas consumption in California from 2010 till present") +
+  ylab("Million Cubic Feet")
+```
+
+------
+
+QUESTION
+
+Based on the previous plot, compare the use of natural gas for *Electric Power Consumption* and *Industrial Consumption* over the time period considered
+
+(100 words max)
+
+------
+
+## Exercise 2 - ggplot - barplots - 1.5 points
+
+In the previous graph the lineplot corresponding to *Vehicle Fuel Consumption* has much less variance than the lineplot corresponding to the other processes for which natural gas is used. So much so that its line appears to be quite constant and seems to overlap with its trend line. 
+For reasons that will later be clear, we are going to focus on the state of *California*. We decide to inspect the yearly consumption now instead of the monthly consumption. This data is contained in the dataset `usgas_y`. The dataset is explained in detail at the beginning of the notebook, along with instructions on how to load it.
+
+Use the data in that table to produce the chart below, which depicts the consumption of natural gas as fuel for vehicles in *California* over the years covered by the dataset:
+
+```{r, echo=params$print_sol}
+usgas_y %>%
+  filter(state == "California") %>%
+  filter(process == "Vehicle Fuel Consumption") %>% 
+  ggplot(aes(x = year, y = yearly_gas)) +
+  geom_bar(stat = "identity", fill = "light blue") +
+  ggtitle("Total gas consumed yearly in California as fuel for vehicles")
+```
+
+## Exercise 3 - ggplot - boxplots - 2 points
+
+Let us now consider the process `Electric Power Consumption`. Considering the monthly data, we would like to generate a time series of box-plots to understand the evolution of the data in the state of *California*
+
+```{r, echo=params$print_sol}
+usgas_y_m %>% 
+  filter(state == "California") %>% 
+  filter(process == "Electric Power Consumption") %>% 
+  ggplot(aes(x = factor(year), y = monthly_gas)) +
+  geom_boxplot()
+```
+
+------
+
+QUESTION
+
+Which are the years in which the pattern of use of natural gas for electric power has changed most abruptly compared to the previous year?
+
+
+(50 words max)
+
+------
+
+## Exercise 4 - ggplot - heatmap - 1.5 points
+
+Create the following heatmap of natural gas consumption for the process *Vehicle Fuel Consumption*. It is based on the total yearly consumption contained in `usgas_y`.
+
+Use the following color ends for the heatmap color scale: `low="#eff3ff"`, `high="#084594"`.
+
+```{r, echo=params$print_sol}
+# Store graph in a varible because later we are goint to feed it as
+# an argument to gg_save()
+p1 <-
+  usgas_y %>% 
+    
+      filter(process == "Vehicle Fuel Consumption") %>%
+      
+      ggplot(aes(x = year, y = state, fill = yearly_gas)) + 
+      
+      geom_tile(aes(width = 0.95, height = 0.88)) +
+      
+      # Use white background to enhance spacing effect between tiles
+      theme(panel.background=element_rect(fill='white')) +
+      
+      # Define a custom color scale.
+      scale_fill_gradient(low="#eff3ff", high="#084594")
+
+p1
+```
+
+## Exercise 5 - ggplot - re-scaling - 0.5 points
+
+The previous heatmap is too cluttered. Your task is to re-scale the graph to achieve the output below, in which the state names are more readable and the figure is better distributed. 
+
+To achieve the output below you need to simply save the figure you produced in exercise 4 to a separate file.
+
+* Use the extension `.png` at the end of your file name
+* Specify a `height` and a `width` of 7 inches. This will result in the output below.
+
+**NOTE:** submit the code you used to produce the re-scaled `.png` file, not the file itself.
+
+```{r, fig.width=7,fig.height=7, echo=FALSE}
+p1
+```
+
+```{r, include=params$print_sol}
+ggsave(filename = "outputfile.png", 
+       plot = p1, 
+       width = 7,
+       height = 7, 
+       units = "in")
+```
+
+
+## Exercise 6 - Tableau - maps - 2 points
+
+Import the file `usgas_y.xlsx` into Tableau and create a map that enables us to visualize the consumption of natural gas for the process *Vehicle Fuel Consumption* over the years. The graph should include the following filters:
+
+* A checkbox filter to allow us to select the process *Vehicle Fuel Consumption*.
+* A slider filter to allow us to select the year for which we want to visualize the data.
+
+**IMPORTANT** for Tableau to properly recognize the states you wil need to use both the variable `country` and the variable `state`
+
+![](tableau_example.png){width=120%}
+
+## Exercise 7 - `group_by` - 0.5 points
+
+Starting with the dataset `usgas_y_m`, use `group_by` to obtain the **total gas** consumed by each state, each month. That is, add the gas consumed for all purposes in each state each month.
+
+```{r, include=params$print_sol}
+usgas_y_m %>% 
+  group_by(state, year, month) %>% 
+  summarize(
+    total_gas = sum(monthly_gas)
+  )
+```

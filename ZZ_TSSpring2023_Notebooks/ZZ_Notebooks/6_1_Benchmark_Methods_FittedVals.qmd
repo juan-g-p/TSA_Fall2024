@@ -1,0 +1,750 @@
+---
+title: "6_1_BenchmarkModels_FittedValues_Forecasts"
+format: html
+editor: source
+params:
+  print_sol: true
+  hidden_notes: false
+  hidden_graphs: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+2.  Fable package documentation
+
+-   https://fable.tidyverts.org/index.html
+-   https://fable.tidyverts.org/articles/fable.html
+
+# Libraries
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+```
+
+# Introduction
+
+In this session we are going to:
+
+-   Introduce the concept of fitted values.
+-   Explore some **benchmark models**. These are models that are simple in nature, but yet will serve as a measure of performance to which we will compare more complex models.
+    * If more complex models do not outperform this benchmark models, their complexity will not be justified.
+-   Practice the basic steps behind fitting models and forecasting with the library `fable`.
+-   Introduce the concept of fitted values and compare it to forecasts.
+-   Do some exercises.
+
+For the most of the simple examples in this notebook we will work with this time series studying the production of bricks between 1970 and 2004:
+
+```{r}
+bricks <- aus_production %>%
+  filter_index("1970 Q1" ~ "2004 Q4") %>%
+  select(Bricks)
+
+head(bricks)
+```
+
+# Fitted values vs forecasts
+
+Before using a model, we will need to **fit that model** (classic math terminology) also known as **training the  model** (machine learning terminology). This means that we will **use data to produce estimates of the parameters of the model**. We will call this data **training data**. 
+
+Note **a few important technical details**:
+
+* I talk about **estimates of the parameters** because **we are estimating these parameters from a particular sample** or in our case, **from a particular realisation of the time series**.
+    * **Notation:** $\beta$ would be a parameter, while $\hat{\beta}$ would be the estimate of that parameter.
+    * Many times we will abuse this notation and write $\beta$ instead of $\hat{\beta}$, but know that, when fitting a model, we are producing estimates of the parameters.
+* If we fitted the model to another sample or to another realization of the time series (think of this as repeating an experiment), we would produce different estimates of those parameters.
+* Being estimates, those parameters have associated standard errors.
+
+## Fitted values - example with linear regression
+
+Now **let us resort to your knowledge of linear regression to ilustrate the concept of fitted values**. When fitting a linear regression model to predict a variable $y$ based on the values of a predictor $x$, we take a sample of data (our training data) and produce estimates of the model parameters. 
+
+Once these parameters have been produced, we can compute the values of $y$ predicted by the model for the ranges of values of $x$ to which the training data belongs. **These predictions would be the fitted values of the linear regression model**. The image below illustrates this:
+
+![](figs/l_regression_estimates.png){fig-align="center"}
+
+## Fitted values - time series case.
+
+When **fitting a time series model to a given realization of a time series** - that is, to our **training data** - the goal is to **produce estimates of the model parameters**. 
+
+Fitted values are almost always **one-step in-sample (i.e., in the time region of the training data) "forecasts"**.
+
+* **one-step ahead** means that the forecast only extend one time step into the future.
+* **in-sample** means that the forecasts belong to the time-region of the training data.
+* **To prodouce the one-step ahead forecast at time $t$**, only information up to $t-1$ is considered. We will see that this is technically not always the case for all fitted values.
+
+We denote the fitted value at time $t$ as $\hat{y}_{t|t-1}$, meaning the forecast of $y_t$ based on observations $y_{1},\dots,y_{t-1}$. **We will abuse notation and sometimes refer to the fitted values them simply as** $\hat{y_t}$ instead of $\hat{y}_{t|t-1}$.
+
+The graph below illustrates this (it is an example using the Naïve model, which we will see later in this notebook). The black line represents the `bricks` time series and the dashed blue line represents the fitted values:
+
+```{r, echo=FALSE}
+fit <- bricks %>% model(mean = NAIVE(Bricks))
+
+fitted_vals <- fit %>% augment()
+
+fitted_vals %>% 
+  filter(.model == "mean") %>%
+  autoplot(Bricks) +
+  geom_line(aes(y=.fitted), colour = "blue", linetype = "dashed")
+```
+
+
+**In most instances fitted values will be one-step ahead forecasts, but in some instances (for example the MEAN mode), they wont**.
+
+## Forecasts compared to fitted values
+
+Unlike fitted valued, forecasts extend **beyond the range of time of the training data** and can be **multi-step**, meaning they can extend various time-steps into the future. The example below illustrates this difference for the Naive method and the bricks dataset. We will explain the Naive method later in the notebook. For the time being focus on understanding this difference:
+
+* Forecasts are depicted in a continuous blue line.
+* Fitted values are depicted as a blue-dashed line.
+* The original time series, which has been used in its entirety as training data, is depicted in black.
+
+```{r, echo=FALSE}
+forecasts <- fit %>% forecast(h = 12)
+
+# TO depict the forecasts and the original series use autoplot() with the 
+forecasts %>% 
+  
+# Depicts the original time series and the forecasts
+autoplot(bricks, level = FALSE) +
+  
+# Overlays the fitted values
+geom_line(data = fitted_vals, aes(y = .fitted), colour = "blue", linetype = "dashed")
+```
+
+# Mean model
+
+Forecasts of all future values are equal to the average of the historical data.
+
+$$
+\hat{y}_{T+h|T} = \bar{y} = (y{1}+\dots+y_{T})/T.
+$$
+
+-   NOTE: $\hat{y}_{T+h|T}$ means forecast of $y_{T+h}$ based on data $\{y_1,\dots,y_T\}$
+
+## Defining and training the model (generating the fitted values or *estimates*)
+
+```{r}
+fit <- bricks %>% model(mean = MEAN(Bricks))
+fit
+```
+
+This particular mable (model table) has 1 row (1 time series fitted) and 1 column (1 model)
+
+## Fitted values
+
+The function `augment()` allows us to extract releavnt information contained within the model object. Among other things, fitted values and residuals. Note that the model also contains the original time series (column Quarter).
+
+```{r}
+fitted_vals <- fit %>% augment()
+head(fitted_vals)
+```
+
+**The mean model is a good example in which fitted values are not one-step ahead forecasts on the training data**, because it actually **uses data beyond the point at which the fitted value is computed to produce the fitted values**. That is, it uses the entirety of the training data to compute the mean.
+
+```{r}
+fitted_vals %>% 
+  filter(.model == "mean") %>%
+  autoplot(Bricks, colour = "gray") +
+  geom_line(aes(y=.fitted), colour = "blue", linetype = "dashed")
+```
+
+## Forecasts
+
+To produce forecasts in the `fable` library we use the `forecast()` function on the fitted model. We specify an argument: `h` and the number of time steps we wish to forecast. 
+
+```{r}
+# produce forecasts for 8 timesteps
+forecasts <- fit %>% forecast(h = 8)
+forecasts
+```
+
+The output is a so called **fable** (forecast table). In fact, the package itself is called `fable`. There is a column that contains the forecast distribution. We will see how to handle these objects later in the subject. The column **.mean** is the point forecast, the mean of the forecast distribution. Remember from **session 1** that **point forecasts are usually the mean of the forecast distribution** (sometimes we may want to choose the median over the mean).
+
+**Important**: to depict the forecasts along with the time series use **autoplot on the fable object (in our case the variable forecasts) and then specify the original variable within autoplot (in this case Bricks)**. This will result in the forecasts being depicted along the original time series:
+
+```{r}
+# TO depict the forecasts and the original series use autoplot() with the 
+forecasts %>% 
+  
+# Depicts the original time series and the forecasts
+autoplot(bricks, level = FALSE)
+```
+
+If you now wisht to add the fitted values, you may use `geom_line()` to add another layer to the graph:
+
+```{r}
+# TO depict the forecasts and the original series use autoplot() with the 
+forecasts %>% 
+  
+# Depicts the original time series and the forecasts
+autoplot(bricks, level = FALSE) +
+  
+# Overlays the fitted values
+geom_line(data = fitted_vals, aes(y = .fitted), colour = "blue", linetype = "dashed")
+```
+
+
+## Number of parameters
+
+Using the function `tidy()` on a fitted model, we can get the number of parameters of the model
+
+```{r}
+tidy(fit)
+```
+
+In this case there is **only one parameter**, the mean of the sample.
+
+# Naïve model
+
+The Naïve model sets all forecasts to be the value of the last observation. Let us use the `aus_exports` dataset
+
+```{r}
+aus_exports <- filter(global_economy, Country == "Australia")
+autoplot(aus_exports, Exports)
+```
+
+## Defining and training the model (generating the fitted values or *estimates*)
+
+```{r}
+fit <- aus_exports %>% model(Naive = NAIVE(Exports))
+fit
+```
+
+Again the `mable` has 1 row (we are only fitting the model to 1 time series) and one column for the model (we only fitted one model).
+
+## Fitted values
+
+```{r}
+# Extract fitted values and inspect table
+fitted_vals <- fit %>% augment()
+head(fitted_vals) 
+```
+
+```{r}
+# Print fitted values along with the original series
+fitted_vals %>% 
+  filter(.model == "Naive") %>%
+  autoplot(Exports, colour = "gray") +
+  geom_line(aes(y=.fitted), colour = "blue", linetype = "dashed")
+```
+
+```{r}
+fit <- aus_exports %>% model(Naive = NAIVE(Exports))
+fit
+```
+
+The above graph looks very similar to the first lag of the time series! In fact, that is exactly what it is.
+
+The naïve model is computing the fitted values by calculating a **one step ahead forecast** from the previous observation. Keep this in mind because we will **often refer to the fitted values as one-step ahead forecasts on the training data**. In this case we are not yet splitting our time series prior to fitting the model, so the entire time series is our training data. We fitted the model to our entire time series when executing the command below
+
+```{r, eval=FALSE}
+fit <- aus_exports %>% model(Naive = NAIVE(Exports))
+fit
+```
+
+## Forecasts
+
+```{r}
+# produce forecasts for 8 timesteps
+forecasts <- fit %>% forecast(h = 8)
+forecasts
+```
+
+```{r}
+# Depict the forecasts
+forecasts %>%
+  autoplot(aus_exports, level = FALSE) +
+  
+  # Overlays the fitted values
+  geom_line(data = fitted_vals, aes(y = .fitted), colour = "blue", linetype = "dashed")
+```
+
+Unlike the fitted values, the forecasts can extend multiple steps ahead into the future.
+
+## Number of parameters
+
+```{r}
+tidy(fit)
+```
+
+As we can see, the Naïve model does not have any parameter. It just forecasts by extending the last observation.
+
+# Residuals
+
+The **residuals** are the **difference between the observations and the corresponding fitted values**
+
+```{=tex}
+\begin{align*}
+e_{t} = y_{t}-\hat{y}_{t}.
+\end{align*}
+```
+
+-   **Innovation residuals**: these are the residuals in the *transformed domain*, only relevant if a transformation has been used
+    -   For example, when using logarithms of the data $w_t = log(y_t)$, the innovation residuals are given by $w_t - \hat{w_t}$ and the regular residuals are given by $y_t - \hat{y_t}$.
+
+As already shown in the previous notebooks, the residuals can be extracted from the fitted object model using the function `augment()`.
+
+# Seasonal naïve
+
+Each forecast equal to the last observed value from the same season (e.g. the same month of the previous year). Formally the *forecast at time T+h*:
+
+```{=tex}
+\begin{align*}
+  \hat{y}_{T+h|T} = y_{T+h-m(k+1)}
+\end{align*}
+```
+where:
+
+-   $m$ is the seasonal period
+-   $k$ is the integer part of $(h-1)/m$ (i.e, the number of complete years in the forecast period prior to time T + h)
+    * **Example:** for monthly data ($m=12$)
+        * $1 \leq h \leq 12$ (forecasts of up to one season ahead) - $0 \leq h-1/m \leq 1 \rightarrow k = 0$.
+        * $13 \leq h \leq 24$ (forecasts of up to two sessions ahead) - $1 \leq h-1/m \leq  2\rightarrow k = 1$.
+        * ...
+
+The interpretation of the formula is therefore quite simple: *future February values will be equal to the last observed February value*
+
+Let us do an example with the us_employment series:
+
+```{r}
+employed <- filter(us_employment, Title == "Total Private", Month >= yearmonth("01-01-2010"))
+head(employed)
+autoplot(employed)
+```
+
+```{r}
+
+```
+
+## Defining and training the model
+
+**NOTE**: within the special function `lag()` we need to specify the length of the seasonality to be considered
+
+```{r}
+fit <- employed %>% model(SNaive = SNAIVE(Employed ~ lag("year")))
+fit
+```
+
+## Fitted values
+
+Because the method generates forecasts by using the corresponding observation from the previous season, the model does not generate fitted values for the first season (remember fitted values are one-step ahead forecasts):
+
+```{r}
+# Extract fitted values and inspect table
+fitted_vals <- fit %>% augment()
+head(fitted_vals) 
+
+# Print fitted values along with the original series
+fitted_vals %>% 
+  filter(.model == "SNaive") %>%
+  autoplot(Employed, colour = "gray") +
+  geom_line(aes(y=.fitted), colour = "blue", linetype = "dashed")
+```
+
+```{r}
+
+```
+
+## Forecasts
+
+```{r}
+# produce forecasts for 8 timesteps
+forecasts <- fit %>% forecast(h = 36)
+forecasts
+```
+
+```{r}
+# Depict the forecasts
+forecasts %>%
+  autoplot(employed, level = FALSE) +
+  autolayer(fitted_vals, .fitted, colour = "blue", linetype = "dashed")
+```
+
+## Number of parameters
+
+```{r}
+tidy(fit)
+```
+
+As we can see, the seasonal naïve model, just like the naïve model, does not have any parameters
+
+# Drift method
+
+Variation of the naïve method. Allows forecasts to increase or decrease over time. **Drift** is the amount of change over time, set to be the **average change in the historical data**:
+
+```{=tex}
+\begin{align*}
+\hat{y}_{T+h|T} = y_{T} + \frac{h}{T-1}\sum_{t=2}^T (y_{t}-y_{t-1}) = y_{T} + h \left( \frac{y_{T} -y_{1}}{T-1}\right).
+\end{align*}
+```
+
+## Defining and training the model
+
+-   NOTE: RW stands for *Random Walk*. More about this later in the subject (within ARIMA models).
+
+```{r}
+fit <- employed %>% model(Drift = RW(Employed ~ drift()))
+fit
+```
+
+**Equivalent to drawing a line between the first and last observations and extrapolating into the future** (the final graph of the example clarifies this further).
+
+## Fitted values
+
+```{r}
+# Extract fitted values and inspect table
+fitted_vals <- fit %>% augment()
+head(fitted_vals) 
+
+# Print fitted values along with the original series
+fitted_vals %>% 
+  filter(.model == "Drift") %>%
+  autoplot(Employed, colour = "gray") +
+  geom_line(aes(y=.fitted), colour = "blue", linetype = "dashed")
+```
+
+The fitted values look **very similar to the SNAIVE fitted values**. But that is only because they are one step-ahead forecasts. Note that values for the first observations are produced (unlike for the seasoanl naïve) case.
+
+## Forecasts
+
+```{r}
+forecasts <- fit %>% forecast(h=8)
+forecasts
+```
+
+```{r}
+# Extract the initial and final points of the series
+# to depict the average change slope.
+n_rows = nrow(employed)
+drift_points <- tibble(Month = c(employed$Month[1], employed$Month[n_rows]), 
+                       Employed = c(employed$Employed[1], employed$Employed[n_rows])) %>%
+                as_tsibble()
+
+# Depict the forecasts
+forecasts %>%
+  autoplot(employed, level = FALSE) +
+  autolayer(fitted_vals, .fitted, colour = "blue", linetype = "dashed") + 
+  geom_line(drift_points, mapping = aes(x = Month, y = Employed), color = "red", linetype = "dashed")
+```
+
+In the above graph we can see that:
+
+1.  The forecasts are generated following the slope of the line that connects the initial and final points of the series (red slope). A further example is depicted in the image below:
+
+```{r, echo=FALSE, out.width='90%', fig.align="center", fig.cap="Further example of the drift method. From [1]"}
+knitr::include_graphics('./figs/12_drift_method.png')
+```
+
+2.  The fitted values are very similar to those of the Naïve Method. Nonetheless, they are not the same. In this case each fitted value is generated by a one-step forecast using the drift method. That is, following the slope resulting from connecting each point of the series with the initial point and extending it one step into the future.
+
+## Number of parameters
+
+We can look at the number of parameters in a model and their values using the function `tidy()`. If we apply it to the drift model we get:
+
+```{r}
+tidy(fit)
+```
+
+The drift model has only one parameter, the slope of the line joining the first and the last observation.
+
+# Forecasting with decomposition
+
+Let:
+
+-   $\hat{A_t}$ be the seasonally adjusted component of a time series
+-   $\hat{S_t}$ be the seasonal component of a time series
+
+The decomposed series can be written as:
+
+-   $y_t = \hat{S}_t + \hat{A}_t$ for additive schemes
+    -   where $\hat{A}_t = \hat{T}_t+\hat{R}_{t}$ is the seasonally adjusted component.
+-   $y_t = \hat{S}_t\hat{A}_t$ for multiplicative schemes
+    -   where $\hat{A}_t = \hat{T}_t\hat{R}_{t}$ is the seasonally adjusted component.
+
+To forecast a decomposed time series $\hat{S_t}$ and $\hat{A_t}$ are forecast separately:
+
+-   $\hat{A_t}$: any non-seasonal forecasting method may be used (drift method, Holt's method, ARIMA)...
+-   $\hat{S_t}$: usually assumed to remain unchanged, or changing very slowly. It is usually forecast by taking the observations of the last season, following the seasonal naïve.
+
+## Fitting the model
+
+Let us again resort to the `employed` time series:
+
+```{r}
+employed <- filter(us_employment, Title == "Total Private", Month >= yearmonth("01-01-2010"))
+autoplot(employed)
+```
+
+```{r}
+
+```
+
+To fully understand the model specification, let us first look at the outcome of an STL decomposition applied to this series
+
+```{r}
+employed %>% 
+  model(
+    stl = STL(Employed)
+  ) %>% 
+  components()
+```
+
+```{r}
+
+```
+
+The seasonal component is stored in a column named `season_year` and the seasonally adjusted component is stored in a column named `season_adjust`. To give a full specification to `decomposition_model()` we need to:
+
+-   Specify a decomposition scheme
+-   Provide a model for the seasonally adjusted component.
+-   Provide a model for the seasonal component (by default the SNAIVE component is used, so this is not strictly necessary).
+
+```{r}
+fit <- employed %>% 
+  model(
+    decomp = decomposition_model(
+                # Specify the decomposition scheme to be used.
+                STL(Employed),
+                # Specify a model for the seasonally adjusted component (in this case, a drift).
+                RW(season_adjust ~ drift()),
+                # Specify a model for the seasonal component (unnecesary, since SNAIVE is the default).
+                SNAIVE(season_year)
+            )
+  )
+
+fit
+```
+
+## Fitted values
+
+As usual, you can extract the fitted values using `augment()`:
+
+```{r}
+fit %>% augment()
+```
+
+**QUESTION**: Why are the first rows of the fitted values NAs??
+
+```{r, eval = FALSE, include=params$print_sol}
+Because the model combines a drift model with a seasonal naive model, it needs
+a full season to go by before it can actually start producing forecasts. 
+Remember fitted values can be thought of as one-step ahead forecasts.
+```
+
+## Forecasts
+
+```{r}
+fit %>%
+  forecast() %>%
+  autoplot(employed, level = FALSE) +
+  labs(y = "Number of people",
+       title = "US retail employment")
+```
+
+```{r}
+
+```
+
+The graph above shows that the model combines the SNAIVE + the DRIFT forecasts (this is equivalent to adding the slope of the drift model to the seasonal naive model).
+
+# Exercise 1
+
+For this exercise we are going to use the `aus_retail` dataset. Remember you can always use `?aus_retail` in the console to red the details abut the dataset.
+
+The dataset contains a variety of series that that might be filtered using their specific series ID. We will be working the the following Series ID: A3349767W. The following code filters the series for you.
+
+```{r}
+retail_series <- aus_retail %>%
+  filter(`Series ID` == "A3349767W")
+
+head(retail_series)
+```
+
+## 1. Use an STL decompostition to calculate the trend-cycle and seasonal indices. If you deem it necessary, adjust the averaging windows.
+
+**NOTE:** remember that the STL decomposition is only applicable to additive schemes, which means you need to transform the data first to obtain an additive scheme.
+
+```{r}
+retail_series %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+# let us examine the guerrero feature
+lambda <- retail_series %>%
+  features(Turnover, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+
+```{r, include=params$print_sol}
+# Given the guerrero feautre so close to 0, we pick up a log transformation
+# Let us check the outcome of the transformation
+retail_series <- retail_series %>% mutate(log_T = log(Turnover))
+retail_series %>% autoplot(log(Turnover))
+```
+
+```{r, include=params$print_sol}
+dcmp <- retail_series %>%
+        model(stl = STL(log(Turnover))) %>%
+        components()
+
+dcmp %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+# ALTERNATIVELY, WE COULD HAVE USED THE TRANSFORMED VARIABLE LOG_T
+# WE WILL SEE THAT THIS APPROACH IS LESS DESIRABLE, IT IS BEST TO SPECIFY THE
+# TRANSFORMATION ON THE MODEL DEFINITION ITSELF, SO THAT THE FABLE LIBRARY
+# IS AWARE THATTHERE IS ACTUALLY A TRANSFORMATION INVOLVED.
+dcmp_2 <- retail_series %>%
+        model(stl = STL(log_T)) %>%
+        components()
+
+dcmp_2 %>% autoplot()
+```
+
+## 2. Extract and plot the seasonally adjusted data
+
+```{r, include=params$print_sol}
+season_adjust <- dcmp %>% select(season_adjust)
+season_adjust %>% autoplot()
+```
+
+```{r}
+
+```
+
+## 3. Use the drift method to produce forcasts of the seasonally adjusted data. Generate a graph with the tieme series, the fitted values and the forecasts
+
+```{r}
+        retail_series %>%
+        model(stl = STL(log_T)) %>%
+        components() %>% 
+        model(Drift = RW(season_adjust ~ drift()))
+```
+
+
+
+```{r, include=params$print_sol}
+# Fit the model
+fit_drift <- season_adjust %>% 
+             model(Drift = RW(season_adjust ~ drift()))
+
+fitted_vals_drift <- fit_drift %>% augment()
+
+forecasts <- fit_drift %>% forecast(h = 36)
+head(forecasts)
+```
+
+```{r, include=params$print_sol}
+forecasts %>% autoplot(season_adjust, level = FALSE) +
+              autolayer(fitted_vals_drift, .fitted, colour = "red", linetype = "dashed")
+```
+
+## 4. Use the SNAIVE method to produce forecasts of the seasonal component. Generate a graph with the time series, the fitted values and the forecasts
+
+```{r, include=params$print_sol}
+seasonal <- select(dcmp, season_year)
+seasonal
+
+
+fit_snaive <- seasonal %>% model(SNaive = SNAIVE(season_year ~ lag("year")))
+fit_snaive
+
+fitted_vals_snaive <- fit_snaive %>% augment()
+
+forecasts_snaive <- fit_snaive %>% forecast(h = 36)
+
+forecasts_snaive %>%
+  autoplot(seasonal, level = FALSE) +
+  autolayer(fitted_vals_snaive, .fitted, colour = "red", linetype = "dashed")
+```
+
+```{r}
+
+```
+
+## 5. Use `decomposition_model()` to generate a model that combines the two approaches used in points 3 and 4.
+
+```{r, include=params$print_sol, eval = FALSE}
+OPTION 1: specify transformation within the model specification.
+The forecasts will be automatically converted to the original variable.
+This is the preferred option
+```
+
+```{r, include=params$print_sol}
+fit_dcmp <- retail_series %>% 
+  model(
+    decomp = decomposition_model(
+                # Specify the decomposition scheme to be used.
+                STL(log(Turnover) ~ trend(window = 21) + season(window = 13)),
+                # Specify a model for the seasonally adjusted component (in this case, a drift).
+                RW(season_adjust ~ drift()),
+                # Specify a model for the seasonal component (unnecesary, since SNAIVE is the default).
+                SNAIVE(season_year)
+            )
+  )
+
+fit_dcmp
+```
+
+```{r, include=params$print_sol}
+fitted_vals <- fit_dcmp %>% augment()
+fitted_vals
+```
+
+```{r, include=params$print_sol}
+fit_dcmp %>%
+  forecast(h = 36) %>%
+  autoplot(retail_series, level = FALSE)
+```
+
+```{r}
+
+```
+
+```{r, include=params$print_sol, eval=FALSE}
+OPTION 2: specify transformation on a separate column (create new variable)
+This works on the transformed domain and does not automatically back-transform
+the forecasts.
+
+OPTION 1 is preferred because it automatically converts the forecasts back
+```
+
+```{r, include=params$print_sol}
+log_T_series <- select(retail_series, log_T)
+
+fit_dcmp_2 <- log_T_series %>%
+  model(stlf = decomposition_model(
+        STL(log_T), # Details how to decompose the series
+        RW(season_adjust ~ drift()) # Details model for the seasonally adjusted component
+  ))
+
+fitted_vals_2 <- fit_dcmp_2 %>% augment()
+
+fit_dcmp_2 %>%
+  forecast(h = 36) %>%
+  autoplot(log_T_series, level = FALSE) +
+  autolayer(fitted_vals_2, .fitted, colour = "red", linetype = "dashed") +
+  labs(y = "log_T",
+       title = "")
+```
+
+```{r, include=params$print_sol}
+# Let us show the original time series to see the difference between the original
+# and the transformed domain
+fit_dcmp_2 %>%
+  forecast(h = 36) %>%
+  autoplot(log_T_series, level = FALSE) +
+  autolayer(fitted_vals_2, .fitted, colour = "red", linetype = "dashed") +
+  labs(y = "log_T",
+       title = "") +
+  
+  autolayer(retail_series)
+```

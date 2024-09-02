@@ -1,0 +1,260 @@
+---
+title: "00_C_basic_tibbles_dplyr_exercises"
+format: html
+editor: visual
+params:
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+To run the code on this notebook you will need to load the following packages (install any of them if necessary):
+
+```{r}
+library(babynames)
+library(nycflights13)
+library(tidyverse)
+library(lubridate)
+```
+
+If you have not installed these packages, you may run the following code to do so:
+
+```{r, eval=FALSE}
+install.packages("babynames")
+install.packages("nycflights13")
+install.packages("tidyverse")
+```
+
+After loading these libraries you should have the tibbles `babynames` and `flights` available to you. You may run the code below to check if this is the case:
+
+```{r}
+babynames
+```
+
+```{r}
+flights
+```
+
+If you want information about the datasets, you may run the following code in the console or in a code snippet:
+
+```{r, eval=FALSE}
+?flights
+```
+
+```{r, eval=FALSE}
+?babynames
+```
+
+# Subsetting a tibble
+
+## `filter()`
+
+1.  Select the subset of the babynames dataset that contains data between 1990 and 2010 about female babies:
+
+```{r, include=params$print_sol}
+# Solution 1
+babynames %>% 
+  filter(
+    (year >= 1990) & (year <= 2010),
+    (sex == "F")
+  )
+
+# Solution 2
+babynames %>% 
+  filter(
+    year %>% between(1990, 2010),
+    (sex == "F")
+  )
+```
+
+2.  Select the subset of the babynames dataset that contains data between 1990 and 2010 regarding babies named either Mary, Sarah or Carrie:
+
+```{r, include=params$print_sol}
+names_vector <- c("Mary", "Sarah", "Carrie")
+
+babynames %>% 
+  filter(
+    year %>% between(1990, 2010),
+    name %in% names_vector
+  )
+```
+
+3.  Filter the flights dataset to contain only the flights that took place in June, July, August and September. Keep only the subset of flights that were delayed. Store the result in a variable called `res`
+
+```{r, include=params$print_sol}
+# Solution 1
+res <-
+  flights %>% 
+    filter(
+      month %>% between(6,9),
+      dep_delay > 0
+    )
+
+# Solution 2
+res <-
+  flights %>% 
+    filter(
+      month %in% c(6, 7, 8, 9),
+      dep_delay > 0
+    )
+```
+
+4.  Take the result of 3 and select only the subset of flights that have a plane tail number (variable `tailnum`) that starts with N. For this you will need to use the function `substr()`. Research online how the function works.
+
+```{r, include=params$print_sol}
+# Solution 1 (using the pipe)
+res %>% 
+  filter(tailnum %>% substr(1,1) == "N")
+
+# Solution 2 (using substr)
+res %>% 
+  filter(substr(tailnum, 1, 1) == "N")
+```
+
+## `select()`
+
+1.  Take the flights dataset and select only the first 3 columns
+
+```{r, include=params$print_sol}
+flights %>% select(1:3)
+```
+
+2.  Take the flights dataset and select only the columns between `year` and `dep_delay`
+
+```{r, include=params$print_sol}
+flights %>% select(year:dep_delay)
+```
+
+3.  Take the flights dataset and select all the columns except those between `year` and `dep_delay`:
+
+```{r, include=params$print_sol}
+flights %>% select(-(year:dep_delay))
+```
+
+4.  Take the flights dataset, place the variable `tailnum` at the beginning of the dataset, drop the variable `carrier` and keep the rest of the columns in their original order:
+
+```{r, include=params$print_sol}
+flights %>% 
+  select(tailnum, -carrier, everything())
+```
+
+## `pull()`
+
+Subset the `flights` dataset so that it only contains flights that took place on the first day of the month. Then use `pull()` to extract the variable `dep_delay` and store it in a variable called `res`.
+
+Finally compute the average and max value of the delay times contained in `res` using `mean` and `max`. You might need to set the argument `na.rm` of these functions to `TRUE`. Research the meaning of this argument.
+
+```{r, include=params$print_sol}
+res <- 
+  flights %>% 
+    filter(day == 1) %>% 
+    pull("dep_delay")
+
+res2 <- c(res %>% mean(na.rm=TRUE), res %>% max(na.rm=TRUE))
+
+res2
+```
+
+## `arrange()`
+
+Use the function `arrange` in combination with `des()` to rearrange the dataset `babynames` all the conditions below are fulfilled:
+
+1.  years are desplayed rom smallest to largest
+2.  male names are shown before female names
+3.  within each sex category the less frequently occurring names are shown first.
+
+```{r, include=params$print_sol}
+babynames %>% 
+  arrange(
+    year,
+    desc(sex),
+    n
+  )
+```
+
+## `mutate()`
+
+1.  Use `mutate()` to create two new columns in the flights dataset:
+
+-   using `make_date()` combine `year`, `month` and `day` to create a `date` object. You may research online or use `?make_date` on the console to understand how `make_date()` works
+-   create a new column that returns `FALSE` if `arr_delay` is smaller than an hour and `TRUE` else. For this us `ifelse()` create a conditional. Reseach online how `ifelse()` works in dplyr or use `?ifelse()` to get help from the console.
+
+After this re-order the dataframe so that the newly created columns are located at the beginning of the dataframe.
+
+**To have `make_date()` available, you need to load (and if required install) the library `lubridate`**
+
+```{r, eval=FALSE}
+# Run this if lubridate is not installed
+install.packages("lubridate")
+```
+
+```{r, eval=FALSE}
+library(lubridate)
+```
+
+```{r, include=params$print_sol}
+flights %>% 
+  mutate(
+    date = make_date(year, month, day),
+    hour_ind = (arr_delay / 60 >= 1) # Returns true if the condition is satisfied
+  ) %>% 
+  select(date, hour_ind, arr_delay, everything())
+```
+
+2.  Use `mutate()` and `substr()` to create a new column with the initial letter of the name of every entry in the dataset `babynames`.
+
+```{r, include=params$print_sol}
+babynames %>% 
+  mutate(
+    initial = name %>% substr(1,1)
+  ) %>% 
+  select(year:name, initial, everything())
+```
+
+## `group_by()` + `summarize()`
+
+1.  Use `group_by()` + `summarize()` to get the `mean()` and `median()` value of `arr_delay` each month. You will need to specify a correct value for the argument `na.rm` within `arr_delay()`
+
+```{r, include=params$print_sol}
+flights %>% 
+  group_by(year, month) %>% 
+  summarize(
+    mean_arr_delay = mean(arr_delay, na.rm=TRUE),
+    median_arr_delay = median(arr_delay, na.rm=TRUE)
+  )
+```
+
+## `group_by()` + `filter()` + `ungroup()`
+
+1.  Use `group_by()`, `filter()` and `ungroup()` to get a list of the most unpopular male and female `babynames` names each year
+
+```{r, include=params$print_sol}
+babynames %>% 
+  group_by(year, sex) %>% # Need to include both year and sex
+  filter(
+    n == min(n)
+  ) %>% 
+  ungroup()
+```
+
+## `group_by()` + `mutate()` + `ungroup()`
+
+1.  Use `group_by()`, `mutate()` and `ungroup()`
+
+Use the function `dense_rank()` in combination with `group_by()`, `mutate()` and `ungroup()` to create a rank of flights within the same day based upon their associated `arr_delay`. Research online or on the help how `dense_rank()` works.
+
+At the same time, use the function `row_number()` to assign an integer number to each row of the same daily partitions (biggest arrival delay gets the smallest `row_number`)
+
+```{r, include=params$print_sol}
+flights %>% 
+  group_by(year, month, day) %>% 
+  mutate(
+    row_number = row_number(desc(arr_delay)),
+    rank = dense_rank(desc(arr_delay))
+  ) %>% 
+  ungroup() %>% 
+  arrange(year, month, day, desc(arr_delay)) %>% 
+  select(year:day, arr_delay, row_number, rank)
+```

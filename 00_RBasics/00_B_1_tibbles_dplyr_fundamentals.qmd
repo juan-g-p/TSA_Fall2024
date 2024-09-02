@@ -1,0 +1,492 @@
+---
+title: "00_B_tibbles_dplyr_fundamentals "
+format: html
+editor: visual
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+1.  Wickham, H; Grolemund, G. *R for Data science*. 2017. Available online at: [Link](https://r4ds.had.co.nz/index.html)
+
+-   Chapter 5 on data transformation already introduces tibbles
+-   Chapter 10 delves into tibbles to a greater extent
+
+2.  Exercises solutions to ref 1: [Link](https://jrnold.github.io/r4ds-exercise-solutions/)
+
+# Note
+
+This notebook is not original material but rather a compilation and further explanation of parts of the references above.
+
+# Packages, library and workspace
+
+Packages are eternal collections of functions, data and code, they are what make R powerful. Packages are stored in "*the library*". They need to be installed once and then summoned from the library every time we run a program.
+
+Packages shall be installed only once using `install.packages()` and then summoned using `library()`
+
+While working we should be aware of the names of the variables we have created. The `ls()` and `BrowseEnv()` commands will help us with that. The environment explorer built in RStudio is perhaps more convenient for this.
+
+For this lesson we are going to need:
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(tidyverse)
+library(nycflights13)
+```
+
+# Introducing the tidyverse
+
+The tidyverse is an opinionated collection of R packages designed for data science. All packages share an underlying design philosophy, grammar, and data structures.
+
+The tidyverse package is based on the principles of "tidy data", which I strongly encourage you to read and reflect upon.
+
+https://r4ds.had.co.nz/tidy-data.html#tidy-data
+
+Reference 1 is recommended to get acquainted with the tidyverse in a formal manner. However, most of what you know about data.frames will be applicable in the tidyverse.
+
+# tibbles
+
+Tibble is a modern re-imagining of the data.frame, keeping what time has proven to be effective, and throwing out what is not. They are the building blocks of the tidyverse and one of the reasons for the cohesion of the different packages within the tidiverse. We will be using tibbles instead of data.frames in this course, but most of what you already know will be directly applicable with some minor tweaks.
+
+Tibbles are data.frames that are lazy and surely:
+
+-   they do less
+    -   They don't change variable names or types
+    -   Don't do partial matching.
+    -   It never converts strings to factors
+-   they complain more (e.g. when a variable does not exist).
+
+This **forces you to confront problems earlier**, typically leading to cleaner, more expressive code as well as promoting consistency in the data, essentially for the reliability of the calculations.
+
+On the practical side, there are **two main differences** in the usage of a tibble vs. a classic `datta.frame`:
+
+-   printing
+-   subsetting
+
+## Create a tibble
+
+### as_tibble(): dataframes to tibbles
+
+Most other R packages use regular data frames, so you might want to coerce a dataframe to a tibble. `as_tibble()` allows you to do just that:
+
+```{r}
+iris_tb <- as_tibble(iris)
+iris
+iris_tb
+```
+
+### tibble()
+
+You can create a new tibble from individual vectors with `tibble()`:
+
+-   Automatically recycles/extends inputs of length 1.
+-   Allows you to refer to variables created inside the function call.
+
+```{r}
+tibble(
+  x = 1:5, 
+  y = 1, 
+  z = x ^ 2 + y,
+)
+```
+
+Note that the input `y = 1` and `z = x ^ 2 + y` of length 1, have been extended (recycled) to make it consistent with the rest of the vectors.
+
+On the other hand, if you input vectors of inconsistent size, you will get an error:
+
+```{r, error=TRUE}
+# NOTE: error=TRUE prevents execution from being stopped upon encountering the error.
+tibble(
+  x = 1:5, 
+  y = 1:3, 
+  z = x ^ 2 + y,
+)
+```
+
+### class()
+
+More generally used to find out the class of an object. Tibbles are classes c("tbl_df", "tbl", "data.frame") while old data frames only have the class "data.frame".
+
+```{r}
+class(iris)
+class(iris_tb)
+```
+
+### is_tibble()
+
+In addition to checking its class and its output, this dedicated function lets us know if an object is a tibble or not:
+
+```{r}
+is_tibble(iris)
+is_tibble(iris_tb)
+```
+
+### Non-syntactic names
+
+Tibbles may have column names that are not valid R variable names, that is, **non-syntactic** names.
+
+-   They might not start with a letter
+-   They might contain unusual characters like a blank space or an `#`
+
+**To refer to these variables** you need to **surround them with backticks**. You'll also need the backticks when working with these variables in other packages of the tidyverse collection:
+
+```{r}
+tb <- tibble(
+  `:)` = "smile", 
+  ` ` = "space",
+  `2000` = "number"
+)
+tb
+tb$` `
+tb$`2000`
+```
+
+### tribble() - **tr**ansposed tibble
+
+tribble() is customized for data entry in code, to lay out small amounts of data in an easy to read form:
+
+-   column headings defined by formulas (i.e. they start with `~`)
+-   entries are separated by commas.
+
+```{r}
+tribble(
+  ~x, ~y, ~z,
+  #--|--|----
+  "a", 2, 3.6,
+  "b", 1, 8.5
+)
+```
+
+## Subsetting a tibble
+
+Tibbles are **strict about subsetting.**
+
+-   They never do partial matching (meaning you need to fully specify column names)
+-   They will generate a warning if the column you are trying to access does not exist
+
+### Pull out a single variable: `$` vs `[` vs `pull()`
+
+-   `$` operator: only extracts by name, but requires a little less typing
+-   `[[` operator: can extract both by name or position.
+-   `pull()` is a an alternative function provided by de `dplyr` package (loaded with `tidyverse`).
+
+```{r}
+tibb_1 <- tibble(
+  x = runif(5), # Generates 5 rational numbers between 0 and 1.
+  y = rnorm(5)  # Extracts 5 samples from the standard normal distribution
+)
+```
+
+```{r}
+tibb_1$x
+
+tibb_1[["x"]]
+
+# Extract by position
+tibb_1[[1]]
+
+# Extract using pull 
+pull(tibb_1, x)
+pull(tibb_1, "x")
+tibb_1 %>% pull(x) # particularly useful in pipes
+```
+
+#### Extracting a column using `.`:
+
+**Analogy**: when working with Linux shell `.` is an abbreviation for the current path.
+
+Much like this `.` can be used within the pipe to refer to *the current status of the object in the pipe*
+
+```{r}
+tibb_1 %>% .$x
+
+tibb_1 %>% .[["x"]]
+
+tibb_1 %>% pull(x)
+```
+
+### `filter()` for row subsetting
+
+Let us use the nycflights13 dataset to show how the main sub-setting functions work (loaded in the first cell of the workbook). You can retrieve detailed information about the data set with `?flights`. Note that `flights` s already a tibble.
+
+```{r}
+flights
+```
+
+`filter()` allows you to subset observations based on their values
+
+-   **First argument:** name of the data frame
+-   **Second and subsequent arguments:** expressions that filter the data frame.
+
+**Example**: all flights on the 1st of January
+
+```{r}
+filter(flights, month == 1, day == 1)
+```
+
+**Example**: flights on months from July till end of years
+
+```{r}
+filter(flights, month >= 7)
+```
+
+**Example**: flights on months 4 and 11
+
+```{r}
+filter(flights, month == 11 | month == 12)
+
+#Alternative:
+filter(flights, month %in% c(11, 12))
+```
+
+### `select()` for column subsetting
+
+Allows you to zoom in on a useful subset of variables (columns) using operations based on the name of the variables.
+
+Allows you to zoom in on a useful subset using operations based on the name of the variables.
+
+**Example:** select columns year, month, day
+
+```{r}
+select(flights, year, month, day)
+```
+
+**Example:** select all columns between `year` and `day`.
+
+```{r}
+select(flights, year:day)
+```
+
+**Example:** select all columns except those between `year` and `day` (inclusive).
+
+```{r}
+select(flights, -(year:day))
+```
+
+**Example:** select all columns except `year` and `day`..
+
+```{r}
+select(flights, -c(year, day))
+```
+
+##### helper functions useful when using `select()`:
+
+-   `starts_with("abc")`; matches names that begin with "abc"
+-   `ends_with("xyz"):` matches names that end with "xyz".
+-   `contains("ijk"):` matches names that contain "ijk".
+-   `matches("(.)\\1"):` selects variables that match a regular expression. This one matches any variables that contain repeated characters. You'll learn more about regular expressions in strings.
+-   `num_range("x", 1:3):` matches x1, x2 and x3.
+
+See `?select` for more details.
+
+-   **everything()** is useful if you have a handful of variables you'd like to move to the start of the data frame.
+
+```{r}
+#Moves time_hour and air_time to the begining, then adds everything else.
+select(flights, time_hour, air_time, everything())
+```
+
+## `arrange()` and `desc()` to order the elements of the tibble
+
+The entries in a dataframe might be ordered according to the values of a column or group of columns.
+
+For example we may organize the dataframe `flights` so that entries are ordered by ascending values of the month
+
+```{r}
+flights %>% arrange(month)
+```
+
+If we specify more than one column then when two rows are equally ranked on the first of the column or columns, the those rows are ordered following the order of the remaining columns specified within arrange.
+
+For example, let us order the dataframe flights by `year`, `month`, `day`, `dep_time` and `arr_time`
+
+```{r}
+flights %>% arrange(year, month, day, dep_time, arr_time)
+```
+
+Using the function `desc()` within the function `arrange()` we may specify that one are more columns are to be ranked in descending order. As an example lets change the previos ordering so that flights are arranged by descending departure time within each combination of year, month and day
+
+```{r}
+flights %>% arrange(year, month, day, desc(dep_time), arr_time)
+```
+
+## `mutate()` to create new columns
+
+Given a tibble, we may use the `dplyr` function `mutate()` to create a new dataframe:
+
+```{r}
+df <-
+  tibble(
+    x = 1:5, 
+    y = 1, 
+    z = x ^ 2 + y,
+  )
+
+df <-
+  df %>% 
+    mutate(
+      sqrt_y = sqrt(x),
+      sqrt_y = sqrt(y),
+      z_squared = z^2,
+      k = 1
+    )
+
+df
+```
+
+# group_by()
+
+## `group_by` + `summarize()` to create aggregations of one row per group
+
+As an example, let us compute the number of fligths, average delay and maximum delay for each unique combination of `year` and `month` using the `flights` dataset (loaded with the libary `nycflights13`).
+
+Please note that **the resulting dataset only has 12 rows because we only have data for 2013**:
+
+```{r}
+res <-
+  flights %>% 
+    group_by(year, month) %>% 
+    summarize(
+      n_fligts = n(), # n() returns the number of elements in the group
+      mean_delay = mean(dep_delay, na.rm = TRUE),
+      max_delay = max(dep_delay, na.rm = TRUE)
+    )
+
+res
+```
+
+## `group_by()` + `mutate()` + `ungroup()` to work with partitions.
+
+The **resulting dataframe will have the same number of rows as the original dataframe**. This is useful in some contexts and is the dplyr equivalent to SQLs `partition_by`.
+
+As an example let us:
+
+1.  Select columns `year`, `month`, `day`, `dep_time` and `dep_delay`.
+2.  Use arrange to ensure the data is arranged by `year`, `month`, `day` and `dep_time`
+3.  Create two new columns that will reset every time the combination `year`, `month` and `day` changes. Each combination of `year`, `month` and `day` will constitute what we may call a **partition**, a term used in SQL terms in opposition to **groups** when the total number of rows is not changed by the operation. 3.1 The first column will contain the cumulative sum of delay times. 3.2 The second column will create an index identifier for each observation within the partition. We will achieve this with the function `row_number()`
+4.  Re-arrange columns so that the integer identifier appears as the first column.
+
+```{r}
+res2 <-
+  flights %>% 
+    # Select a subset of columns
+    select(year, month, day, dep_time, dep_delay) %>% 
+  
+    # Order the dataframe by ascending combinations of those columns
+    arrange(year, month, day, dep_time) %>% 
+  
+    # Create the partitions/groups
+    group_by(year, month, day) %>%
+  
+    # Create the new columns retaining the original number of rows
+    mutate(
+      dep_delay_cumsum = cumsum(dep_delay),
+      h = row_number()
+    ) %>% 
+  
+    # Re-arrange columns
+    select(h, everything())
+
+res2
+```
+
+Very **importantly**, the result of the previous operation `res2` is still grouped! You can spot it on the output `Groups:   year, month, day [365]`. This means that, whenever you perform operations such as creating new columns, they will be carried-out **partition-wise**.
+
+To avoid this we need to use **ungroup** at the end of the operation when we are using `group_by()` in combination with `mutate()`. See next point.
+
+NOTE: if you use `group_by()` in combination with `summarize()` you will not have this problem.
+
+#### `ungroup()` to remove the partitions.
+
+To remove the *partitioning* from the previous dataset, we use the function ungroup. This step is crucial.
+
+```{r}
+res2
+```
+
+Here you can see that the data is grouped. Just see the message `Groups:   year, month, day [365]` in the output.
+
+If we use `ungroup()` on the dataframe, this partitioning is removed and now all subsequent operations will not be carried out partition-wise
+
+```{r}
+res2 <-
+  res2 %>% ungroup()
+
+res2
+```
+
+## `group_by()` + `filter()` + `ungroup()` to filter partitionwise.
+
+See example in associated file `00_B_2_group_by_examples.html` and associated pdf `00_B_2_group_by_examples.pdf`
+
+## Convert tibbles to dataframes
+
+This section of the notebook may be skipped.
+
+### tibble to dataframe
+
+Some older functions do not work with tibbles. You can use `as.data.frame()` to turn a tibble back to a data.frame.
+
+#### as.data.frame
+
+```{r}
+class(iris_tb)
+```
+
+```{r}
+iris_df <- as.data.frame(iris_tb)
+class(iris_df)
+```
+
+### `[` function - data.frames vs tibbles:
+
+The `[` function is the main reason that older functions do not work with tibbles
+
+-   For tibbles we can solve the same problems with clearer code using `dplyr::filter()` and `dplyr::select()`.
+
+-   With R base data frames, `[` sometimes returns a data frame an sometimes it returns a vector.
+
+-   With tibbles `[` always returns another tibble.
+
+#### Behavior comparison
+
+```{r}
+df <- data.frame(abc = c(1,2), xyz = c("a","b"))
+df
+```
+
+```{r}
+df$x
+df[, "xyz"]
+df[, c("xyz")]
+df[, c("abc", "xyz")]
+```
+
+-   `$` operator and data.frame:
+    -   will match any column name that starts with the name following it.
+    -   `df$x` will be expanded to `df$xyz`
+        -   this can result in accidentally using a different column than you thought you were using.
+-   `[` operator and data.frame:
+    -   the type of object that is returned differs on the number of columns.
+        -   **with one column:** it wont return a data.frame, but instead will return a vector.
+        -   **with more than one column:** it return a data.frame
+
+This behavior is good if you know what you are passing in, but if you are passing somehting like `df[, vars]` where `vars` was a variable: the code depends on the `length(vars)` and you'd have to write code to account for those situations or risk bugs.
+
+```{r}
+tbl <- as_tibble(df)
+tbl$x
+tbl[, "xyz"]
+tbl[, c("xyz")]
+tbl[, c("abc", "xyz")]
+```
+
+With a tibble
+
+-   The `$` operator never performs partial name matching. That is, the whole and exact variable name needs to be explicitly written. This prevents inadvertent use of variables using one variable instead of another.
+
+-   The `[` operator always returns a tibble.

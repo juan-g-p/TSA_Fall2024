@@ -1,0 +1,702 @@
+---
+title: "R vectors and lists"
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Vectors
+
+Vectors are used to store elements of the same type. Remember the basic R data types are:
+
+* logical (boolean)
+* integer
+* double
+* character
+* complex
+* raw
+
+## Creating vectors
+ 
+### Creating a vector using `c()`, the combine function
+ 
+The most common way to create vectors is using the functio `c()` (combine). Remember a vector can only contain elements of the same type, so if the specified elements are not of the same type, `c()` will attempt to coerce it.
+
+```{r}
+# Numeric (double) vector of 5 elements
+vec1 <- c(1, 2, 3, 4, 5)
+typeof(vec1)
+vec1
+```
+
+```{r}
+# Coercion of the logical (boolean) to integer to attain type conformity
+c(1, 2, 4, TRUE)
+```
+
+```{r}
+# Coercion of every element to character (string) to attain type conformity.
+c(1, 2, "Juan", FALSE)
+```
+
+### Creating a vector using the `:` operator
+
+We will store these two vectors and use them later in the notebook for examples on how to access vector elements
+
+```{r}
+x <- 5:10
+x
+
+y <- -5:5
+y
+```
+### Creating a vector using the `seq()` function
+
+```{r}
+# If the left bound does not fall into the dequence it is discarded
+# by = 0.3 is used to specify a step of 0.3
+seq(2, 7, by = 0.3)
+```
+## Accessing elements of a vector
+
+### Using numerical indices
+
+Unike in python, where indices start at 0, in R inidices start at 1.
+
+* Specifying a vector of integers allows us to access the elements with those indices
+* Specigying **negative integers** returns all elements except those with negative integers
+* It is **not possible to mix possitive and negative integers for indexing**
+
+Some examples:
+
+```{r}
+# First element of the vector
+x[1]
+
+# Third element of the vector 
+x[3]
+
+# Elements 1, 3 and 5 of vector x
+x[c(1, 2, 5)]
+
+# All elements except 2 and 5 of vector x
+x[c(-2, -5)]
+```
+
+#### NOTE: repeating elements when indexing
+
+Although we will not use it in our course, you should be aware that you may repeat elements when trying to select elements of a vector. This is very useful, for example, for scenarios where you want to sample with replacement randomly from the elements of a vector (the fact that indices can be repeated simulates the replacement):
+
+```{r}
+# Creates a vector using elements of the vector x
+z <- x[c(1,5,5,1,1,2,4,1)]
+z
+```
+
+### Using a logical vector
+
+```{r}
+x
+x[c(TRUE, FALSE, TRUE, TRUE, TRUE)]
+```
+
+When explicitly specifying a vector of booleans to sub-set the vector, ensure the vector of booleans is of the same length as the vector we want to subset to avoid problematic scenarios.
+
+If we specify a vector of booleans with more elements that the vector we are selecting from, we will get NAs:
+
+```{r}
+x
+x[c(TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)]
+```
+
+#### IMPORTANT: logical indexing and relational operators 
+
+**Logical indexing** is most useful in combination with *relational operators*. For example:
+
+```{r}
+# The previously stored vector y
+y
+
+# Vector of booleans taking TRUE where y >= 0
+y >= 0
+
+# Elements of y that are >= 0
+y[y >= 0]
+```
+
+### Named vectors: using a character vector as index
+
+Vector elements might be named. For example, we may name them upon creation:
+
+```{r}
+z <- c("el_1"=4, "el_2"=7, "el_3"=2)
+
+names(z)
+
+z["el_1"]
+z["el_2"]
+z["el_3"]
+```
+
+Note that we may also name the elements of a vector that has already been created
+
+```{r}
+# Naming the 5 elements of x after having created it
+names(x) <- c("el_1", "el_2", "el_3", "el_4", "el_5", "el_6")
+
+# Checking the names
+names(x)
+
+# Printing element 3
+x["el_3"]
+
+# This returns the same than x["el_3"]
+x[3]
+```
+### Modifying elements of a vector
+
+An element of a vector may me modified directly using the assignment operator. Let us look at some examples:
+
+```{r}
+x
+
+# Modify 5th element
+x[5] <- 0
+
+x
+
+# Assign same value to elemenets 2, 3, 4
+x[2:4] <- 2
+
+x
+```
+### Removing elements of a vector
+
+This is attained by using negative integers. See the section *accessing elements of a vector*
+
+```{r}
+# Remove elements 2 and 5 from the vector
+x[c(-2, -5)]
+```
+### Checking the type of a vector
+
+Since vectors are type consistent (all their elements have the same type), we may apply the function `typeof()` to an entire vector
+
+```{r}
+typeof(x)
+```
+### length() of a vector
+
+The function `length()` returns the number of elements of a vector:
+
+```{r}
+x
+length(x)
+```
+
+# Lists
+
+Lists are very similar to vectors, the most notable difference being that they can hold elements of different types.
+
+Just like vectors, lists may also be named. Let us created a named list:
+
+```{r}
+l1 <- list("a_1" = "Maria", "b_2" = 0, "c_3" = TRUE, "d_4" = seq(-4, 4, by= 2))
+```
+
+## `str()`: examine the structure of a list:
+
+```{r}
+str(l1)
+```
+## `length()` of a list
+
+The function length also works for lists
+
+```{r}
+length(l1)
+```
+### list tags
+
+"a_1", "b_2", "c_3" and "d_4" are the tags of l1. They are optional. We may also inspect them with the function `names()`
+
+```{r}
+names(l1)
+```
+
+We may create the exact same list without the tags as follows:
+
+```{r}
+l2 <- list("Maria", 0, TRUE, seq(-4, 4, by= 2))
+l2
+```
+
+## Accessing elements of a list
+
+### indexing with `[`
+
+Indexing with `[` gives us a sublist, not the object stored within the list, even if we only specify a single index. For example:
+
+```{r}
+l1[1]
+```
+```{r}
+# Check that l1[1] is a list
+typeof(l1[1])
+```
+As you can see above l1[1] is a list, not the object stored at position one of the list.
+
+We may create a list using more than one element of the list resorting to vectors for indexing. As the example below shows, you may even repeat an index in your selection to select a specific element more than once:
+
+```{r}
+l1[c(1, 1, 2, 3, 5)]
+```
+
+### indexing with `[[`
+
+Using the `[[` operator in lists returns the **object stored at a specific list position**:
+
+```{r}
+l1[[1]]
+
+typeof(l1[[1]])
+```
+You can now see that `typeof(l1[[1]])` is `"character"`, not anymore a list.
+
+If the vector is tagged we may also use the tag name instead of the numeric index:
+
+```{r}
+l1[["a_1"]]
+```
+
+**Importantly**, when using `[[` to select elements from a list, we will only be able to **access one element at a time**.
+
+### indexing with `$`
+
+May be used as the `[[` but works only with tags.
+
+```{r}
+l1$a_1
+```
+
+The difference is that `$` does partial matching, whereas `[[` does not
+
+```{r}
+l1$a_1
+
+# Same as $a_1 and $a_ (partial matching)
+l1$a
+
+# Same as $a_1 and $a_ (partial matching)
+l1$a_
+```
+
+## Modifying components of a list
+
+Again using the assignment operators we can modify components of a list
+
+```{r}
+l1$a_1
+
+l1[["a_1"]] <- 1
+
+l1$a_1
+```
+
+## Adding components to a list
+
+We may do this by assigning to indexes beyond the limits of the list. For example, the max index of l1 is 4
+
+```{r}
+length(l1)
+```
+
+```{r}
+# Creates new element at position 5
+l1[[5]] <-  "Oscar"
+l1
+```
+
+This method does not assign a tag. If you want to assign a tag you may do it via the `names()` function:
+
+```{r}
+names(l1)[5] <- "Oscar"
+l1
+```
+
+We may also use new tags to create new elements
+
+```{r}
+l1[["Oscar_age"]] <- 34
+l1
+```
+
+## Delete components from a list
+
+By assigning `NULL` to a component, we may delete it
+
+```{r}
+l1
+l1[["a_1"]] <- NULL
+l1
+=======
+---
+title: "R vectors and lists"
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Vectors
+
+Vectors are used to store elements of the same type. Remember the basic R data types are:
+
+* logical (boolean)
+* integer
+* double
+* character
+* complex
+* raw
+
+## Creating vectors
+ 
+### Creating a vector using `c()`, the combine function
+ 
+The most common way to create vectors is using the functio `c()` (combine). Remember a vector can only contain elements of the same type, so if the specified elements are not of the same type, `c()` will attempt to coerce it.
+
+```{r}
+# Numeric (double) vector of 5 elements
+vec1 <- c(1, 2, 3, 4, 5)
+typeof(vec1)
+vec1
+```
+
+```{r}
+# Coercion of the logical (boolean) to integer to attain type conformity
+c(1, 2, 4, TRUE)
+```
+
+```{r}
+# Coercion of every element to character (string) to attain type conformity.
+c(1, 2, "Juan", FALSE)
+```
+
+### Creating a vector using the `:` operator
+
+We will store these two vectors and use them later in the notebook for examples on how to access vector elements
+
+```{r}
+x <- 5:10
+x
+
+y <- -5:5
+y
+```
+### Creating a vector using the `seq()` function
+
+```{r}
+# If the right bound does not fall into the sequence, it is discarded.
+# by = 0.3 is used to specify a step of 0.3
+seq(2, 7, by = 0.3)
+```
+
+## Accessing elements of a vector
+
+### Using numerical indices
+
+Unike in python, where indices start at 0, in R inidices start at 1.
+
+* Specifying a vector of integers allows us to access the elements with those indices
+* Specifying **negative integers** returns all elements except those with negative integers
+* It is **not possible to mix positive and negative integers for vector indexing**
+
+Some examples:
+
+```{r}
+# First element of the vector
+x[1]
+
+# Third element of the vector 
+x[3]
+
+# Elements 1, 3 and 5 of vector x
+x[c(1, 2, 5)]
+
+# All elements except 2 and 5 of vector x
+x[c(-2, -5)]
+```
+
+#### NOTE: repeating elements when indexing
+
+Although we will not use it in our course, you should be aware that you may repeat elements when trying to select elements of a vector. This is very useful, for example, for scenarios where you want to sample with replacement randomly from the elements of a vector (the fact that indices can be repeated simulates the replacement):
+
+```{r}
+# Creates a vector using elements of the vector x
+z <- x[c(1,5,5,1,1,2,4,1)]
+z
+```
+
+### Using a logical vector
+
+```{r}
+x
+x[c(TRUE, FALSE, TRUE, TRUE, TRUE)]
+```
+
+When explicitly specifying a vector of booleans to sub-set the vector, ensure the vector of booleans is of the same length as the vector we want to subset to avoid problematic scenarios.
+
+If we specify a vector of booleans with more elements that the vector we are selecting from, we will get NAs:
+
+```{r}
+x
+x[c(TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)]
+```
+
+#### IMPORTANT: logical indexing and relational operators 
+
+**Logical indexing** is most useful in combination with *relational operators*. For example:
+
+```{r}
+# The previously stored vector y
+y
+
+# Vector of booleans taking TRUE where y >= 0
+y >= 0
+
+# Elements of y that are >= 0
+y[y >= 0]
+```
+
+### Named vectors: using a character vector as index
+
+Vector elements might be named. For example, we may name them upon creation:
+
+```{r}
+z <- c("el_1"=4, "el_2"=7, "el_3"=2)
+
+names(z)
+
+z["el_1"]
+z["el_2"]
+z["el_3"]
+```
+
+Note that we may also name the elements of a vector that has already been created
+
+```{r}
+# Naming the 5 elements of x after having created it
+names(x) <- c("el_1", "el_2", "el_3", "el_4", "el_5", "el_6")
+
+# Checking the names
+names(x)
+
+# Printing element 3
+x["el_3"]
+
+# This returns the same than x["el_3"]
+x[3]
+```
+
+### Modifying elements of a vector
+
+An element of a vector may me modified directly using the assignment operator. Let us look at some examples:
+
+```{r}
+x
+
+# Modify 5th element
+x[5] <- 0
+
+x
+
+# Assign same value to elemenets 2, 3, 4
+x[2:4] <- 2
+
+x
+```
+
+### Removing elements of a vector
+
+This is attained by using negative integers. See the section *accessing elements of a vector*
+
+```{r}
+# Remove elements 2 and 5 from the vector
+x[c(-2, -5)]
+```
+
+### Checking the type of a vector
+
+Since vectors are type consistent (all their elements have the same type), we may apply the function `typeof()` to an entire vector
+
+```{r}
+typeof(x)
+```
+
+### length() of a vector
+
+The function `length()` returns the number of elements of a vector:
+
+```{r}
+x
+length(x)
+```
+
+# Lists
+
+Lists are very similar to vectors, the most notable difference being that they can hold elements of different types.
+
+Just like vectors, lists may also be named. Let us created a named list:
+
+```{r}
+l1 <- list("a_1" = "Maria", "b_2" = 0, "c_3" = TRUE, "d_4" = seq(-4, 4, by= 2))
+```
+
+## `str()`: examine the structure of a list:
+
+```{r}
+str(l1)
+```
+
+## `length()` of a list
+
+The function length also works for lists
+
+```{r}
+length(l1)
+```
+
+### list tags
+
+"a_1", "b_2", "c_3" and "d_4" are the tags of l1. They are optional. We may also inspect them with the function `names()`
+
+```{r}
+names(l1)
+```
+
+We may create the exact same list without the tags as follows:
+
+```{r}
+l2 <- list("Maria", 0, TRUE, seq(-4, 4, by= 2))
+l2
+```
+
+## Accessing elements of a list
+
+### indexing with `[`
+
+Indexing with `[` gives us a sublist, not the object stored within the list, even if we only specify a single index. For example:
+
+```{r}
+l1[1]
+```
+```{r}
+# Check that l1[1] is a list
+typeof(l1[1])
+```
+As you can see above l1[1] is a list, not the object stored at position one of the list.
+
+We may create a list using more than one element of the list resorting to vectors for indexing. As the example below shows, you may even repeat an index in your selection to select a specific element more than once:
+
+```{r}
+l1[c(1, 1, 2, 3, 5)]
+```
+
+### indexing with `[[`
+
+Using the `[[` operator in lists returns the **object stored at a specific list position**:
+
+```{r}
+l1[[1]]
+
+typeof(l1[[1]])
+```
+You can now see that `typeof(l1[[1]])` is `"character"`, not anymore a list.
+
+If the vector is tagged we may also use the tag name instead of the numeric index:
+
+```{r}
+l1[["a_1"]]
+```
+
+**Importantly**, when using `[[` to select elements from a list, we will only be able to **access one element at a time**.
+
+### indexing with `$`
+
+May be used as the `[[` but works only with tags.
+
+```{r}
+l1$a_1
+```
+
+The difference is that `$` does partial matching, whereas `[[` does not
+
+```{r}
+l1$a_1
+
+# Same as $a_1 and $a_ (partial matching)
+l1$a
+
+# Same as $a_1 and $a_ (partial matching)
+l1$a_
+```
+
+## Modifying components of a list
+
+Again using the assignment operators we can modify components of a list
+
+```{r}
+l1$a_1
+
+l1[["a_1"]] <- 1
+
+l1$a_1
+```
+
+## Adding components to a list
+
+We may do this by assigning to indexes beyond the limits of the list. For example, the max index of l1 is 4
+
+```{r}
+length(l1)
+```
+
+```{r}
+# Creates new element at position 5
+l1[[5]] <-  "Oscar"
+l1
+```
+
+This method does not assign a tag. If you want to assign a tag you may do it via the `names()` function:
+
+```{r}
+names(l1)[5] <- "Oscar"
+l1
+```
+
+We may also use new tags to create new elements
+
+```{r}
+l1[["Oscar_age"]] <- 34
+l1
+```
+
+### Delete components from a list
+
+By assigning `NULL` to a component, we may delete it
+
+```{r}
+l1
+l1[["a_1"]] <- NULL
+l1
+>>>>>>> 8e4f1625fa4e86788f65d5aad0181db93459359e
+```

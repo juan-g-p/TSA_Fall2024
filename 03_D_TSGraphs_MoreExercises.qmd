@@ -1,0 +1,299 @@
+---
+title: "03_D_TSGraphs_MoreExercises"
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+```{r}
+library(readr)
+library(readxl)
+library(fpp3)
+```
+
+# 1 Beijing pollution
+
+The code below imports measurements from a station located in Beijing that measures NO2, CO and SO2 levels, as well as other basic weather-related variables. Run the code and a pop-up window will request you to select a file. Select the file `Beijing_Pollution_TSeries.csv`, which you must download from the ZZ_Datasets folder located in google drive:
+
+```{r, include=FALSE}
+pollution <- 
+  
+  # Read the file
+  read_csv("ZZ_Datasets/Beijing_Pollution_TSeries.csv") %>% 
+
+  #Step 1: create the time_stamp
+  mutate(time_stamp = make_datetime(year, month, day, hour)) %>%
+  
+  #Step 2: reorder columns and drop timestamp components (keep only the newly created     timestamp)
+  select(time_stamp, everything(), -c(No, year, month, day, hour))  %>%
+
+  #Step 3: convert to tsibble
+  as_tsibble(index = time_stamp)
+  
+pollution
+```
+
+
+```{r, eval=FALSE}
+pollution <- 
+  
+  # Read the file
+  read_csv(file.choose()) %>% 
+
+  #Step 1: create the time_stamp
+  mutate(time_stamp = make_datetime(year, month, day, hour)) %>%
+  
+  #Step 2: reorder columns and drop timestamp components (keep only the newly created     timestamp)
+  select(time_stamp, everything(), -c(No, year, month, day, hour))  %>%
+
+  #Step 3: convert to tsibble
+  as_tsibble(index = time_stamp)
+  
+pollution
+```
+
+The code below performs a quick graph of the measurements of NO2 levels contained in the dataset:
+
+```{r}
+autoplot(pollution, NO2)
+```
+
+## 1.1 Average weekly values
+
+Use `index_by()` to define a new tsibble `NO2_weekly` that processes the hourly values contained in the tsibble `pollution` and computes average weekly values of NO2 levels. For details on how to use `index_by()` refer to the notebook on tsibbles that we saw in class and you can find in google drive.
+
+Afterwards create a new column on `NO2_weekly` that contains the combination of year and month corresponding to each row. 
+
+Following this filter the dataset to contain only values between March 2013 (included) and March 2014 (excluded).
+
+```{r, include=params$print_sol}
+NO2_weekly <- 
+  
+  pollution %>% 
+  
+  # Step 1: Indicate level of aggregation desired in the index. In this case
+  # we will start with a weekly aggregation:
+  index_by(week = yearweek(time_stamp)) %>%
+  
+  # Step 2: aggregate variables with the desired output
+  summarise(
+    average_NO2 = mean(NO2, na.rm = TRUE), # Computes the mean NO2 levels for each calendar week.
+  ) %>% 
+  
+  # Step 3: create new value ym containing the yearmonth data
+  mutate(
+    ym = yearmonth(week)
+  ) %>% 
+  
+  # Step 4: filter for the desired timeframe using the column ym
+  filter(
+    ym >= yearmonth("March 2013"),
+    ym < yearmonth("March 2014")
+  )
+
+NO2_weekly
+```
+
+
+
+
+## 1.2 Timeplot using weekly data
+
+Create a timeplot using `NO2_weekly`. The timeplot must have major break every month. Desired output below:
+
+```{r, echo=params$print_sol}
+autoplot(NO2_weekly, average_NO2) +
+
+  # Set the grid frequency for the x axis and its label format. 
+  # The tsibble function scale_x_yearweek scales the x axis in CW according to the
+  # breaks we set
+  scale_x_yearweek(date_breaks = "1 month") +
+
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+## 1.3 repeat the tasks detailed in 1.1 and 1.2, but this time the aggregation must compute monthly values and store them in `NO2_monthly`. Then create a plot that depicts that data and has ticks every month:
+
+```{r, include=params$print_sol}
+NO2_monthly <- 
+  
+  pollution %>% 
+  
+  # Step 1: Indicate level of aggregation desired in the index. In this case
+  # we will start with a weekly aggregation:
+  index_by(ym = yearmonth(time_stamp)) %>%
+  
+  # Step 2: aggregate variables with the desired output
+  summarise(
+    average_NO2 = mean(NO2, na.rm = TRUE), # Computes the mean NO2 levels for each calendar week.
+  ) %>% 
+  
+  # Step 4: filter for the desired timeframe using the column ym
+  filter(
+    ym >= yearmonth("March 2013"),
+    ym < yearmonth("March 2014")
+  )
+
+NO2_monthly
+```
+
+```{r, echo=params$print_sol}
+autoplot(NO2_monthly, average_NO2) +
+
+  # Set the grid frequency for the x axis and its label format. 
+  # The tsibble function scale_x_yearweek scales the x axis in CW according to the
+  # breaks we set
+  scale_x_yearmonth(date_breaks = "1 month",
+                    minor_breaks = "1 month"
+                    ) +
+
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+# 2. Fuel Prices
+
+The code below performs the necessary transformations to turn the data contained in the file `Weekly Fuel Prices.xlsx` into a tsibbl. You will find this data in the google drive folder, under `ZZ_Datasets`. Run the code and a pop-up window will request you to select a file. Select `Weekly Fuel Prices.xlsx`, which you must previously download to your computer:
+
+```{r, include=FALSE}
+fuel_prices <- 
+  
+  # Read excel file
+  read_xlsx("ZZ_Datasets/Weekly Fuel Prices.xlsx",
+            col_types = c ("date", "numeric", "numeric")) %>% 
+  
+  filter(!is.na(Date)) %>%
+  
+  pivot_longer(cols = c("Petrol (USD)", "Diesel (USD)"),
+               names_to = "fuel_type",
+               values_to = "price_USD"
+               ) %>% 
+  
+  as_tsibble(key =  fuel_type, regular = FALSE, index = Date)
+
+fuel_prices
+```
+
+```{r, eval=FALSE}
+fuel_prices <- 
+  
+  # Read excel file
+  read_xlsx(file.choose(),
+            col_types = c ("date", "numeric", "numeric")) %>% 
+  
+  filter(!is.na(Date)) %>%
+  
+  pivot_longer(cols = c("Petrol (USD)", "Diesel (USD)"),
+               names_to = "fuel_type",
+               values_to = "price_USD"
+               ) %>% 
+  
+  as_tsibble(key =  fuel_type, regular = FALSE, index = Date)
+
+fuel_prices
+```
+
+## 2.1 Quarterly aggregation with index_by
+
+The code below is used to produce the average quarterly prices, separating by fuel_type.
+
+Experiment with excluding vs including the command `group_by(fuel_type)` before `index_by(yq = yearquarter(Date))`. How does the result change?
+
+For the next section, include the `group_by` and store the result in fuel_quarterly.
+
+```{r, eval=FALSE}
+fuel_quarterly <- 
+  
+  fuel_prices %>% 
+  
+  # Use group_by so that the subsequeny index_by is applied
+  # group-wise.
+  group_by(fuel_type) %>%
+
+  # Index by yearquarter 
+  index_by(yq = yearquarter(Date)) %>% 
+  
+  # Summarise
+  summarise(
+      petrol_mean_USD = mean(price_USD, na.rm = TRUE)
+  ) %>% 
+
+  ungroup()
+```
+
+```{r, include=FALSE}
+fuel_quarterly <- 
+  
+  fuel_prices %>% 
+  
+  # Use group_by so that the subsequeny index_by is applied
+  # partitionwise.
+  group_by(fuel_type) %>%
+
+  # Index by yearquarter 
+  index_by(yq = yearquarter(Date)) %>% 
+  
+  # Summarise
+  summarise(
+      petrol_mean_USD = mean(price_USD, na.rm = TRUE)
+  ) %>% 
+
+  ungroup()
+```
+
+## 2.2 Time-plot
+
+Filter the object fuel_quarterly to contain only information between 2004 and 2008 (both included).
+
+Then produce the graph below. Ensure that you have major ticks every year and minor ticks every quarter. 
+
+HINT: for the minor ticks you may need to generate a sequence of yearquarter objects, as explained in the notebook covering dates and times in R.
+
+```{r, echo=FALSE, include=!params$print_sol}
+# Sequence from the start to the end of the yearquarters in 
+yearquarter_minorseq <- (fuel_quarterly$yq[1])  + seq(0, nrow(fuel_quarterly), by = 1)
+
+fuel_quarterly %>% 
+  
+  filter(year(yq) >= 2004,
+         year(yq) <= 2008
+         ) %>% 
+  
+  autoplot() +
+  
+  scale_x_yearquarter(
+    breaks = "1 year",
+    # minor_breaks = "1 quarter"
+    minor_breaks = yearquarter_minorseq
+  ) +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r, include=params$print_sol}
+# Sequence from the start to the end of the yearquarters in 
+yearquarter_minorseq <- (fuel_quarterly$yq[1])  + seq(0, nrow(fuel_quarterly), by = 1)
+
+fuel_quarterly %>% 
+  
+  filter(year(yq) >= 2004,
+         year(yq) <= 2008
+         ) %>% 
+  
+  autoplot() +
+  
+  scale_x_yearquarter(
+    breaks = "1 year",
+    # minor_breaks = "1 quarter"
+    minor_breaks = yearquarter_minorseq
+  ) +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```

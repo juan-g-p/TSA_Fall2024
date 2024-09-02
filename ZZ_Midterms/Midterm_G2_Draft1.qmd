@@ -1,0 +1,176 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+```{r}
+pedestrian %>% 
+  as_tibble() %>% 
+  select(Sensor) %>% 
+  unique()
+```
+
+```{r}
+pedestrian_1s <- 
+  pedestrian %>% 
+    filter(Sensor == "Bourke Street Mall (North)") %>%
+    fill_gaps() %>% 
+    mutate(yw = yearweek(Date_Time))
+
+pedestrian_1s %>% 
+  filter((yw > yearweek("2015 W08")) & (yw <= yearweek("2015 W20"))) %>%
+  autoplot(Count) +
+  scale_x_datetime(
+    minor_breaks = "1 day",
+    breaks = "1 week"
+  )
+```
+
+```{r}
+pedestrian_1s %>% 
+  ACF(Count, lag_max = 24 * 14) %>% 
+  autoplot()
+```
+
+```{r}
+pedestrian_1s %>% 
+  model(
+    stl = STL(Count)
+  ) 
+```
+
+```{r}
+as.Date("2022-01-01")
+```
+
+```{r}
+pedestrian_1s %>% 
+  # fill_gaps() %>% 
+  index_by(Date) %>%
+  fill_gaps() %>% 
+  summary(
+    tot_count = sum(Count, na.rm=TRUE)
+  )
+```
+
+```{r}
+pollution <- 
+  
+  # Read the file
+  read_csv(file.choose()) %>% 
+
+  #Step 1: create the time_stamp
+  mutate(time_stamp = make_datetime(year, month, day, hour)) %>%
+  
+  #Step 2: reorder columns and drop timestamp components (keep only the newly created     timestamp)
+  select(time_stamp, everything(), -c(No, year, month, day, hour))  %>%
+
+  #Step 3: convert to tsibble
+  as_tsibble(index = time_stamp) %>% 
+  
+  fill_gaps()
+  
+pollution
+```
+
+```{r}
+pollution_filt <- 
+  pollution %>% 
+    mutate(
+      yw = yearweek(time_stamp)
+    ) %>% 
+    filter(yw >= yearweek("2013 W10") & yw <= yearweek("2013 W16")) 
+
+pollution_filt %>% 
+  autoplot(NO2) + 
+  scale_x_datetime(
+    minor_breaks = "1 day",
+    breaks = "1 week"
+  )
+```
+
+```{r}
+# Extract data from one sensor
+bm <- pedestrian %>%
+  filter(Sensor == "Birrarung Marr") 
+bm %>% fill_gaps() %>% autoplot(Count)
+```
+
+```{r}
+# Select longest series of non-missing values
+long_section <- bm %>%
+  mutate(gap = Date_Time - lag(Date_Time)) %>%
+  filter(gap > 24) %>%
+  tail(2) %>%
+  pull(Date_Time)
+bm <- bm %>%
+  filter(Date_Time >= long_section[1], Date_Time < long_section[2]) %>%
+  fill_gaps()
+bm %>% autoplot(Count)
+```
+
+```{r}
+bm %>% 
+  ACF(lag_max = 24*14) %>% 
+  autoplot()
+```
+
+```{r}
+bm %>% 
+  model(
+    stl = STL(count)
+  ) %>% 
+  components()
+```
+
+```{r}
+bm %>% autoplot(sqrt(Count))
+```
+
+```{r}
+pedestrian$Sensor %>% unique()
+```
+
+
+```{r}
+sth_cross_ped <- pedestrian %>% 
+  filter(Date >= "2016-07-01",
+         Date <= "2016-10-25") %>% 
+  # filter(Sensor %in% c("Birrarung Marr", "Southern Cross Station")) %>%
+  filter(Sensor %in% c(
+                       "Southern Cross Station",
+                       # "Birrarung Marr",
+                       "Bourke Street Mall (North)"
+                       )
+         ) %>% 
+  group_by(Sensor) %>% 
+  index_by(Date) %>% 
+  summarise(Count = sum(Count)/1000)
+
+sth_cross_ped %>% 
+  autoplot() +
+  scale_x_date(
+    minor_breaks = "1 week",
+    breaks = "5 weeks"
+  )
+  
+  # geom_line(aes(y = trend_class), colour = "#D55E00") 
+```
+
+```{r}
+stl_default <- 
+  sth_cross_ped %>% 
+  model(
+    stl = STL(Count)
+  ) %>% 
+  components()
+
+stl_default %>% autoplot()
+```
+

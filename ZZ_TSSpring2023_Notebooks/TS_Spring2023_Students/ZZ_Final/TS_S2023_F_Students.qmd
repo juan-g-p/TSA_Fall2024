@@ -1,0 +1,187 @@
+---
+title: "TS_S2023_F"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+## Libraries
+
+For this exam you are going to require the following packages. If you do not have either of them installed, install them before loading them.
+
+```{r}
+# Load packages
+library(readxl)
+library(fpp3)
+```
+
+## Dataset
+
+For this exam we are going to use the following dataset:
+
+1. `usgas_y_m`: this dataset contains information about the monthly gas consumption in the US for different purposes and states.
+  
+To load the dataset, you may run the code below. This will open a pop-up window. Select the excel file and it will be loaded as a tsibble to `usgas_y_m`. The variables will be:
+
+Below a description of the columns:
+  * `process:` purpose for which the gas was consumed.
+  * `state:` state of the data point.
+  * `y_m`: yearmonth object detailing the year and the month of the observation. It is the index of the tsibble
+  * `monthly_gas:` amount of gas consumed by the particular process at the particular state in the given month. **Units:** Million Cubic Feet (`MMCF`)
+
+```{r}
+usgas_y_m <- 
+  read_xlsx(file.choose()) %>%
+    mutate(
+      y_m = yearmonth(date)
+    ) %>% 
+    as_tsibble(
+      key=c(state, process),
+      index = y_m
+    ) %>% 
+    select(process, state, y_m, monthly_gas)
+```
+
+## 1. 0.5 points
+
+1. How many different time series does the loaded object usgas_y_m contain?. Determine this using code.
+
+**HINT:** a possible way to check the unique combinations of two columns in a tibble/dataframe is using `dplyr`'s function distinct in combination with `nrow()` to count the number of rows. For example, the code below counts the number of unique combinations of the columns `col1` and `col2` in the toy dataframe `df_toy` provided:
+
+```{r}
+df_toy <- tibble(
+  col1 = c("a", "b", "a", "b", "a"),
+  col2 = c("x", "y", "x", "y", "z"),
+  col3 = c(1, 2, 1, 2, 3)
+)
+
+# Count the number of unique combinations of col1 and col2 values:
+n_distinct <- df_toy %>% 
+                distinct(col1, col2) %>% 
+                nrow()
+
+# Number of unique combinations of col1 and col2
+n_distinct
+```
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+```
+
+## 2. 0.5 points
+
+For the process `Vehicle Fuel Consumption`, we would like to extract the state with the greatest consumption for each year. To compute this:
+
+1. Create a new column `year` from the variable `y_m`
+2. Use `group_by()` appropriately to compute the total gas consumed by each state, for each process, each year. Store this result as `usgas_y`
+3. Starting from `usgas_y`, filter for the process *Vehicle Fuel Consumption* and use `group_by()` again appropriately to have a final dataset with only one row per year: the row corresponding to the state with the greatest consumption of gas for *Vehicle Fuel Consumption*. 
+
+```{r}
+# Your code goes here
+```
+
+# 2. 2 points
+
+From now on we are goint to focus on the state of California and the process *Vehicle Fuel Consumption*. Filter the dataset `usgas_y_m` accordingly and store the result in a variable called `cali_fuel_y_m`. 
+
+Plot the time series, with a grid that clearly indicates the beginning of every year. 
+
+```{r}
+# Your code goes here
+```
+
+# 3. 2 point
+
+Looking at the previous graph and at the value suggested for lambda using the `guerrero` method, judge if a transformation to balance the variance of the time series with the level of the time series is necessary:
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+# 4. 2 points
+
+Starting from `cali_fuel_y_m`, create a series of taining datasets for cross validation that fulfill:
+
+1. The smallest of these training datasets shall contain 60% of the observations.
+2. The datasets shall increase in steps of 3 (three months at a time).
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+Then answer these questions:
+
+Q1: How many datasets have we generated?
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+Q2: What are the sizes (in number of observations) of the smallest and biggest training dataset?
+
+```{r, include=!params$print_sol}
+# Your code goes here
+```
+
+# 5. 2 points
+
+Fit the following models to the training datasets:
+
+1. `decomposition_model` applying an STL decomposition and a log transformation. Use a 
+    * drift model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+2. `decomposition_model` applying an STL decomposition and no transformation. Use a 
+    * drift model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+3. `decomposition_model` applyting an STL decomposition and a log transformation. Use a: 
+    * SES (Simple Exp. Smoothing) model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+4. `decomposition_model` applyting an STL decomposition with no transformation. Use a: 
+    * SES (Simple Exp. Smoothing) model for the seasonally adjusted component 
+    * a seas. naïve model for the seasonal component.
+5. An SES (Simple) exponential smoothing model
+6. A Naive model
+
+**Do not spend time looking for the best parameters of an STL decomposition, use the default arguments of the STL decomposition**
+
+After having fitted the models, perform **one year ahead forecasts**.
+
+Subsequently, examine which model:
+
+**REMOVE** 1. Has best residuals in RMSE terms. Compute the average RMSE over all the forecast horizons. **REMOVE**
+2. Has best forecasting performance in terms of RMSE. Compute the average RMSE over all the forecast horizons.
+
+Then answer:
+
+3. Does the transformation bring any significant improvement?.
+4. Which model would you pick for forecasting? (again, based on the RMSE).
+
+```{r}
+# Your code goes here
+```
+
+-----
+Your answers go here
+-----
+
+# 6. 1 point
+
+For the decomposition model using SES for the seasonally adjusted component and no transformation:
+
+1. Fit the model to the entirety of the time series, without splitting it.
+
+2. Analyze the residuals of the model. Do this **based solely on the output of gg_tsresiduals()**. Do not generate additional box-plots, qq_plots...
+
+```{r}
+# Your code goes here
+```
+
+
+------
+Your answer goes here (100 words max)
+------

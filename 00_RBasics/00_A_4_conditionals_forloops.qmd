@@ -1,0 +1,381 @@
+---
+title: "00_A_4_conditionals_forloops"
+format: html
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Conitionals: `if-elseif-else` statements
+
+## General structure
+
+A conditional statement with an `if-elseif-else` structure follows the same flowchart across multiple programming languages. For example, with 3 conditions we might have (more conditions could be added as needed):
+
+![](figs/if_else_statements.png){fig-align="center" width="550"}
+
+The template for that conditional statement in R is as follows:
+
+```{r, eval = FALSE}
+if (condition_1) {
+  
+  # Section runs if condition_1 == TRUE
+  
+}else if (condition_2){
+  
+  # Section runs if condition_2 == TRUE
+  
+}else if (condition_3){
+  
+  # Section runs if condition_3 == TRUE
+
+}  
+  
+# ... INCLUDE AS MANY else if CONDITIONS AS REQUIRED
+
+else{
+  
+  # Section runs if
+  # (condition_1 == FALSE) & (condition_2 == FALSE) & (condition_3 == FALSE)
+  
+}
+```
+
+In the above structure, please note the following:
+
+-   All the statements executed upon each condition are **bracketed** `{` `}`.
+-   The conditions are expressed within parenthesis `(` `)`.
+-   `condition_1`, `condition_2` and `condition_3` are booleans or expressions that evaluate to booleans. Recall the fundamentals about:
+    -   Booleans
+    -   The `&` (AND) and `|` (OR) operators
+    -   The `!` operator (logical negation)
+    -   The relational operators (`>`, `<`, `>=`, `<=`, `==` and `!=`)
+-   **All the `else if` sections as well as the `else` sections are optional**. In other words, the most succint version of the above structure would be:
+
+```{r, eval = FALSE}
+# Most simple version of an if statement
+if (condition_1) {
+  
+  # Section runs if condition_1 == TRUE
+  
+}
+```
+
+Let us look at a basic example that executes different statements depending on whether an integer belongs to the natural numbers, the whole numbers or the integer numbers. The `cat()` function is an alternative to `print()` used in R. In the character strings used below, the special character `\n` is the *new line character*, which signals to the function `cat()` that it should start a new line. We do this to achieve more clarity on the output.
+
+```{r, eval=FALSE}
+# Input
+integer <- # INTRODUCE USER INPUT
+
+if (integer > 0){
+  cat("Input is a greater than 0. Therefore a natural number")
+}else if (integer == 0){
+  cat("Input is equal to 0. Therefore a whole number")
+  cat("\nWhole numbers are the set of natural numbers expanded with 0")
+}else if (integer < 0){
+  cat("Input is negative. Therefore an integer")
+  cat("\nIntegers include whole numbers and their negative counterparts")
+}
+
+cat("\nThe program has finished")
+```
+
+If we actually run the code above with `integer <- -1L` we get the following output:
+
+```{r}
+# Input
+integer <- -1L # L signals that number is an integer
+
+if (integer > 0){
+  cat("Input is a greater than 0. Therefore a natural number")
+}else if (integer == 0){
+  cat("Input is equal to 0. Therefore a whole number")
+  cat("\nWhole numbers are the set of natural numbers expanded with 0")
+}else if (integer < 0){
+  cat("Input is negative. Therefore an integer")
+  cat("\nIntegers include whole numbers and their negative counterparts")
+}
+
+cat("\nThe program has finished")
+```
+
+Try running the example above with different values of the variable `integer`
+
+## Situation with multiple `TRUE` conditions
+
+If more than one of the conditions is `TRUE`, then only the code under the condition that first evaluates to `TRUE` is executed. For example:
+
+```{r}
+if (3<5){
+  cat("hello")
+}else if(2<3){
+  cat("world")
+}
+```
+
+If we wanted both statements to run, we could not use and `if-else if` structure, but rather two separate `if`:
+
+```{r}
+if (3<5){
+  cat("hello")
+}
+
+if (2<3){
+  cat("\nworld") #\n is the new line character
+}
+```
+
+## Nested if-else statements
+
+We can nest `if... else` structures so that, within each condition, another `if... else` structure is followed. For example, in the generic example at the beginning of this notebook we may include an additional `if... else` structure:
+
+```{r, eval = FALSE}
+if (condition_1) {
+  
+  # Section runs if condition_1 == TRUE
+  
+}else if (condition_2){
+  
+  # Section runs if condition_2 == TRUE
+  
+  if (condition_2_1){
+    
+    # Section runs if (condition_2 == TRUE) & (condition_2_1 == TRUE)
+    
+  }else
+    
+    # Section runs if (condition_2 == TRUE) & (condition_2_1 == FALSE)
+    
+  }
+
+  # Section runs also runs if condition_2 == TRUE
+  
+}else if (condition_3){
+  
+  # Section runs if condition_3 == TRUE
+
+}  
+  
+# ... INCLUDE AS MANY else if CONDITIONS AS REQUIRED
+
+else{
+  
+  # Section runs if
+  # (condition_1 == FALSE) & (condition_2 == FALSE) & (condition_3 == FALSE)
+  
+}
+```
+
+The example below illustrates how these nested statements work. First the code is given and then we will run the code with specific values of age an retirement age:
+
+```{r, eval = FALSE}
+# Input
+age <- # INTRODUCE YOUR AGE
+retirement_age <- # INTRODUCE YOUR COUNTRY's retirement age
+
+if (age < 18) {
+  cat("You are underage.") 
+  cat("\nYou are not eligible to Work")
+} else {
+  if (age <= retirement_age)  {
+    cat("You are eligible to Work")
+    cat("\nPlease fill the application form and email us")
+  } else {
+    cat("The government thinks you are too old to work")
+    cat("\nPlease collect your pension if you are lucky enough!")
+  }  
+}
+
+cat("\nThe program has finished")
+```
+
+Running this for `age <- 30` and `retirement_age <- 67` results in the following:
+
+```{r}
+# Input
+age <- 30
+retirement_age <- 67 
+
+if (age < 18) {
+  cat("You are underage.") 
+  cat("\nYou are not eligible to Work")
+} else {
+  if (age <= retirement_age)  {
+    cat("You are eligible to Work")
+    cat("\nPlease fill the application form and email us")
+  } else {
+    cat("The government thinks you are too old to work")
+    cat("\nPlease collect your pension if you are lucky enough!")
+  }  
+}
+
+cat("\nThe program has finished")
+```
+
+Feel free to try other values for the variables.
+
+# For loops
+
+The general syntax for a for loop in R is:
+
+```{r, eval = FALSE}
+for (val in sequence){
+    
+  # statements that execute sequentially for every value in the sequence
+  
+}
+
+# statements executed after having iterated through all the values in sequence
+```
+
+-   `sequence` is a vector. The for loop **iterates over all the values of the sequence**. This means that it executes the code within the for loop for each of the values in the vector.
+-   `val` stands for value. **For each iteration the variable `val` gets assigned the current vector element**.
+
+Essentially, the code above **iterates over all the values of the sequence and executes the statements within the for loop sequentially for each value of the vector**. The execution of the statements for a specific value within the vector is called an **iteration**.
+
+The flowchart below further clarifies this (the flowchart uses the notation `item` instead of `val`, but it is otherwise equivalent:
+
+![](figs/for_loop_png.png){fig-align="center"}
+
+Note that `val` (or `item`) could have been given any other name. We will see this in the examples below.
+
+## Examples with integers
+
+The most basic example that I can think of a for loop is:
+
+```{r, eval = FALSE}
+for (i in seq(1, 10)){
+  cat(i, "\n") # \n is the new line character
+}
+
+cat("\nThe value of i upon exiting the for loop was", i)
+```
+
+The code above does the following. For each value in `seq(1,10)` (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) it runs all the code within the for loop. In this case the only code is the `cat()` statement, which prints the current value of `i`. Finally it prints the last statement, which examines the value of `i` upon exiting the for loop. Because all the iterations are executed, the value if `i` after finishing the loop is 10 (the last value in the sequence).
+
+Let us actually run the code and check this:
+
+```{r}
+for (i in seq(1, 10)){
+  cat(i, "\n") # \n is the new line character
+}
+
+cat("\nThe value of i upon exiting the for loop was", i)
+```
+
+Note that **we could have used another name for the variable `i`**. `i` was simply chosen because it is convention to do this when looping through integers. But we could have given it another name and do exactly the same. For example:
+
+```{r}
+for (thing in seq(1, 10)){
+  cat(thing, "\n") # \n is the new line character
+}
+
+cat("\nThe value of thing upon exiting the for loop was", thing)
+```
+
+The next example shows that you can have multiple statements within a for loop, not only a single statement:
+
+```{r}
+for (i in seq(1, 10)){
+  n <- 2*i
+  cat("i = ", i, ", n = ", n, "\n") # Examine the values of i and n within each iteration.
+                                    # \n is the new line character.
+}
+```
+
+## Examples with vectors of something other than integers:
+
+The vector could contain objects other than integers. For example:
+
+```{r}
+for (name in c("Frodo", "Sam", "Aragorn", "Legolas", "Gimly")){
+  cat(name, "\n") # \n is a special character used to signal 'new line'
+}
+```
+
+Or for example
+
+```{r}
+for (num in c(0.1, 0.5, 0.8, 1.74)){
+  cat(num, "\n")
+}
+```
+
+## Next and break
+
+-   `next`: used in situations where you need to skip the rest of the statements in a specific iteration of the for loop and go to the next iteration.
+-   `break`: exits the for loop entirely. That is, it exits the current iteration, does not execute any subsequent iteration and moves on to execute the code after the for loop.
+
+The following examples will clarify the difference between `next` and `break`.
+
+First lets check the output the very basic for loop below. The subsequent examples will alter the behavior of the for loop using `next` and `break`:
+
+```{r}
+for (i in seq(0, 100, by=10)){
+ cat(i, "\n")
+}
+```
+
+### Example 1 - next
+
+```{r}
+for (i in seq(0, 100, by=10)){
+  if (i < 50){
+    next
+  }
+ cat(i, "\n")
+}
+
+cat("\nThe value of i upon exiting the for loop was", i)
+```
+
+The code above skips the `cat(i, "")` statement for every value of i smaller than 50 because the `next` statement took the flow of the program to the beginning of the next iteration. In other words, only at the 6-th iteration (for which `i = 50`) the cat statement started to be executed.
+
+### Example 2 - break
+
+```{r}
+for (i in seq(0, 100, by=10)){
+  if (i < 50){
+    break
+  }
+ cat(i, "\n")
+}
+
+cat("\nThe value of i upon exiting the for loop was", i)
+```
+
+The code above does not execute any of the `cat(i, "")` statements within the loop because, during the first iteration (`i = 0`), the `break` statement is executed, exiting the for loop altogether and continuing executing the remaining statements.
+
+### Example 3 - break
+
+```{r}
+for (i in seq(0, 100, by=10)){
+  if (i > 50){
+    break
+  }
+ cat(i, "")
+}
+
+cat("\nThe value of i upon exiting the for loop was", i)
+```
+
+Note that, upon exiting the for loop, the value of i was 60. In other words, in the 7-th iteration, `i` was assigned the value 60 and the break statement was executed, exiting the loop altogether and therefore the value if `i` right after the loop is still 60.
+
+### Example 4 - next
+
+```{r}
+for (i in seq(0, 100, 10)){
+  if (i > 50){
+    next
+  }
+ cat(i, "")
+}
+
+cat("\nThe value of i upon exiting the for loop was", i)
+```
+
+Note that **in examples 3 and 4 the same numbers are printed when using next instead of break**. However, **there is a crucial difference**. Now the value of i at the end of the loop is 100 instead of 60. The for loop continued beyond i = 60, only the `cat(i, "")` statement skipped because at every `next` statement the flow moved to the next iteration skipping the rest of the statements in that iteration.

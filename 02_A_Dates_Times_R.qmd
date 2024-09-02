@@ -1,0 +1,396 @@
+---
+title: "02_A_Dates_Times_R"
+editor: source
+params:
+  print_sol: true
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Libraries
+
+```{r}
+library(fpp3)
+library(tidyverse)
+library(nycflights13)
+```
+# Referenes
+
+1. Wickham, H; Grolemund, G. *R for Data science, 2nd ed*. 2023 [Link](https://r4ds.hadley.nz/)
+
+2. D. Peng, R. *R Programming for Data Science*. 2020. [Link](https://bookdown.org/rdpeng/rprogdatascience/dates-and-times.html)
+
+3. [tsibble documentation](https://cran.r-project.org/web/packages/tsibble/tsibble.pdf)
+
+4. All tidyverse documentation. Start at https://www.tidyverse.org/packages/
+
+# Dates and times in the tidyverse package
+
+## Types
+
+There are three types of date/time data that refer to an instant in time:
+
+* A **date**. Tibbles print this as `<date>`.
+  + Under the hood this is treated as the number of days since 1970-01-01.
+* A **time** within a day. Tibbles print this as `<time>`
+  + Under the hood this is treated as the number of seconds since midnight.
+* A **date-time**: a date + a time. 
+  + Under the hood this is treated as the number of seconds since 1970-01-01.
+  + Uniquely identifies an instant in time, typically to the nearest second.
+  + Tibbles print this as `<dttm>`.
+  + In base R these are called `POSIXct` or `POSIXt`. We will deal with them in the base R section of this notebook.
+  
+When dealing with dates, **one should always stick to the simplest possible data type fit for purpose**. Examples:
+
+* If you can use a date, do not use date-time.
+* Date-time objects are much more complex because they need to account for time zones.
+
+## Creating dates and times
+
+The most prevalent ways to create a date/time are:
+
+1. From a string.
+2. From individual date-time components.
+3. From an existing date/time object.
+
+### From a string
+
+#### `ymd()` and `ymd_hms()` - `lubridate` helper functions
+
+These functions **work out the format automatically once you specify the order of the components**. To use them:
+
+1. Identify the order in which year, month and day appear in your dates.
+2. Arrange "y", "m" and "d" in the same order.
+
+This procedure gives tou the name of the lubridate function that will pase your date:
+
+* **ymd()** examples:
+
+```{r}
+# Example 1
+date1 <- ymd("2017-01-31")
+date1
+class(date1)
+
+# Example 2
+date2 <- mdy("January 31st, 2017")
+date2
+class(date2)
+
+# Example 3
+date3 <- dmy("31-Jan-2017")
+date3
+class(date3)
+
+# Example 4 - unquoted numbers
+date4 <- ymd(20170131)
+class(date4)
+```
+
+* **ymd_hms()** examples
+
+```{r}
+# Example 1:
+datetime1 <- ymd_hms("2017-01-31 20:11:59")
+class(datetime1)
+
+# Example 2
+datetime2 <- mdy_hm("01/31/2017 08:01")
+class(datetime2)
+
+# Exqmple 3
+# You can also force the creation of a date-time 
+# from a date providing a timezone:
+datetime3 <- ymd(20170131, tz = "UTC")
+class(datetime3)
+```
+
+#### Parsing functions
+
+Parsing functions allow us to transform complex strings into date or datetime objects. Their use is a bit more complex and hence there will be a dedicated section at the end of the notebook.
+
+### From individual components - `make_date()` and `make_datetime()`
+
+Sometimes you do not have a single string, but rather the individual components spread across multiple columns. For example, in the flights dataset:
+
+```{r}
+# Dataset from package nycflights13
+flights %>% 
+  select(year, month, day, hour, minute)
+```
+
+This sort of input can be handled with `make_date()` for dates or `make_datetime()` for datetimes:
+
+```{r}
+flights %>% 
+  select(year, month, day, hour, minute) %>% 
+  
+  mutate(
+    date = make_date(year, month, day), # Create new date colun
+    datetime = make_datetime(year, month, day, hour, minute) # Create date-time
+  )
+```
+
+### From other types: `as_datetime()` and `as_date()`:
+
+These functions from the package `lubridate` allow switching between a date and a date-time
+
+```{r}
+# Example 1:
+today() # date
+as_datetime(today()) #datetime
+```
+
+```{r}
+now() # datetime
+as_date(now()) #date
+```
+
+Sometimes you'll get date/time as numeric offsets from the "Unix Epich", 1970-01-01.
+
+* Dates are processed under the hood as an integer signalling the number of days elapsed since 1970 January 1st:
+
+```{r}
+date1 <- ymd(19700110)
+date2 <- ymd(20230830)
+
+# Number of days elapsed since "1970-01-01" and "1970-01-10"
+as.integer(date1)
+
+# Number of dates elapsed sine "1970-01-01" and "2023-08-30"
+as.integer(date2)
+
+# The 10th of January 1970 can therefore also be expressed as follows
+as_date(9) # 9 days elapsed since 1st of January 1970
+
+# Ten years offset in days from 1970-01-01.
+# +2 accounts for two leap years
+as_date(365 * 10 + 2)
+```
+
+## Types from fpp3 library: `yearquarter`, `yearmonth` and `yearweek`
+
+In addition to the `date` and `datetime` types present in baseR, the `tsibble` library, loaded with `fpp3`, introduces the `yearquarter`, `yearmonth` and `yearweek` types. Each of these types has an associated function of the same name that transforms a date or datetime into a `yearquarter`, `yearmonth` and `yearweek` object.
+
+**Once more: these types are not part of baseR, but rather part of the tsibble library.** But we will use them extensively in this course.
+
+```{r}
+#NOTE: the enclosing parenthesis display the output without an additional line of code
+(ym1 <- yearmonth(ymd("2017-01-31")))
+(ym2 <- yearmonth(dmy("31-Jan-2017"), format="%Y%m"))
+(ym5 <- yearmonth(mdy_hm("04/20/2020 08:01")))
+
+class(ym1)
+```
+
+```{r}
+#NOTE: the enclosing parenthesis display the output without an additional line of code
+(yq1 <- yearquarter(ymd("2017-01-31")))
+class(yq1)
+```
+
+```{r}
+#NOTE: the enclosing parenthesis display the output without an additional line of code
+(yw1 <- yearweek(ymd("2017-01-31")))
+class(yw1)
+```
+
+### scale_x_yearmonth(), scale_x_yearquarter(), scale_x_yearweek()
+
+We will use these functions when creating time-plots to adjust the x-axis grid. We will see this in the coming notebooks.
+
+## Creating a custom sequence of time objects
+
+Sometimes it will be useful to define our own sequence of time objects, particularly to have more control over the time axis printoutt when using ggplot or other visualization libraries. We will see the applications on the time series graphs session, but for now let us look at the generation of these sequences.
+
+If you remember your R lessons, the basic use of the function sequence is as follows:
+
+```{r}
+seq(0, 60, by = 6)
+```
+
+These sequences can be combined with a given year, yearmonth, yearquarter or yearweek object as follows to generate sequences:
+
+```{r}
+# Sequence of 6 months steps starting in Januart 2012 and advancing 
+# for 60 months (5 years) in steps of six months
+seq_months <- yearmonth("2012-01-01") + seq(0, 60, by = 6)
+seq_months
+```
+
+```{r}
+# Sequence of 2 quarters steps starting in January 2012 and advancing 
+# for 20 quarters (4 years) in steps of 2 quarters.
+seq_quarters <- yearquarter("2012-01-01") + seq(0, 20, by = 2)
+seq_quarters
+```
+
+```{r}
+# Sequence of 2 weeks steps starting in January 2012 and advancing 
+# for 52 weeks (1 year) in steps of two weeks
+seq_weeks <- yearweek("2012-01-01") + seq(0, 52, 2)
+seq_weeks
+```
+
+## Parsing functions
+
+We present now at the end the parsing functions that were left out before when explaining how to create dates and datetimes from a string
+
+Three parsers to choose from depending on whether you want a **date**, a **date-time** or a **time**.
+
+Default calls without any additional arguments:
+
+* `parse_datetime()`: expects a string in format ISO8601. This is an international standard that organises dates from biggest to smallest component: year, monh, day, hour, minute, second.
+
+```{r}
+parse_datetime("2010-10-01T2010")
+
+# If time is omitted, it is set to midnight
+parse_datetime("20101010")
+```
+
+* `parse_date()` expects a four digit year, a `-` or a `/`, the month, a `-` or a `/`, then the day:
+
+```{r}
+parse_date("2010-10-01")
+```
+* `parse_time()` expects the hour, `:`, minutes, optionally `:` and seconds, and an optional am/pm specifier
+
+```{r}
+parse_time("01:10 am")
+parse_time("20:10:01")
+```
+These defaults can be tweaked to supply your own date-time `format` if the default does not fit your needs. The format shall be specified using the following convention, which can be checked at anytime calling the help of the function in the console (for example `?parse_datetime()`):
+
+**Year**:
+
+* `%Y`
+* `%y`: (2 digits); 00-09 -> 2000-2009 ; 70-99 -> 1970-1999
+
+**Month**
+
+* `%m` (2 digits).
+* `%b` (abbreviated name, like “Jan”).
+* `%B` (full name, “January”).
+
+**Day**
+
+* `%d` (2 digits).
+* `%e (optional leading space).
+
+**Time**
+
+* `%H` 0-23 hour.
+* `%I` 0-12, must be used with %p.
+* `%p` AM/PM indicator.
+* `%M` minutes.
+* `%S` integer seconds.
+* `%OS` real seconds.
+* `%Z` Time zone (as name, e.g. America/Chicago). Beware of abbreviations: if you’re American, note that “EST” is a Canadian time zone that does not have daylight savings time. It is not Eastern Standard Time! We’ll come back to this time zones.
+* `%z` (as offset from UTC, e.g. +0800).
+
+**Non-digits**
+
+* `%.` skips one non-digit character.
+* `%*` skips any number of non-digits.
+
+Trying out the formats with character vectors is the best way to figure out what you need:
+
+```{r}
+parse_date("01/02/15", format = "%m/%d/%y")
+parse_date("01/02/15", format = "%d/%m/%y")
+parse_date("01/02/15", format = "%y/%m/%d")
+
+datestring <- c("January 10, 2012;@ 10:40", "December 9, 2011;@ 9:10")
+parse_datetime(datestring, format="%B %d, %Y;@ %H:%M")
+```
+There is even the option to adjust the month names to other languages. For example:
+
+```{r}
+parse_date("1 janvier 2015", "%d %B %Y", locale = locale("fr"))
+```
+
+You can see the list of built in languages in `date_names_langs()` or create a custom one if yours is not included with `date_names()`. These are functions of the `readr` package, part of tidyverse as well.
+
+##### locale()
+
+Dates, numbers... are specified differently depending on the geographic area. `readr` in tidyverse has the notion of a **"locale"**, an object that specifies parsing options that differ from place to place:
+
+```{r}
+locale()
+```
+
+When parsing dates, the most important arguments are found in `?locale()`
+
+* `date_names`: character representations of day and month names. Either the language code as string (passed on to `date_names_lang()`) or an object created by `date_names()`.
+
+If you are parsing data that does not fit the standard formats for the date and time, you could specify custom values for the defaults `date_format` and `time_format`.
+
+* `date_format`: defines the default date format. 
+* `time_format`: defines the default time format.
+
+```{r}
+#Example: 
+
+locale_custom <- locale(date_format = "Day %d Mon %M Year %y",
+                 time_format = "Sec %S Min %M Hour %H")
+
+
+date_custom <- c("Day 01 Mon 02 Year 03", "Day 03 Mon 01 Year 01")
+parse_date(date_custom)
+parse_date(date_custom, locale = locale_custom)
+
+time_custom <- c("Sec 01 Min 02 Hour 03", "Sec 03 Min 02 Hour 01")
+parse_time(time_custom)
+parse_time(time_custom, locale = locale_custom)
+```
+##### Examples
+
+```{r}
+d1 <- "January 1, 2010"
+parse_date(d1, "%B %d, %Y")
+
+d2 <- "2015-Mar-07"
+parse_date(d2, "%Y-%b-%d")
+
+d3 <- "06-Jun-2017"
+parse_date(d3, "%d-%b-%Y")
+
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+parse_date(d4, "%B %d (%Y)")
+
+d5 <- "12/30/14" # Dec 30, 2014
+parse_date(d5, "%m/%d/%y")
+
+t1 <- "1705"
+parse_time(t1, "%H%M")
+
+# t2 uses real seconds (seconds are a real number)
+t2 <- "11:15:10.12 PM"
+parse_time(t2, "%H:%M:%OS %p")
+```
+
+## Further topics
+
+There are some topics we have not covered:
+
+* Working in detail with date-time components (getting components, rounding components).
+* The arithmetics of date objects (substraction, addition, intervals...).
+* Time zones.
+
+For this, refer to **reference 1**, chapter 16, sections 16.3 onwards.
+
+# base R alternatives
+
+We will not use the base R alternatives in this course, but they work in a very similar fashion. 
+
+If you ever need to work with them or if you are curious about them, please use reference 2 given at the beginning of this notebook.
+
+In short, base R also has a representation of dates and times that is perhaps less capable/efficient but is an alternative to the options provided by tidyverse and its associated libraries
+
+* Dates are represented by the **Date** class
+* Times are represented by the **POSIXct** or the **POSIXlt** class
+* Dates are stored internally as the number of days since a specific origin, usually 1970-01-01. This origin might vary and you should query the help of your class (e.g. ?POSIXct) if you need this specific information, which is usually not required.
+* Times are stored internally as the number of seconds since a certain origin date, usually 1970-01-01. This origin might vary and you should query the help of your class if you need this specific information, which is usually not required.

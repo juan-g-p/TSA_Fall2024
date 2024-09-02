@@ -1,0 +1,167 @@
+---
+title: "05_7_B_TS_CrossValidation_SolvedExercise"
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: true
+---
+
+## Packages
+
+```{r}
+library(fpp3)
+```
+
+## Exercise cross-validation:
+
+### Task
+
+Perform cross validation on the australian beer production dataset. Use the dataset recent_production created during this lesson and the four benchmark models.
+
+### Step 0. Identify your dataset and think about which variables you need
+
+-   We will work with recent_production, the total dataset, and we will apply `stretch_tsibble()` to this dataset to generate our set of test and training datasets.
+-   For convenience I will select only the varialbes relevant to the analysis
+
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+
+beer_production <- select(recent_production, Quarter, Beer)
+beer_production
+```
+
+### Step 1. Create the set of training datasets using `stretch_tsibble()`:
+
+-   Since we are going to forecast up to 8-steps ahead into the future, the minimum size of our training datasets must be eight. We therefore set `.init` to 8.
+-   We want our training datasets to increase one data point at a time, so we set `.step` to 1. For complex models that take longer to fit, it may be impractical to have so many datasets and we may want to have a bigger step. Remember that a model will be fitted to each of your datasets, si if fitting your models is computationally expensive, you may not be interested in having so many datasets. For this example, since the models are simple enough, we may set step to 1.
+
+```{r}
+beer_production_cv <- beer_production %>%
+  stretch_tsibble(.init = 8, .step = 1)
+
+# Inspect result
+beer_production_cv
+```
+
+#### Inspection of result of step 1:
+
+Inspecting `beer_production_cv` shows that it is a tsibble containing all our training datasets. Each training dataset has a distinct identifier in the column `.id`. Rows with `.id = 1` belong to the first training dataset, `id = 2` signals points belonging to the second dataset... etc... The number of datasets can be computed as follows:
+
+```{r}
+# Check the number of datasets created
+beer_production_cv %>% pull(.id) %>% max
+```
+
+We see that 67 training datasets were created. Each training dataset consists of multiple observations, ranging from 8 (first training dataset) to 74 observations (last dataset). The number of points per dataset can be inspected either counting rows in `beer_production_cv` (not very practical) or computing the size of the groups created by group_by(.id) as follows:
+
+```{r}
+# Check the size of each training dataset
+beer_production_cv %>%
+  as_tibble() %>% # Cast to a tibble to be able to do away with time index
+  group_by(.id) %>%
+  summarize(
+    size = n()
+  )
+```
+
+### Step 2: Fit the models
+
+Fit the models. In this case we chose to fit the four benchmark methods. More complex models might be fitted, but the workflow is the same:
+
+```{r}
+beer_fit_cv <- beer_production_cv %>%
+  model(
+    `Naïve` = NAIVE(Beer),
+    `Seasonal naïve` = SNAIVE(Beer),
+    Mean = MEAN(Beer),
+    Drift = RW(Beer ~ drift())
+  )
+
+beer_fit_cv
+```
+
+#### Inspection of result of step 2:
+
+The result of step 2 is a `mable` of `model talbe`. It is essentially a table-shaped object containing all the models that have been fit. Let us inspect its dimensions:
+
+```{r}
+dim(beer_fit_cv)
+```
+
+We see that it has 67 rows (one row per training dataset) and 5 columns: 1 for `.id` (identifier of the training dataset) and one column per model. \* 4 models have been fit to each training dataset. \* In total 4\*67 = 268 models have been fit.
+
+### Step 3.1: generate the forecasts:
+
+```{r}
+beer_fc_cv <- beer_fit_cv %>%
+  forecast(h = 8)
+
+beer_fc_cv
+```
+
+#### Inspection of result of step 3.1:
+
+The output of step three is a `fable` or `forecasts table`.
+
+-   Each row corresponds to a specific forecast horizon, with a given model fit to a specific training dataset signaled by the row `.id`
+-   For each compination of training dataset (`.id`) and `.model`, 8 forecast have been generated, ranging from a one-step ahead to an 8-steps ahead forecast.
+-   In total we have generated 67 (67 training datasets) \* 4 (4 models) \* 8 (8 forecasts) = 2144 forecasts. We can confirm this counting the nomber of roews of the result of step 3:
+
+```{r}
+nrow(beer_fit_cv)
+```
+
+### Step 3.2: (only for multti-step forecasts)
+
+Since we have multi-step forecasts, we want to add a column to the forecasts table that indicates the forecast horizon (h) of each forecast. We can achieve this using group_by.
+
+-   We want h to be reset every time the training dataset or the model changes, so we will group_by(.id, .model)
+-   as_fable() is used at the end to ensure that after performing a group_by and creating a new column, the result will still be a forecast table.
+    -   `response` indicates the variable we are forecasting
+    -   `distribution` indicates were the column storing the forecast distributions of each forecast. The name is set to be the same as in the original output of step 3.1.
+
+```{r}
+beer_fc_cv <- beer_fc_cv %>%
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "Beer", distribution = Beer)
+
+beer_fc_cv
+```
+
+#### Inspection of the results of step 3.2
+
+Now we see that each forecast in the table has an associated `h` indicating its forecast horizon. This will be an important argument for the accuracy function (next step)
+
+### Step 4: generate cross-validated accuracy metrics
+
+When used with a tsibble created with `stretch_tsibble()` that contains multiple training datasets, the accuracy function will **compute the error metrics for each of the fitted models** (for each combination of model + training dataset, in our case 267) and **forecast horizont**.
+
+Let us inspect the output:
+
+```{r}
+beer_fc_cv %>%
+  accuracy(recent_production, by = c("h", ".model")) %>%
+  select(h, .model, .type, MAE, RMSE, MAPE, MASE, RMSSE)
+```
+
+#### Inspection of results of step 4:
+
+Remember that in total 268 models were fit:
+
+-   67 Mean models (one per training dataset)
+-   67 Naïve models (one per training dataset)
+-   67 SNaïve models (one per training dataset)
+-   67 Drift models (one per training dataset)
+
+For each forecast horizont and for each specific model, we obtain the average error metric of all of the 67 models of that specific type we had fitted (one per training dataset). Lets think about a specific row:
+
+-   for `h` = 1 and `.model` = Drift, the error metrics for each of the 67 models Drift models that were created (one per training dataset) with a forecast horizon of 1 were computed and then averaged. The result of this process is what we see in row 1.
+
+**This is a much more robust process than assessing the performance of the model fitted to a single training dataset and tested on a single test dataset**.

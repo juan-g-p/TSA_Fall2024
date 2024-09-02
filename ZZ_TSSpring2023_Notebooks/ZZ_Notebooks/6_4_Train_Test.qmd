@@ -1,0 +1,227 @@
+---
+title: "6_4_Train_Test"
+format: html
+editor: source
+params:
+  print_sol: true
+  print_sol_part: true
+  hidden_notes: false
+  hidden_graphs: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# References
+
+NOTE: the following material not fully original, but rather an extension of reference 1 with comments and other sources to improve the student's understanding:
+
+1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+2.  Fable package documentation
+
+-   https://fable.tidyverts.org/index.html
+-   https://fable.tidyverts.org/articles/fable.html
+
+3.  https://www.statworx.com/content-hub/blog/was-dem-mape-falschlicherweise-vorgeworfen-wird-seine-wahren-schwachen-und-bessere-alternativen/
+4.  Hyndman, R. J., & Koehler, A. B. (2006). Another look at measures of forecast accuracy. International Journal of Forecasting, 22(4), 679--688.
+
+# Packages
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+```
+
+# Train and Test Sets
+
+The size of the residuals is not a reliable indication of how large true forecast errors are likely to be. **The accuracy of forecasts can only be determined by considering how well a model performs on new data that were not used when fitting the model.**
+
+**Common Practice**: separate available data in two portions - **train** and **test**
+
+-   **train data**: used to fit the model (to estimate the model parameters)
+-   **test data**: used to evaluate model accuracy.
+
+Since the model has not been exposed to the **test data**, this data can be used to provide a reliable indication of how well the model will perform on new data.
+
+```{r, echo=FALSE, out.width='90%', fig.align="center"}
+knitr::include_graphics('./figs/13_train_test.png')
+```
+
+**QUESTION**: have you been exposed to the concepts of train and test sets before?
+
+**Indicatons to choose test data size**
+
+-   Typically **around 20% of the total sample**
+-   Ideally **at least as large as the maximum forecast horizon required**
+
+**Important considerations**
+
+-   A model that fits the training data well will not necessarily forecast well.
+-   A perfect fit to the training data can always be obtained with enough parameters (**over-fitting**)
+    -   Over-fitting a model to data is just as bad as not identifying a pattern in the data.
+
+## Functions to subset a time series
+
+### `filter()`
+
+`filter()` can be used to filter out a portion of a time series.
+
+```{r}
+# Data from 1995 onwards
+aus_production %>% filter(year(Quarter) >= 1995)
+```
+
+```{r}
+#Equivalent to the above
+aus_production %>% filter_index("1995 Q1" ~ .)
+```
+
+### `slice()`
+
+`slice()`: allows extraction by indices:
+
+```{r}
+# Extact the first 12 points (1 year) of data of each combination of State, Industry
+aus_retail %>%
+  group_by(State, Industry)  %>%
+  slice(1:12)
+```
+
+Slice can be used in combination with `n()` to refer to the maximum number of rows. In the following examples **the parenthesis play a major role because the `:` operator takes precedence over the `-` operator, so in order to adequately reference the indexes we need to use the parenthesis**
+
+```{r}
+# Extract everything put the last 12 observations of each series 
+# (each combination of State, Industry)
+aus_retail %>%
+  group_by(State, Industry) %>%
+  slice(1:(n()-12))
+```
+
+```{r}
+# Extract just last 12 observations of each series 
+# (each combination of State, Industry)
+# Recall thath the - operator can be used here to indecate "everything but".
+aus_retail %>%
+  group_by(State, Industry) %>%
+  slice(-(1:(n()-12)))
+```
+
+```{r}
+# ALTERNATIVE: Extract just last 12 observations of each series
+# (each combination of State, Industry)
+aus_retail %>%
+  group_by(State, Industry) %>%
+  slice((n()-11):n())
+```
+
+The next one is a bit tricky and involves this operation precedence issue. First look at the following decreasing sequence
+
+```{r}
+19:0
+```
+
+Adding or subtracting an integer to that sequence does not alter the number of elements, rather, it only shifts the sequence accordingly
+
+```{r}
+200 - 19:0
+```
+
+Using this, we can use the integer returned by `n()` when used within `dplyr` verbs (the number of rows) to obtain only the last 20 observations in the dataset:
+
+```{r}
+# Extract the latest 20 observations (20 quarters -> 5 years)
+aus_production %>%
+  slice(n()-19:0)
+```
+
+## Exercises train-test datasets
+
+1.  Create a training and a test set for household wealth (dataset `hh_budget`) by withholding the last four years as a test set. Use `filter()` and a logical condition
+
+```{r, include = params$print_sol_part}
+test_years = 4
+
+train <- hh_budget %>%
+  filter(Year <= max(Year) - test_years)
+
+test <- hh_budget %>%
+  filter(Year > max(Year) - test_years)
+
+# Check dimensions
+nrow(train) + nrow(test) == nrow(hh_budget)
+
+# NOTE: other functions for dimension checking:
+# nrow(), ncol(), dim(), length()
+```
+
+2.  Consider the dataset `global_economy` and in particular the data related to `Argentina`
+
+    -   2.1: Determine how many datapoints related to Argentina there are in the dataset (how many rows) and store that number in a variable. Also extract the series corresponding to Argentinian exports.
+
+```{r, include = params$print_sol_part}
+arg_economy <-  global_economy %>% filter(Country == "Argentina") %>% select(Year, Exports) 
+nobs <- arg_economy %>% nrow()
+nobs
+```
+
+    + 2.2: Create a training dataset that consists on 80% of the observations. Since 80% of the observations is not an integer number, round it down to the nearest integer. The rest of the observations are to be stored as test dataset.
+
+```{r, include = params$print_sol_part}
+split_row = as.integer(nobs * 0.8)
+train <- arg_economy %>% slice(1:split_row)
+test <- arg_economy %>% slice(-(1:split_row)) # Select everything but the train indexes
+
+# Check dimensions
+nrow(train)
+nrow(test)
+nrow(arg_economy) == nrow(train) + nrow(test)
+```
+
+3.  Create a training set for Australian takeaway food turnover (aus_retail) by withholding the last four years as a test set.
+
+    -   3.1: using filter() extract values corresponding to the industry "Takeaway food services"
+
+```{r, include = params$print_sol}
+food_services <- aus_retail %>% filter(Industry == "Takeaway food services")
+food_services
+```
+
+    + 3.2: Using `sum()` and `summarize()` obtain the aggregates turnover of this industry per month over all the states
+
+```{r, include = params$print_sol}
+# This is unnecessary. Just to show the problem: multiple territories with the same month
+food_services %>% filter(Month == yearmonth("1982 Apr"))
+
+# Summarize Turnover data over all territories:
+food_turnover <- food_services %>% summarize(
+                                      Turnover = sum(Turnover) # Adds turnover over all territories
+                                    )
+
+food_turnover
+```
+
+    + 3.3: Create your training and test datasets
+
+```{r, include = params$print_sol}
+# Four years = 4 * 12 months
+test_length = 4*12
+split_row = nrow(food_turnover)-test_length
+
+# Alternative 1:
+train <- food_turnover %>% filter(Month <= max(Month)-test_length)
+test <- food_turnover %>% filter(Month > max(Month)-test_length)
+
+# Check dimensions
+nrow(food_turnover) == nrow(train) + nrow(test)
+nrow(train)
+nrow(test)
+
+# Alternative 2:
+train <- food_turnover %>% slice(1:split_row)
+test <- food_turnover %>% slice(-(1:split_row)) # select everything but (1:split_row)
+
+# Check dimensions
+nrow(food_turnover) == nrow(train) + nrow(test)
+nrow(train)
+nrow(test)
+```
