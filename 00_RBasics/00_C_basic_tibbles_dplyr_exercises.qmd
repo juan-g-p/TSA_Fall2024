@@ -215,7 +215,7 @@ babynames %>%
 
 ## `group_by()` + `summarize()`
 
-1.  Use `group_by()` + `summarize()` to get the `mean()` and `median()` value of `arr_delay` each month. You will need to specify a correct value for the argument `na.rm` within `arr_delay()`
+1.  Use `group_by()` + `summarize()` to get the `mean()` and `median()` value of `arr_delay` each month. You will need to specify a correct value for the argument `na.rm` of the funtions `mean()` and ``median()`. 
 
 ```{r, include=params$print_sol}
 flights %>% 
@@ -243,9 +243,9 @@ babynames %>%
 
 1.  Use `group_by()`, `mutate()` and `ungroup()`
 
-Use the function `dense_rank()` in combination with `group_by()`, `mutate()` and `ungroup()` to create a rank of flights within the same day based upon their associated `arr_delay`. Research online or on the help how `dense_rank()` works.
+Use the function `dense_rank()` in combination with `group_by()`, `mutate()` and `ungroup()` to create a rank of flights within the same day based upon their `arr_delay`. Flights with greater delay should have the smallest rank. Research online or on the help how `dense_rank()` works.
 
-At the same time, use the function `row_number()` to assign an integer number to each row of the same daily partitions (biggest arrival delay gets the smallest `row_number`)
+At the same time, use the function `row_number()` to assign an integer number to each row (each flight) of each day. The biggest arrival delays within a day should have the smallest `row_number`)
 
 ```{r, include=params$print_sol}
 flights %>% 

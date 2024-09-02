@@ -3191,7 +3191,7 @@ vertical-align: -.125em;
 <section id="group_by-summarize" class="level2">
 <h2 class="anchored" data-anchor-id="group_by-summarize"><code>group_by()</code> + <code>summarize()</code></h2>
 <ol type="1">
-<li>Use <code>group_by()</code> + <code>summarize()</code> to get the <code>mean()</code> and <code>median()</code> value of <code>arr_delay</code> each month. You will need to specify a correct value for the argument <code>na.rm</code> within <code>arr_delay()</code></li>
+<li>Use <code>group_by()</code> + <code>summarize()</code> to get the <code>mean()</code> and <code>median()</code> value of <code>arr_delay</code> each month. You will need to specify a correct value for the argument <code>na.rm</code> of the funtions <code>mean()</code> and `<code>median()</code>.</li>
 </ol>
 </section>
 <section id="group_by-filter-ungroup" class="level2">
@@ -3205,8 +3205,8 @@ vertical-align: -.125em;
 <ol type="1">
 <li>Use <code>group_by()</code>, <code>mutate()</code> and <code>ungroup()</code></li>
 </ol>
-<p>Use the function <code>dense_rank()</code> in combination with <code>group_by()</code>, <code>mutate()</code> and <code>ungroup()</code> to create a rank of flights within the same day based upon their associated <code>arr_delay</code>. Research online or on the help how <code>dense_rank()</code> works.</p>
-<p>At the same time, use the function <code>row_number()</code> to assign an integer number to each row of the same daily partitions (biggest arrival delay gets the smallest <code>row_number</code>)</p>
+<p>Use the function <code>dense_rank()</code> in combination with <code>group_by()</code>, <code>mutate()</code> and <code>ungroup()</code> to create a rank of flights within the same day based upon their <code>arr_delay</code>. Flights with greater delay should have the smallest rank. Research online or on the help how <code>dense_rank()</code> works.</p>
+<p>At the same time, use the function <code>row_number()</code> to assign an integer number to each row (each flight) of each day. The biggest arrival delays within a day should have the smallest <code>row_number</code>)</p>
 </section>
 </section>
 
