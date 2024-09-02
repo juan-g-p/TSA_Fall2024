@@ -2,7 +2,7 @@
 title: "02_A_Dates_Times_R"
 editor: source
 params:
-  print_sol: true
+  print_sol: false
 toc: true
 toc-location: left
 toc-depth: 6
@@ -235,6 +235,8 @@ seq_weeks
 ```
 
 ## Parsing functions
+
+**Parsing functions are not necessary to pass the course, but they are an essential tool to work with time series and hence are included here for completion**.
 
 We present now at the end the parsing functions that were left out before when explaining how to create dates and datetimes from a string
 
