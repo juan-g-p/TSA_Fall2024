@@ -2,9 +2,9 @@
 title: "03_A_TSGraphs_Timeplots_Scatterplots_Seasonalplots"
 editor: source
 params:
-  print_sol: true
-  print_sol_int: true
-  hidden_notes: true
+  print_sol: false
+  print_sol_int: false
+  hidden_notes: false
 toc: true
 toc-location: left
 toc-depth: 6
@@ -141,7 +141,7 @@ Scale the x-grid of the following graph so that the end of each year is clearly 
 aus_production %>% autoplot(Bricks)
 ```
 
-```{r, include=params$print_sol_int}
+```{r, include=params$print_sol}
 autoplot(aus_production, Bricks) +
   scale_x_yearquarter(date_breaks = "4 year",
                       minor_breaks = "1 year") +
@@ -231,7 +231,7 @@ lynx %>% head(5)
 
 Plot the time series ensuring we have major ticks every 10 years and minor ticks every 5 years:
 
-```{r, include=params$print_sol_int}
+```{r, include=params$print_sol}
 major_ticks_seq = seq(0, max(lynx$Year), 10)
 minor_ticks_seq = seq(0, max(lynx$Year), 5)
 
@@ -264,7 +264,7 @@ hsales_tsibble <- hsales %>% as_tsibble()
 
 **Create a timeplot that has major ticks every 5 years and minor ticks every year**
 
-```{r, include = params$print_sol_int}
+```{r, include = params$print_sol}
 hsales_tsibble %>% 
   autoplot() + 
   scale_x_yearmonth(date_breaks = "5 year",
