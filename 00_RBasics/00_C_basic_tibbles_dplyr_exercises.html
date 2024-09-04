@@ -3025,14 +3025,45 @@ vertical-align: -.125em;
   <ul>
   <li><a href="#subsetting-a-tibble" id="toc-subsetting-a-tibble" class="nav-link active" data-scroll-target="#subsetting-a-tibble">Subsetting a tibble</a>
   <ul>
-  <li><a href="#filter" id="toc-filter" class="nav-link" data-scroll-target="#filter"><code>filter()</code></a></li>
-  <li><a href="#select" id="toc-select" class="nav-link" data-scroll-target="#select"><code>select()</code></a></li>
-  <li><a href="#pull" id="toc-pull" class="nav-link" data-scroll-target="#pull"><code>pull()</code></a></li>
-  <li><a href="#arrange" id="toc-arrange" class="nav-link" data-scroll-target="#arrange"><code>arrange()</code></a></li>
-  <li><a href="#mutate" id="toc-mutate" class="nav-link" data-scroll-target="#mutate"><code>mutate()</code></a></li>
-  <li><a href="#group_by-summarize" id="toc-group_by-summarize" class="nav-link" data-scroll-target="#group_by-summarize"><code>group_by()</code> + <code>summarize()</code></a></li>
-  <li><a href="#group_by-filter-ungroup" id="toc-group_by-filter-ungroup" class="nav-link" data-scroll-target="#group_by-filter-ungroup"><code>group_by()</code> + <code>filter()</code> + <code>ungroup()</code></a></li>
-  <li><a href="#group_by-mutate-ungroup" id="toc-group_by-mutate-ungroup" class="nav-link" data-scroll-target="#group_by-mutate-ungroup"><code>group_by()</code> + <code>mutate()</code> + <code>ungroup()</code></a></li>
+  <li><a href="#filter" id="toc-filter" class="nav-link" data-scroll-target="#filter"><code>filter()</code></a>
+  <ul>
+  <li><a href="#ex-1.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-about-female-babies" id="toc-ex-1.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-about-female-babies" class="nav-link" data-scroll-target="#ex-1.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-about-female-babies">Ex 1. Select the subset of the babynames dataset that contains data between 1990 and 2010 about female babies:</a></li>
+  <li><a href="#ex-2.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-regarding-babies-named-either-mary-sarah-or-carrie" id="toc-ex-2.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-regarding-babies-named-either-mary-sarah-or-carrie" class="nav-link" data-scroll-target="#ex-2.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-regarding-babies-named-either-mary-sarah-or-carrie">Ex 2. Select the subset of the babynames dataset that contains data between 1990 and 2010 regarding babies named either Mary, Sarah or Carrie:</a></li>
+  <li><a href="#ex-3.-filter-the-flights-dataset-to-contain-only-the-flights-that-took-place-in-june-july-august-and-september.-keep-only-the-subset-of-flights-that-were-delayed.-store-the-result-in-a-variable-called-res" id="toc-ex-3.-filter-the-flights-dataset-to-contain-only-the-flights-that-took-place-in-june-july-august-and-september.-keep-only-the-subset-of-flights-that-were-delayed.-store-the-result-in-a-variable-called-res" class="nav-link" data-scroll-target="#ex-3.-filter-the-flights-dataset-to-contain-only-the-flights-that-took-place-in-june-july-august-and-september.-keep-only-the-subset-of-flights-that-were-delayed.-store-the-result-in-a-variable-called-res">Ex 3. Filter the flights dataset to contain only the flights that took place in June, July, August and September. Keep only the subset of flights that were delayed. Store the result in a variable called <code>res</code></a></li>
+  <li><a href="#ex-4.-take-the-result-of-3-and-select-only-the-subset-of-flights-that-have-a-plane-tail-number-variable-tailnum-that-starts-with-n.-for-this-you-will-need-to-use-the-function-substr.-research-online-how-the-function-works." id="toc-ex-4.-take-the-result-of-3-and-select-only-the-subset-of-flights-that-have-a-plane-tail-number-variable-tailnum-that-starts-with-n.-for-this-you-will-need-to-use-the-function-substr.-research-online-how-the-function-works." class="nav-link" data-scroll-target="#ex-4.-take-the-result-of-3-and-select-only-the-subset-of-flights-that-have-a-plane-tail-number-variable-tailnum-that-starts-with-n.-for-this-you-will-need-to-use-the-function-substr.-research-online-how-the-function-works.">Ex 4. Take the result of 3 and select only the subset of flights that have a plane tail number (variable <code>tailnum</code>) that starts with N. For this you will need to use the function <code>substr()</code>. Research online how the function works.</a></li>
+  </ul></li>
+  <li><a href="#select" id="toc-select" class="nav-link" data-scroll-target="#select"><code>select()</code></a>
+  <ul>
+  <li><a href="#ex-5.-take-the-flights-dataset-and-select-only-the-first-3-columns" id="toc-ex-5.-take-the-flights-dataset-and-select-only-the-first-3-columns" class="nav-link" data-scroll-target="#ex-5.-take-the-flights-dataset-and-select-only-the-first-3-columns">Ex 5. Take the flights dataset and select only the first 3 columns</a></li>
+  <li><a href="#ex-6.-take-the-flights-dataset-and-select-only-the-columns-between-year-and-dep_delay" id="toc-ex-6.-take-the-flights-dataset-and-select-only-the-columns-between-year-and-dep_delay" class="nav-link" data-scroll-target="#ex-6.-take-the-flights-dataset-and-select-only-the-columns-between-year-and-dep_delay">Ex 6. Take the flights dataset and select only the columns between <code>year</code> and <code>dep_delay</code></a></li>
+  <li><a href="#ex-7.-take-the-flights-dataset-and-select-all-the-columns-except-those-between-year-and-dep_delay" id="toc-ex-7.-take-the-flights-dataset-and-select-all-the-columns-except-those-between-year-and-dep_delay" class="nav-link" data-scroll-target="#ex-7.-take-the-flights-dataset-and-select-all-the-columns-except-those-between-year-and-dep_delay">Ex 7. Take the flights dataset and select all the columns except those between <code>year</code> and <code>dep_delay</code>:</a></li>
+  <li><a href="#ex-8.-take-the-flights-dataset-place-the-variable-tailnum-at-the-beginning-of-the-dataset-drop-the-variable-carrier-and-keep-the-rest-of-the-columns-in-their-original-order" id="toc-ex-8.-take-the-flights-dataset-place-the-variable-tailnum-at-the-beginning-of-the-dataset-drop-the-variable-carrier-and-keep-the-rest-of-the-columns-in-their-original-order" class="nav-link" data-scroll-target="#ex-8.-take-the-flights-dataset-place-the-variable-tailnum-at-the-beginning-of-the-dataset-drop-the-variable-carrier-and-keep-the-rest-of-the-columns-in-their-original-order">Ex 8. Take the flights dataset, place the variable <code>tailnum</code> at the beginning of the dataset, drop the variable <code>carrier</code> and keep the rest of the columns in their original order:</a></li>
+  </ul></li>
+  <li><a href="#pull" id="toc-pull" class="nav-link" data-scroll-target="#pull"><code>pull()</code></a>
+  <ul>
+  <li><a href="#ex-9." id="toc-ex-9." class="nav-link" data-scroll-target="#ex-9.">Ex 9.</a></li>
+  </ul></li>
+  <li><a href="#arrange" id="toc-arrange" class="nav-link" data-scroll-target="#arrange"><code>arrange()</code></a>
+  <ul>
+  <li><a href="#ex-10." id="toc-ex-10." class="nav-link" data-scroll-target="#ex-10.">Ex 10.</a></li>
+  </ul></li>
+  <li><a href="#mutate" id="toc-mutate" class="nav-link" data-scroll-target="#mutate"><code>mutate()</code></a>
+  <ul>
+  <li><a href="#ex-11.-use-mutate-to-create-two-new-columns-in-the-flights-dataset" id="toc-ex-11.-use-mutate-to-create-two-new-columns-in-the-flights-dataset" class="nav-link" data-scroll-target="#ex-11.-use-mutate-to-create-two-new-columns-in-the-flights-dataset">Ex 11. Use <code>mutate()</code> to create two new columns in the flights dataset:</a></li>
+  <li><a href="#ex-12.-use-mutate-and-substr-to-create-a-new-column-with-the-initial-letter-of-the-name-of-every-entry-in-the-dataset-babynames." id="toc-ex-12.-use-mutate-and-substr-to-create-a-new-column-with-the-initial-letter-of-the-name-of-every-entry-in-the-dataset-babynames." class="nav-link" data-scroll-target="#ex-12.-use-mutate-and-substr-to-create-a-new-column-with-the-initial-letter-of-the-name-of-every-entry-in-the-dataset-babynames.">Ex 12. Use <code>mutate()</code> and <code>substr()</code> to create a new column with the initial letter of the name of every entry in the dataset <code>babynames</code>.</a></li>
+  </ul></li>
+  <li><a href="#group_by-summarize" id="toc-group_by-summarize" class="nav-link" data-scroll-target="#group_by-summarize"><code>group_by()</code> + <code>summarize()</code></a>
+  <ul>
+  <li><a href="#ex-13.-use-group_by-summarize-to-get-the-mean-and-median-value-of-arr_delay-each-month.-you-will-need-to-specify-a-correct-value-for-the-argument-na.rm-of-the-funtions-mean-and-median." id="toc-ex-13.-use-group_by-summarize-to-get-the-mean-and-median-value-of-arr_delay-each-month.-you-will-need-to-specify-a-correct-value-for-the-argument-na.rm-of-the-funtions-mean-and-median." class="nav-link" data-scroll-target="#ex-13.-use-group_by-summarize-to-get-the-mean-and-median-value-of-arr_delay-each-month.-you-will-need-to-specify-a-correct-value-for-the-argument-na.rm-of-the-funtions-mean-and-median.">Ex 13. Use <code>group_by()</code> + <code>summarize()</code> to get the <code>mean()</code> and <code>median()</code> value of <code>arr_delay</code> each month. You will need to specify a correct value for the argument <code>na.rm</code> of the funtions <code>mean()</code> and `<code>median()</code>.</a></li>
+  </ul></li>
+  <li><a href="#group_by-filter-ungroup" id="toc-group_by-filter-ungroup" class="nav-link" data-scroll-target="#group_by-filter-ungroup"><code>group_by()</code> + <code>filter()</code> + <code>ungroup()</code></a>
+  <ul>
+  <li><a href="#ex-14.-use-group_by-filter-and-ungroup-to-get-a-list-of-the-most-unpopular-male-and-female-babynames-names-each-year" id="toc-ex-14.-use-group_by-filter-and-ungroup-to-get-a-list-of-the-most-unpopular-male-and-female-babynames-names-each-year" class="nav-link" data-scroll-target="#ex-14.-use-group_by-filter-and-ungroup-to-get-a-list-of-the-most-unpopular-male-and-female-babynames-names-each-year">Ex 14. Use <code>group_by()</code>, <code>filter()</code> and <code>ungroup()</code> to get a list of the most unpopular male and female <code>babynames</code> names each year</a></li>
+  </ul></li>
+  <li><a href="#group_by-mutate-ungroup" id="toc-group_by-mutate-ungroup" class="nav-link" data-scroll-target="#group_by-mutate-ungroup"><code>group_by()</code> + <code>mutate()</code> + <code>ungroup()</code></a>
+  <ul>
+  <li><a href="#ex-15.-use-group_by-mutate-and-ungroup" id="toc-ex-15.-use-group_by-mutate-and-ungroup" class="nav-link" data-scroll-target="#ex-15.-use-group_by-mutate-and-ungroup">Ex 15. Use <code>group_by()</code>, <code>mutate()</code> and <code>ungroup()</code></a></li>
+  </ul></li>
   </ul></li>
   </ul>
 </nav>
@@ -3136,29 +3167,46 @@ vertical-align: -.125em;
 <h1>Subsetting a tibble</h1>
 <section id="filter" class="level2">
 <h2 class="anchored" data-anchor-id="filter"><code>filter()</code></h2>
-<ol type="1">
-<li><p>Select the subset of the babynames dataset that contains data between 1990 and 2010 about female babies:</p></li>
-<li><p>Select the subset of the babynames dataset that contains data between 1990 and 2010 regarding babies named either Mary, Sarah or Carrie:</p></li>
-<li><p>Filter the flights dataset to contain only the flights that took place in June, July, August and September. Keep only the subset of flights that were delayed. Store the result in a variable called <code>res</code></p></li>
-<li><p>Take the result of 3 and select only the subset of flights that have a plane tail number (variable <code>tailnum</code>) that starts with N. For this you will need to use the function <code>substr()</code>. Research online how the function works.</p></li>
-</ol>
+<section id="ex-1.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-about-female-babies" class="level3">
+<h3 class="anchored" data-anchor-id="ex-1.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-about-female-babies">Ex 1. Select the subset of the babynames dataset that contains data between 1990 and 2010 about female babies:</h3>
+</section>
+<section id="ex-2.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-regarding-babies-named-either-mary-sarah-or-carrie" class="level3">
+<h3 class="anchored" data-anchor-id="ex-2.-select-the-subset-of-the-babynames-dataset-that-contains-data-between-1990-and-2010-regarding-babies-named-either-mary-sarah-or-carrie">Ex 2. Select the subset of the babynames dataset that contains data between 1990 and 2010 regarding babies named either Mary, Sarah or Carrie:</h3>
+</section>
+<section id="ex-3.-filter-the-flights-dataset-to-contain-only-the-flights-that-took-place-in-june-july-august-and-september.-keep-only-the-subset-of-flights-that-were-delayed.-store-the-result-in-a-variable-called-res" class="level3">
+<h3 class="anchored" data-anchor-id="ex-3.-filter-the-flights-dataset-to-contain-only-the-flights-that-took-place-in-june-july-august-and-september.-keep-only-the-subset-of-flights-that-were-delayed.-store-the-result-in-a-variable-called-res">Ex 3. Filter the flights dataset to contain only the flights that took place in June, July, August and September. Keep only the subset of flights that were delayed. Store the result in a variable called <code>res</code></h3>
+</section>
+<section id="ex-4.-take-the-result-of-3-and-select-only-the-subset-of-flights-that-have-a-plane-tail-number-variable-tailnum-that-starts-with-n.-for-this-you-will-need-to-use-the-function-substr.-research-online-how-the-function-works." class="level3">
+<h3 class="anchored" data-anchor-id="ex-4.-take-the-result-of-3-and-select-only-the-subset-of-flights-that-have-a-plane-tail-number-variable-tailnum-that-starts-with-n.-for-this-you-will-need-to-use-the-function-substr.-research-online-how-the-function-works.">Ex 4. Take the result of 3 and select only the subset of flights that have a plane tail number (variable <code>tailnum</code>) that starts with N. For this you will need to use the function <code>substr()</code>. Research online how the function works.</h3>
+</section>
 </section>
 <section id="select" class="level2">
 <h2 class="anchored" data-anchor-id="select"><code>select()</code></h2>
-<ol type="1">
-<li><p>Take the flights dataset and select only the first 3 columns</p></li>
-<li><p>Take the flights dataset and select only the columns between <code>year</code> and <code>dep_delay</code></p></li>
-<li><p>Take the flights dataset and select all the columns except those between <code>year</code> and <code>dep_delay</code>:</p></li>
-<li><p>Take the flights dataset, place the variable <code>tailnum</code> at the beginning of the dataset, drop the variable <code>carrier</code> and keep the rest of the columns in their original order:</p></li>
-</ol>
+<section id="ex-5.-take-the-flights-dataset-and-select-only-the-first-3-columns" class="level3">
+<h3 class="anchored" data-anchor-id="ex-5.-take-the-flights-dataset-and-select-only-the-first-3-columns">Ex 5. Take the flights dataset and select only the first 3 columns</h3>
+</section>
+<section id="ex-6.-take-the-flights-dataset-and-select-only-the-columns-between-year-and-dep_delay" class="level3">
+<h3 class="anchored" data-anchor-id="ex-6.-take-the-flights-dataset-and-select-only-the-columns-between-year-and-dep_delay">Ex 6. Take the flights dataset and select only the columns between <code>year</code> and <code>dep_delay</code></h3>
+</section>
+<section id="ex-7.-take-the-flights-dataset-and-select-all-the-columns-except-those-between-year-and-dep_delay" class="level3">
+<h3 class="anchored" data-anchor-id="ex-7.-take-the-flights-dataset-and-select-all-the-columns-except-those-between-year-and-dep_delay">Ex 7. Take the flights dataset and select all the columns except those between <code>year</code> and <code>dep_delay</code>:</h3>
+</section>
+<section id="ex-8.-take-the-flights-dataset-place-the-variable-tailnum-at-the-beginning-of-the-dataset-drop-the-variable-carrier-and-keep-the-rest-of-the-columns-in-their-original-order" class="level3">
+<h3 class="anchored" data-anchor-id="ex-8.-take-the-flights-dataset-place-the-variable-tailnum-at-the-beginning-of-the-dataset-drop-the-variable-carrier-and-keep-the-rest-of-the-columns-in-their-original-order">Ex 8. Take the flights dataset, place the variable <code>tailnum</code> at the beginning of the dataset, drop the variable <code>carrier</code> and keep the rest of the columns in their original order:</h3>
+</section>
 </section>
 <section id="pull" class="level2">
 <h2 class="anchored" data-anchor-id="pull"><code>pull()</code></h2>
+<section id="ex-9." class="level3">
+<h3 class="anchored" data-anchor-id="ex-9.">Ex 9.</h3>
 <p>Subset the <code>flights</code> dataset so that it only contains flights that took place on the first day of the month. Then use <code>pull()</code> to extract the variable <code>dep_delay</code> and store it in a variable called <code>res</code>.</p>
 <p>Finally compute the average and max value of the delay times contained in <code>res</code> using <code>mean</code> and <code>max</code>. You might need to set the argument <code>na.rm</code> of these functions to <code>TRUE</code>. Research the meaning of this argument.</p>
 </section>
+</section>
 <section id="arrange" class="level2">
 <h2 class="anchored" data-anchor-id="arrange"><code>arrange()</code></h2>
+<section id="ex-10." class="level3">
+<h3 class="anchored" data-anchor-id="ex-10.">Ex 10.</h3>
 <p>Use the function <code>arrange</code> in combination with <code>des()</code> to rearrange the dataset <code>babynames</code> all the conditions below are fulfilled:</p>
 <ol type="1">
 <li>years are desplayed rom smallest to largest</li>
@@ -3166,11 +3214,11 @@ vertical-align: -.125em;
 <li>within each sex category the less frequently occurring names are shown first.</li>
 </ol>
 </section>
+</section>
 <section id="mutate" class="level2">
 <h2 class="anchored" data-anchor-id="mutate"><code>mutate()</code></h2>
-<ol type="1">
-<li>Use <code>mutate()</code> to create two new columns in the flights dataset:</li>
-</ol>
+<section id="ex-11.-use-mutate-to-create-two-new-columns-in-the-flights-dataset" class="level3">
+<h3 class="anchored" data-anchor-id="ex-11.-use-mutate-to-create-two-new-columns-in-the-flights-dataset">Ex 11. Use <code>mutate()</code> to create two new columns in the flights dataset:</h3>
 <ul>
 <li>using <code>make_date()</code> combine <code>year</code>, <code>month</code> and <code>day</code> to create a <code>date</code> object. You may research online or use <code>?make_date</code> on the console to understand how <code>make_date()</code> works</li>
 <li>create a new column that returns <code>FALSE</code> if <code>arr_delay</code> is smaller than an hour and <code>TRUE</code> else. For this us <code>ifelse()</code> create a conditional. Reseach online how <code>ifelse()</code> works in dplyr or use <code>?ifelse()</code> to get help from the console.</li>
@@ -3184,29 +3232,30 @@ vertical-align: -.125em;
 <div class="cell">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<ol start="2" type="1">
-<li>Use <code>mutate()</code> and <code>substr()</code> to create a new column with the initial letter of the name of every entry in the dataset <code>babynames</code>.</li>
-</ol>
+</section>
+<section id="ex-12.-use-mutate-and-substr-to-create-a-new-column-with-the-initial-letter-of-the-name-of-every-entry-in-the-dataset-babynames." class="level3">
+<h3 class="anchored" data-anchor-id="ex-12.-use-mutate-and-substr-to-create-a-new-column-with-the-initial-letter-of-the-name-of-every-entry-in-the-dataset-babynames.">Ex 12. Use <code>mutate()</code> and <code>substr()</code> to create a new column with the initial letter of the name of every entry in the dataset <code>babynames</code>.</h3>
+</section>
 </section>
 <section id="group_by-summarize" class="level2">
 <h2 class="anchored" data-anchor-id="group_by-summarize"><code>group_by()</code> + <code>summarize()</code></h2>
-<ol type="1">
-<li>Use <code>group_by()</code> + <code>summarize()</code> to get the <code>mean()</code> and <code>median()</code> value of <code>arr_delay</code> each month. You will need to specify a correct value for the argument <code>na.rm</code> of the funtions <code>mean()</code> and `<code>median()</code>.</li>
-</ol>
+<section id="ex-13.-use-group_by-summarize-to-get-the-mean-and-median-value-of-arr_delay-each-month.-you-will-need-to-specify-a-correct-value-for-the-argument-na.rm-of-the-funtions-mean-and-median." class="level3">
+<h3 class="anchored" data-anchor-id="ex-13.-use-group_by-summarize-to-get-the-mean-and-median-value-of-arr_delay-each-month.-you-will-need-to-specify-a-correct-value-for-the-argument-na.rm-of-the-funtions-mean-and-median.">Ex 13. Use <code>group_by()</code> + <code>summarize()</code> to get the <code>mean()</code> and <code>median()</code> value of <code>arr_delay</code> each month. You will need to specify a correct value for the argument <code>na.rm</code> of the funtions <code>mean()</code> and `<code>median()</code>.</h3>
+</section>
 </section>
 <section id="group_by-filter-ungroup" class="level2">
 <h2 class="anchored" data-anchor-id="group_by-filter-ungroup"><code>group_by()</code> + <code>filter()</code> + <code>ungroup()</code></h2>
-<ol type="1">
-<li>Use <code>group_by()</code>, <code>filter()</code> and <code>ungroup()</code> to get a list of the most unpopular male and female <code>babynames</code> names each year</li>
-</ol>
+<section id="ex-14.-use-group_by-filter-and-ungroup-to-get-a-list-of-the-most-unpopular-male-and-female-babynames-names-each-year" class="level3">
+<h3 class="anchored" data-anchor-id="ex-14.-use-group_by-filter-and-ungroup-to-get-a-list-of-the-most-unpopular-male-and-female-babynames-names-each-year">Ex 14. Use <code>group_by()</code>, <code>filter()</code> and <code>ungroup()</code> to get a list of the most unpopular male and female <code>babynames</code> names each year</h3>
+</section>
 </section>
 <section id="group_by-mutate-ungroup" class="level2">
 <h2 class="anchored" data-anchor-id="group_by-mutate-ungroup"><code>group_by()</code> + <code>mutate()</code> + <code>ungroup()</code></h2>
-<ol type="1">
-<li>Use <code>group_by()</code>, <code>mutate()</code> and <code>ungroup()</code></li>
-</ol>
+<section id="ex-15.-use-group_by-mutate-and-ungroup" class="level3">
+<h3 class="anchored" data-anchor-id="ex-15.-use-group_by-mutate-and-ungroup">Ex 15. Use <code>group_by()</code>, <code>mutate()</code> and <code>ungroup()</code></h3>
 <p>Use the function <code>dense_rank()</code> in combination with <code>group_by()</code>, <code>mutate()</code> and <code>ungroup()</code> to create a rank of flights within the same day based upon their <code>arr_delay</code>. Flights with greater delay should have the smallest rank. Research online or on the help how <code>dense_rank()</code> works.</p>
 <p>At the same time, use the function <code>row_number()</code> to assign an integer number to each row (each flight) of each day. The biggest arrival delays within a day should have the smallest <code>row_number</code>)</p>
+</section>
 </section>
 </section>
 
