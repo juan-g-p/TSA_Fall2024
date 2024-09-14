@@ -2,7 +2,7 @@
 title: "03_A_TSGraphs_Timeplots_Scatterplots_Seasonalplots"
 editor: source
 params:
-  print_sol: false
+  print_sol: true
   print_sol_int: false
   hidden_notes: false
 toc: true
@@ -42,13 +42,15 @@ This package extends the tidyverse framework to time series. For that it require
 library(fpp3)
 ```
 
-Additionally, for this particular session we will use the packages `GGally`, `fma` and `patchwork`. Install them if you do not have them already:
+Additionally, for this particular session we will use the packages `GGally`, `fma` and `patchwork`. Install them if you do not have them already. **Remember that the command `install.packages` is to be run only once, not every time you want to use the package**.
 
 ```{r, eval=FALSE}
 install.packages("GGally", dependencies = TRUE) # to generate a scatterplot matrix
 install.packages("fma", dependencies = TRUE) # to load the Us treasury bills dataset
 install.packages("patchwork", dependencies = TRUE) # Used to manage the relative location of ggplots
 ```
+
+Once you have installed the packages with the `install.packages` command, you may use them simply by loadeing them with the `library` command. You have to do this every time you restart your R session.
 
 ```{r, error=FALSE, warning=FALSE, message = FALSE}
 library(patchwork) # Used to manage the relative location of ggplots
@@ -90,12 +92,28 @@ Let us look at some examples:
 
 ## Example 1 - trended and seasonal data
 
+### `scale_x_yearquarter`: adjusting the grid when the time index follows a ``yearquarter` object
+
+Inspecting the dataset aus_production we note two things: 
+
+1. As all the datasets loaded along the `fpp3` package, it comes in `tsibble` format.
+2. The column signaling time (the index of the tsibble) is of type `yearquarter``
+
+```{r}
+aus_production
+```
+
+**Because the index of the tsibble is of type yearquarter**, we will correspondingly use the function **scale_x_yearquarter** when we want to scale the x-axis of the timeplot below
+
+
 ```{r}
 aus_production %>%
   
   # Filter data to show appropriate timeframe
   filter((year(Quarter) >= 1980 & year(Quarter)<= 2000)) %>%
   
+  # autoplot: generates a simple timeplot, yet to be adjusted with
+  # further commands.
   autoplot(Electricity) + 
   
   # Scale the x axis adequately
@@ -111,9 +129,9 @@ Strong trend with a change in the slope of the trend around 1990.
 
 ### `autoplot()` as a wrapper around ggplot2 objects
 
-The function `autoplot()` of the library `fpp3` is nothing but a wrapper around ggplot2 objects. Depending on the object fed to autoplot, it will have one or other behavior combining different ggplot objects.
+The function `autoplot()` of the library `fpp3` is nothing but a wrapper around ggplot2 objects. Depending on the object fed to autoplot, it will have one or other behavior, combining different ggplot objects.
 
-In the example above, `autoplot()` is nothing but a wrapper around `geom_line()`. It is just that using `autoplot()` is much more convenient and it is a good idea to have such a function in a time series dedicated library such as `fpp3`
+In the example above, `autoplot()` is fed a time series in tsibble format. In this situation, it acts as a wrapper around the ggplot command `geom_line()`. It is just that using `autoplot()` is much more convenient and it is a good idea to have such a function in a time series dedicated library such as `fpp3`. The code below uses explicitly all ggplot commands and attains the exact same output as using autoplot.
 
 ```{r}
 aus_production %>% 
@@ -133,16 +151,20 @@ aus_production %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-## Example 2 - (exercise) - trended and seasonal data with recessions
+## Example 2 - **exercise** - trended and seasonal data with recessions
 
-Scale the x-grid of the following graph so that the end of each year is clearly visible
+Scale the x-grid of the following graph so that the end of each year is clearly visible.
+
+**HINT**: remember you need to **inspect the dataset aus_production** and check **the type of its index column (time column) to pick the right function to scale the x axis**.
 
 ```{r}
-aus_production %>% autoplot(Bricks)
+aus_production %>% 
+  autoplot(Bricks)
 ```
 
 ```{r, include=params$print_sol}
 autoplot(aus_production, Bricks) +
+  
   scale_x_yearquarter(date_breaks = "4 year",
                       minor_breaks = "1 year") +
   # Flip x-labels by 90 degrees
@@ -163,7 +185,7 @@ The object ustreas is loaded along with the `fma` library, which we loaded at th
 ustreas
 ```
 
-`ustreas` is a `ts` object (time-series). This is another possible format for time series in R, but remember we are going to use `tsibles` to allow for seamless functionality with the fpp3 library. You can convert the `ts` to a `tsibble` using `as_tsibble`:
+`ustreas` is a `ts` object (time-series). This is another possible format for time series in R, but remember we are going to use `tsibles` to allow for seamless functionality with the fpp3 library. You can convert the `ts` to a `tsibble` using `as_tsibble` in the following manner:
 
 ```{r}
 ustreas_tsibble <- as_tsibble(ustreas)
@@ -174,7 +196,6 @@ ustreas_tsibble
 autoplot(ustreas_tsibble)
 ```
 
-
 ```{r}
 
 ```
@@ -183,20 +204,22 @@ Looks like a downward trend, but it is part of a much longer cycle (not shown). 
 
 ### `scale_x_continuous`: adjusting the grid when the index is numeric.
 
-Examining our tsibble reveals that the index is numeric (trading day)
+Examining the tsibble `ustreas_tsibble` reveals that **the index is numeric (trading day)** ("dbl", meaning double precision floating point).
 
 ```{r}
 ustreas_tsibble %>% head(5)
 ```
 
-For this reason, we need to use the function `scale_x_continuous`. In addition to this, we need to generate a specific sequence signaling the ticks. For example, if we want major ticks every 10 days and minor ticks every 5 days
+If the index is of type numeric we need to use the function `scale_x_continuous` to properly adjust the x-axis. In addition to this, we need to generate a specific sequence signaling the ticks. For example, if we want major ticks every 10 days and minor ticks every 5 days:
 
 ```{r}
+# Sequence for major ticks, from 0 to the maximum index in the data
 major_ticks_seq = seq(0, max(ustreas_tsibble$index), 10)
 major_ticks_seq
 ```
 
 ```{r}
+# Sequence for minor ticks, from 0 to the maximum index in the data
 minor_ticks_seq = seq(0, max(ustreas_tsibble$index), 5)
 minor_ticks_seq
 ```
@@ -212,9 +235,11 @@ ustreas_tsibble %>%
 
 ```
 
-## Example 4 - exercise. Yearly data and cyclic behavior
+## Example 4 - **exercise**. Yearly data and cyclic behavior
 
-**ANUAL DATA** is not susceptible to calendar variations. It is sampled at the same point every year. Calendar variations might be present but they are not captured by yearly data. Therefore **there is no seasonality in yearly data**. If anything **there could be cyclic behavior**.
+**ANUAL DATA** is not susceptible to within-year calendar periods (so called "seasonal periods"). It is sampled at the same point every year. Therefore, within-year calendar periods do not affect yearly data.
+
+In other words: **there are no seasonal patterns in yearly data**. If anything **there could be cyclic behavior**.
 
 Hudson Bay Company trading records for Snowshoe Hare and Canadian Lynx furs from 1845 to 1935. This data contains trade records for all areas of the company. We are going analyse the number of Canadian Lynx pelts traded.
 
@@ -229,7 +254,9 @@ lynx %>% head(5)
 
 ### Exercise
 
-Plot the time series ensuring we have major ticks every 10 years and minor ticks every 5 years:
+Plot the time series ensuring we have major ticks every 10 years and minor ticks every 5 years.
+
+**Hint**: check the type of the index sequence to select the correct variation of the family of functions `scale_x_...()` you need to properly scale the x-axis. 
 
 ```{r, include=params$print_sol}
 major_ticks_seq = seq(0, max(lynx$Year), 10)
@@ -252,7 +279,7 @@ Number of lynx trapped anualy in the Hudson bay reach
   + Surviving lynx have excess food -> population raises
 ```
 
-## Example 5 (exercise) - Cyclic + seasonal behavior
+## Example 5 - exercise - Cyclic + seasonal behavior
 
 Monthly sales of new one-family houses sold in the USA since 1973.
 
@@ -263,6 +290,8 @@ hsales_tsibble <- hsales %>% as_tsibble()
 ```
 
 **Create a timeplot that has major ticks every 5 years and minor ticks every year**
+
+**Hint**: check the type of the index sequence to select the correct variation of the family of functions `scale_x_...()` you need to properly scale the x-axis. **The one you need here has not been used in previous examples, but it is consistent with the type of the index**.
 
 ```{r, include = params$print_sol}
 hsales_tsibble %>% 
@@ -292,11 +321,12 @@ To adequately transform the taylor 'ts' object to a `tsibble`, we are going to d
 
 ```{r}
 # Define the start time based on information about the Taylor series
+# Assume UTC time.
 start_time <- as.POSIXct("2000-06-05 00:00:00", tz = "UTC")
 
 # We specify by = 1800 because the lowest unit we specified in our datetime object
-# start_time are seconds (hh:mm:ss). Therefore this date-time object will increase
-# in steps of seconds and there are 1800 seconds in half an our (30 * 60)
+# start_time are seconds (hh:mm:ss). The samples in this ts object are taken every
+# half an hour, that is, every 1800 seconds (30 * 60)
 # We specify as well that the sequence needs to be of the same length as the taylor
 # object
 datetime_seq <- start_time + seq(from = 0, by = 1800, length.out = length(taylor))
@@ -327,9 +357,9 @@ autoplot(taylor_tsibble)
 
 To inspect these patterns more closely, I am going to filter for the first four weeks in the time series. To attain this, I am going to create an auxiliary week column and then filter based on that column:
 
-
 ```{r}
-# Create auxiliary column signalling the yearweek
+# Create auxiliary column signalling the yearweek corresponding to
+# every point in the time seres.
 taylor_tsibble <- 
   taylor_tsibble %>% 
   mutate(
@@ -362,15 +392,17 @@ taylor_tsibble_4w %>%
 
 Here we can see the patterns more closely.
 
-**IMPORTANT**: the electricity demand does not always follow such an extremely regular pattern. There might be weekly seasonality, but it is not necessarily so regular.
+**IMPORTANT**: the demand of electricity does not always follow such an extremely regular pattern. There might be weekly seasonality, but it is not necessarily so regular. See the next example.
 
-Half-hourly electricity demand in for Victoria (Australia).
+## Example 7 - exercise
+
+We are going to use the dataset `vic_elec` from the `fpp3` library. It provides half-hourly electricity demand in for Victoria (Australia).
 
 ```{r}
 vic_elec %>% head(5)
 ```
 
-### `scale_x_datetime` indexes that are date-time objects
+### `scale_x_datetime`: indices that are date-time objects
 
 Let us filter the electricity consumption in Victoria `vic_elec` to include only datapoints of January 2012:
 
@@ -394,8 +426,36 @@ We can spot a daily pattern but this time there is not a clear weekly pattern.
 The data does not necessarily exhibit all the possible seasonal patterns.
 ```
 
+## Example 8 - exercise
 
-## Example 7 - Trend + seasonality (multiplicative)
+### `scale_x_date`: indices that are date objects
+
+Let us begin by creating a daily time series out of the previos `elec_jan` (see example 7) using `index_by` to compute the total electricity consumption within each day
+
+```{r}
+elec_jan_daily <- 
+  elec_jan %>% 
+    index_by(date = as_date(Time)) %>% 
+    summarize(
+      daily_demand = sum(Demand)
+    )
+
+# Inspect result
+elec_jan_daily
+```
+
+Now create a time plot with an x-axis resolution that has:
+* major ticks every week
+* minor ticks every day
+
+```{r, include = params$print_sol}
+elec_jan_daily %>% 
+  autoplot() +
+  scale_x_date(breaks = "1 week",
+               minor_breaks = "1 day") 
+```
+
+## Example 9 - Trend + seasonality (multiplicative)
 
 PBS contains monthly medicare australia prescription data. We are going to select those regarding drugs of the category ATC2. For further info run `?PBS` in the console.
 
@@ -429,9 +489,13 @@ autoplot(a10, Cost) +
 
 ## Two variables
 
+The dataset `vic_elec`, which contains half-hourly data for the demand of electricity and average temperature in the state of Victoria (Australia).
+
 ```{r}
 vic_elec
 ```
+
+Let us depict a timeplot for the demand and a timeplot for the average temperature. The code snippet below requires you to load the library `GGally` for one statement to run (comment in the code):
 
 ```{r}
 p1 <- vic_elec %>%
@@ -448,37 +512,50 @@ p2 <- vic_elec %>%
     title = "Half-hourly temperatures: Melbourne, Australia"
   )
 
+# Requires GGally. Places one graph above the other, ensuring proper
+# matching of the x-axis.
 p1 / p2
 ```
+
+For every point in time, we may now depict the electricity demand and the corresponding average temperature, resulting in a scatterplot of these two variables instead of a timeplot. In this scatterplot we also add two trend lines:
+- A linear trend line following ordinary least squares.
+- A non-linear trend line following a loess model
 
 ```{r}
 vic_elec %>%
   filter(year(Time) == 2014) %>%
   ggplot(aes(x = Temperature, y = Demand)) +
+  
   geom_point() +
+  
+  # Linear trend line
   geom_smooth(method = "lm", se = FALSE) +
+  
+  # Non-linear trend line
   geom_smooth(method = "loess", color = "red", se = FALSE) +
+  
+  # Labels
   labs(x = "Temperature (degrees Celsius)",
        y = "Electricity demand (GW)")
 ```
 
-### Note: interpretation of correlation coefficients
+Just by looking at the graph, we can see that **the linear trend line does not capture the entire strignth of the relationship between demand and temperature**.
 
-The correlation coefficient **only measures the strength of linear relationship**. For example, the correlation for the electricity demand and temperature data shown in the previous figure is only 0.26, but their **non-linear** relationship is actually much stronger:
+### Correlation coefficients - careful interpretation
 
-```{r}
-# Compute correlation coefficient
-round(cor(vic_elec$Temperature, vic_elec$Demand), 2)
-```
+In your previous courses on statistics, you have been introduced to the correlation coefficient between two variables `X` and `Y `and you have also derived (hopefully) the relationship between this correlation coefficient and a linear trend line between `X` and `Y` obtained using ordinary least squares (ols):
 
-Remember that **a correlation coefficient of 0 does not imply that there is no relationship between two variables. It just implies that there is no linear relationship**.
+- TODO: INCLUDE EQUATION OF PEARSONS CORRELATION COEFFICIENT
 
-Note: beware that there are very bad sources on *statistics* and *data science* on the internet:
+- TODO: INCLUDE EQUATION OF HOW THE LINEAR TREND BE
 
--   [Bad interpretation of correlation coefficient - ex 1](https://www.investopedia.com/ask/answers/032515/what-does-it-mean-if-correlation-coefficient-positive-negative-or-zero.asp)
--   [Bad interpretation of correlation coefficient = 0 - ex 2](https://www.simplypsychology.org/correlation.html)
+The equation for that linear trend line **tells us that, the correlation coefficient alone only accounts for the linear relationship between `X` and `Y`** but it **does not measure any non-linear relationships**.
 
-Let us see a specific toy example that will you should keep in your head forever:
+#### Important example 1 - correlation coefficient of 0
+
+From the equation relating the correlation coefficient and the slope of the linear model, we can see that, **if the linear relationshp is 0 (slope of the trend $=$ 0) $\rightarrow$ $r_{xy}=0$.** However **there may be other non-linear relationships not captured by the correlation coefficient**. The correlation coefficient **only measures the strength of linear relationship**. 
+
+Let us see a **specific toy example that will should keep in your head forever.**In this, we take some points out of the function `$y=x^2$`. We take as many points to the left than points to the right, located at symmetrical positions around the y axis.
 
 ```{r}
 df <- tibble(
@@ -492,18 +569,39 @@ df %>%
   geom_smooth(method = "lm", se = FALSE)
 ```
 
+In the figure we can see that the slope of the linear relationship is 0, and, as a result, the correlation coefficient is also 0: 
+
 ```{r}
+# **QUESTION**: Why is it not exactly 0?
 cor(df$x, df$y)
 ```
 
-**QUESTION**: Why is it not exactly 0?
-
 ```{r, include=params$print_sol, eval=FALSE}
 ANSWER
-* Its a matter of numerical behavior.
-* An output with that exponent is 0 for the case at hand.
+* Its a matter of how the computer handles numbers.
+* An output with that exponent is 0 for our intents and purposes.
 * You need to get used to recognising this kind of scenarios.
 ```
+
+But **we know for a fact that there is a non-linear relationship between the variables (we have defined the points using it).**.
+
+#### Important example 2 - correlatoin
+
+If the linear relationship is not 0 (slope of the trend line $\neq$ 0) $\rightarrow$ $r_{xy}\neq0$. But **there may be a stronger non-linear relationship** as in the case of the electricity demand.
+
+For example, the correlation for the electricity demand and temperature data shown in the previous figure is only 0.26, but their **non-linear** relationship is actually much stronger (this can be seen comparing the linear model and the loess model fitted in the previous scatterplot)
+
+```{r}
+# Compute correlation coefficient
+round(cor(vic_elec$Temperature, vic_elec$Demand), 2)
+```
+
+Remember that **a correlation coefficient of 0 does not imply that there is no relationship between two variables. It just implies that there is no linear relationship**.
+
+Note: beware that there are very bad sources on *statistics* and *data science* on the internet:
+
+-   [Bad interpretation of correlation coefficient - ex 1](https://www.investopedia.com/ask/answers/032515/what-does-it-mean-if-correlation-coefficient-positive-negative-or-zero.asp)
+-   [Bad interpretation of correlation coefficient = 0 - ex 2](https://www.simplypsychology.org/correlation.html)
 
 Other examples of variables with a correlation coefficient of 0:
 
@@ -511,21 +609,16 @@ Other examples of variables with a correlation coefficient of 0:
 knitr::include_graphics('./figs/corr_coeff_0_wiki.png')
 ```
 
-```{r}
+#### Correlation coefficient vs. shape of the relationship
 
-```
+Remember as well that **two variables may have a very similar correlation coefficent yet have a very different aspect**. The example below (ref [1]) shows scatterplots of different variables, all of which have a correlation coefficient of 0.82. The set of four images below above is known as Ancombe's quartet.
 
-Remember as well that **two variables may have a very similar correlation coefficent yet have a very different aspect**. The example below (ref [1]) shows scatterplots of different variables, all of which have a correlation coefficient of 0.82:
 
 ```{r, echo=FALSE, out.width='60%', fig.align="center", fig.cap="Examples of variables having the same correlation coefficient. From [1]"}
 knitr::include_graphics('./figs/corr_coeff_same.png')
 ```
 
-```{r}
-
-```
-
-The image above is known as Ancombe's quartet. There are infinately many such datapoints with the same correlation coefficient. As an example see the funny .gif image below:
+Finally, the animation below is intended to show you that, given a correlation coefficient and a number $n$ of datapoints, there are infinitely many orderings of those datapoints that result in the same correlation coefficient. In other words, the correlation coefficient is relevant, but it is not very informative of the distribution of the points.
 
 ![Datasaurus - from ref. 3](figs/DataSaurus_Dozen.gif){width="641"}
 
@@ -533,7 +626,7 @@ The image above is known as Ancombe's quartet. There are infinately many such da
 
 ```
 
-All these examples are meant to make you aware of **how important it is to depict a scatterplot of the variables and not rely only on the correlation coefficient**, which is a summary only of their linear relationship.
+All these examples are meant to make you aware of **how important it is to depict a scatterplot of the variables and not to rely only on the correlation coefficient**, which is a summary only of their linear relationship.
 
 ## Several variables - scatterplot matrix
 
@@ -575,7 +668,7 @@ visitors %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-## Exercise: scatterplots matrix
+## Exercise: scatterplot matrix and lagged variables
 
 The code snippet below loads the dataset `soi_recuitment`. Run the code and select the file `soi_recruitment.csv` when prompted to pick up a file. You will find this in the folder `ZZ_Datasets`, on google drive. This dataset contains two variables and has been taken from reference 4.
 
@@ -589,6 +682,7 @@ soi_recruitment <-
    select(ym, SOI, recruitment) %>% 
    as_tsibble(index = ym)
 
+# Compute lags
 for (i in seq(1, 8)) {
   lag_name <- paste0("SOI_l", i)
   soi_recruitment[[lag_name]] = lag(soi_recruitment[["SOI"]], i)
@@ -607,6 +701,30 @@ soi_recruitment <-
    select(ym, SOI, recruitment) %>% 
    as_tsibble(index = ym)
 
+# Inspect result
+soi_recruitment
+```
+
+### Lagged variables and their importance in time series
+
+We are going to delve in this concept further in the next classes, but it is important to introduce it now.
+
+Given a **variable $x_t$**, its lags correspond to **delayed versions of the variable**, with the number of the lag indicating the time delay:
+
+* The first lag of a variable $x_t$ is written as $x_{t-1}$. At any point in time $t$, the value of $x_{t-1}$ is the value of $x_t$ one timestep ago.
+* The second lag of a variable $x_t$ is written as $x_{t-2}$. At any point in time $t$, the value of $x_{t-2}$ is the value of $x_t$ two timestep ago.
+* ...
+* The n-th lag of a variable $x_t$ is written as $x_{t-n}$. At any point in time $t$, the value of $x_{t-n}$ is the value of $x_t$ $n$ timesteps ago.
+
+**Lagged variables are relevant in time series** for multiple reasons. **Primarily** because:
+
+1. By studying the relationship between the lags {$x_{t-1}$, $x_{t-2}$, $\cdots$, $x_{t-n}$} and $x_t$, we can **understand if the variable $x_t$ is related to its values some timesteps ago.
+2. By studying the relationship between the lags {$x_{t-1}$, $x_{t-2}$, $\cdots$, $x_{t-n}$} and a second variable $y_t$, we can **understand if the variable $y_t$ is related to what happened in the past in the variable x**. 
+    * **A typical business case:** current sales might be related to investment in marketing some timesteps ago.
+
+As an example, the code below **computes the first 8 lags of the variable `SOI`:**
+
+```{r}
 # Compute desired lags
 for (i in seq(1, 8)) {
   lag_name <- paste0("SOI_l", i)
@@ -617,9 +735,12 @@ for (i in seq(1, 8)) {
 soi_recruitment <- 
   soi_recruitment %>% 
   select(ym, recruitment, everything())
+
+# Inspect result.
+soi_recruitment
 ```
 
-**Generate the scatterplot matrix below:**
+### Exercise: **generate the scatterplot matrix below**
 
 **Question:** do you detect any non-linear relationship between recruitment and SOI or any of its lags `soi_li` that is not adequately captured by the corr. coefficient?
 
@@ -648,10 +769,15 @@ The relationships between recruitment and SOI and its different lags seem fairly
 linear, as the smoothing lines show. The correlation coefficient seems to
 capture them properly in this case.
 
+## IMPORTANT NOTE: LEADING VS LAGGING VARIABLES
 For soi_l5 to soi_l8 the relationship is stronger. This indicates that the soi
 series "leads" the recruitment series. That is, what happened some timesteps ago
 in the soi series (t-5, t-6, t-7, t-8...) is correlated to what happens at time
 t in the recruitment series.
+
+Conversely, the variable recruitment "lags" the variable soi. What happened
+on the current timestap in recruitment is related to the value of soi some
+timestamps ago.
 
 These concepts will be more clear when we discuss autocorrelation and
 crosscorrelation

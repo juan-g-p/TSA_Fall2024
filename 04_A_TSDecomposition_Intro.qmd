@@ -49,7 +49,7 @@ y_t = S_t + T_t + R_t
   y_t = S_t\times{T_t}\times{R_t}
 \end{align*}
 ```
--   In this case, the logarithmic transformation is commonly used, in which case the resulting scheme is:
+-   In this case, the logarithmic transformation is commonly used. **This renders a purely multiplicative scheme additive:**
 
 ```{=tex}
 \begin{align*}
@@ -74,17 +74,29 @@ autoplot(us_retail_employment, Employed) +
 
 ```
 
-With this code we can obtain the components using STL decomposition (more on that later in the chapter):
+With this code we can obtain the components using STL decomposition (more on that later in the chapter, donot worry too much about the code now):
 
 ```{r}
-dcmp <- us_retail_employment %>%
-  model(stl = STL(Employed))
-components(dcmp)
+dcmp_components <- 
+  
+  us_retail_employment %>%
+  
+  # 1. Define and fit the decomposition model
+  model(stl = STL(Employed)) %>%
+  
+  # 2. Extracts the components out of the model. Note that the function
+  # components is not applicable to every type of model. It is applicable to
+  # decomposition models and ETS models (later in the subject).
+  components(dcmp)
 ```
 
 ```{r}
-components(dcmp) %>%
+dcmp_components %>%
+  
+  # 1. Format dataframe to tsibble
   as_tsibble() %>%
+  
+  # 2. Plot the decomposition using ggplot
   autoplot(Employed, colour="gray") +
   geom_line(aes(y=trend), colour = "#D55E00") +
   labs(
@@ -93,14 +105,10 @@ components(dcmp) %>%
   )
 ```
 
-```{r}
-
-```
-
-Using autoplot, we can have a look at the components:
+Using autoplot, we can have a look at all the components at once
 
 ```{r}
-components(dcmp) %>% autoplot()
+dcmp_components %>% autoplot()
 ```
 
 ```{r}
@@ -112,26 +120,47 @@ components(dcmp) %>% autoplot()
 Let us resort again to the monthly medicare Australian prescription data, because it shows a clear multiplicative scheme:
 
 ```{r}
-a10 <- PBS %>%
+a10 <- 
+  # 1. Dataframe containing monthly medicare expenses per type of drug
+  PBS %>%
+  
+  # 2. Filter for antidiabetic drigs
   filter(ATC2 == "A10") %>%
+  
+  # 3. select subset of columns
   select(Month, Concession, Type, Cost) %>%
+  
+  # 4. Add the total expenditure per month
+  index_by(Month) %>% 
   summarise(TotalC = sum(Cost)) %>%
+  
+  # 5. Scale to millions
   mutate(Cost = TotalC / 1e6)
 
-autoplot(a10, Cost) +
-  labs(y = "$ (millions)",
-       title = "Australian antidiabetic drug sales")
+  # 6. Plot
+  autoplot(a10, Cost) +
+    labs(y = "$ (millions)",
+         title = "Australian antidiabetic drug sales")
 ```
 
 ```{r}
+# Examine the dataset
 a10
 ```
 
-With this code we can obtain the components using X11 decomposition. We use this method because the series is multiplicative (more about that later in the chapter):
+With this code we can obtain the components using X11 decomposition. We use this method because the series is multiplicative (more about that later in the chapter, do not worry too much about it now):
 
 ```{r}
-x11_dcmp <- a10 %>%
+x11_dcmp <- 
+  
+  a10 %>%
+  
+  # 1. Define and fit the decomposition model
   model(x11 = X_13ARIMA_SEATS(Cost ~ x11())) %>%
+  
+  # 2. Extracts the components out of the model. Note that the function
+  # components is not applicable to every type of model. It is applicable to
+  # decomposition models and ETS models (later in the subject).
   components()
 
 x11_dcmp
@@ -164,7 +193,7 @@ x11_dcmp %>% autoplot()
 
 ```
 
-## Multiplicative scheme under different transformations:
+## Multiplicative scheme under different transformations
 
 Most of the time multiplicative schemes can be made more "additive-like" with certain mathematical transformations. We will study these in a separate notebook, but let us examine them in a cursory manner here:
 
@@ -173,10 +202,17 @@ Let us look at the effect of applying different transformations of increasing st
 Specifically we will apply a **square root**, a **cubic root**, a **log** and an **inverse** transformation:
 
 ```{r}
-a10 <- mutate(a10, sqrt_cost = sqrt(Cost), 
-              cbrt_cost = Cost^(1/3), 
-              log_cost = log(Cost), 
-              inv_cost = -1/Cost)
+a10 <- 
+  a10 %>% 
+  
+  # Define different versions of the transformed variable
+  mutate(
+    sqrt_cost = sqrt(Cost),
+    cbrt_cost = Cost^(1/3),
+    log_cost = log(Cost),
+    inv_cost = -1/Cost
+    )
+  
 a10
 ```
 
@@ -184,7 +220,9 @@ a10
 
 ```
 
-Now let us explore the effect of each transformation on the data (please excuse the spaghetti code style, in a production environment dedicated functions or at least a for loop should have been written to avoid code repetition)
+Now let us explore the effect of each transformation on the data (please excuse the spaghetti code style, in a professional environment dedicated functions or at least a for loop should have been written to avoid code repetition, also known as spaghetti code):
+
+### square root transformation
 
 ```{r}
 dcmp <- a10 %>%
@@ -201,6 +239,8 @@ components(dcmp) %>%
   )
 ```
 
+### cubic root transformation
+
 ```{r}
 dcmp <- a10 %>%
   model(stl = STL(cbrt_cost))
@@ -215,6 +255,8 @@ components(dcmp) %>%
     title = "Australian antidiabetic drug sales"
   )
 ```
+
+### logarithmic transformation
 
 ```{r}
 dcmp <- a10 %>%
@@ -231,6 +273,8 @@ components(dcmp) %>%
   )
 
 ```
+
+### inverse transformation
 
 ```{r}
 dcmp <- a10 %>%
@@ -250,6 +294,8 @@ components(dcmp) %>%
 ```{r}
 
 ```
+
+### Conclusion: strength of transformations
 
 In conclusion, in terms of **the strength of these transformations to turn a multiplicative scheme into an additive scheme**, we can state the following
 x
@@ -289,7 +335,9 @@ By the end of the course you should be able to understand all this completely.
 
 ## Detrended time series
 
-If $T_t$ is the trend-cycle component of a time series, the **detrended time series $D_t$** is computed by removing the trend component from the time series. This is done **differently depending on whether the time series is additive or multiplicative**
+If $T_t$ is the trend-cycle component of a time series, the **detrended time series $D_t$** is computed by removing the trend component from the time series. 
+
+This is done **differently depending on whether the time series is additive or multiplicative**
 
 | Additive scheme  <br> $y_t = T_t + S_t + R_t$ | Multiplicative scheme  <br> $y_t = T_t \cdot S_t \cdot R_t$ |
 |:---------------------------------------------:|:----------------------------------------------------------:|
@@ -298,13 +346,15 @@ If $T_t$ is the trend-cycle component of a time series, the **detrended time ser
 
 ## Seasonally adjusted time series
 
-If $S_t$ is the seasonal component, the **seasonally-adjusted time series $A_t$** is computed by removing the seasonal component from the time series. This is done **differently depending on whether the time series is additive or multiplicative**:
+If $S_t$ is the seasonal component, the **seasonally-adjusted time series $A_t$** is computed by removing the seasonal component from the time series (hence seasonal adjusted series). 
+
+This is done **differently depending on whether the time series is additive or multiplicative**:
 
 | Additive scheme  <br> $y_t = T_t + S_t + R_t$ | Multiplicative scheme  <br> $y_t = T_t \cdot S_t \cdot R_t$ |
 |:---------------------------------------------:|:----------------------------------------------------------:|
 | $$A_t = y_t - S_t = T_t + R_t$$                                 | $$A_t = \frac{y_t}{S_t} = T_t \cdot R_t$$                                         |
 
-It contains **the rmainder as well as the trend-cycle component**. Therefore it is not "smooth". Its short term fluctuations due to the remainder can be misleading when trying to predict a trend from it.
+It contains **the remainder as well as the trend-cycle component. Therefore it is not "smooth". Its short term fluctuations due to the remainder can be misleading when trying to predict a trend from it.**
 
 * Technically, the slope of the tangent line to the curve (the derivative) changes abruptly every time-step due to these short term fluctuations. The trend is a smoother version with a smoother derivative and is therefore better to make an analysis of the overall direction of the time series.
 
@@ -402,7 +452,9 @@ classical_dcmp %>%
 
 Comparing both, we see that the seasonally adjusted time series is not "smooth". "Downturns" or "upturms" can be misleading. If you want to **look for turning poins and interpret changes in direction**, it is best to **use the trend cycle component** rather than the seasonally adjusted data
 
-Finally, we can check that our computation matches the seasonally adjusted compunent computed when using `classical_decomposition()` as follows:
+### checking our manual computation with ´all.equal´
+
+Finally, we can check that our manually generated seasonally adjusted series matches the seasonally adjusted series computed when using `classical_decomposition()`. The function `all.equal` compares two vectors element by element. It can be used as follows for the case at hand
 
 ```{r}
 all.equal(classical_dcmp$season_adjust, classical_dcmp$season_adjust_manual)
@@ -412,7 +464,7 @@ For the above code to evaluate to `TRUE`, sometimes you will require to round so
 
 ## Example 2: multiplicative scheme
 
-Further up in this notebook we have computed the dataset `a10`, corresponding to the expenses in anti-diabetic medications in Australia's publich healthcare system. We concluded that this time series followed an additive scheme:
+Further up in this notebook we have computed the dataset `a10`, corresponding to the expenses in anti-diabetic medications in Australia's publich healthcare system. We concluded that this time series followed a multiplicative scheme:
 
 ```{r}
 a10 %>% 
@@ -490,6 +542,8 @@ classical_dcmp %>%
   geom_line(aes(y=trend), colour = "#D55E00")
 ```
 
+### checking our manual computation with ´all.equal´
+
 Finally, we can check that our computation matches the seasonally adjusted compunent computed when using `classical_decomposition()` as follows:
 
 ```{r}
@@ -513,7 +567,7 @@ y_t = (S_t \times T_t ) + R_t
 -   Trend-cycle and seasonality components relate in a multiplicative manner.
 -   The remainder component is super-imposed in an additive scheme.
 
-This scheme is relevant when:
+This particular scheme is relevant when:
 
 -   The irregular component of the oscillations $R_t$ does not grow with the level of the time series (and therefore is super-imposed in an additive manner)
 -   The seasonal component grows with the level of the time series, and therefore is combined with the trend in a multiplicative manner.

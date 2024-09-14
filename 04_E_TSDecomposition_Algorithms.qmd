@@ -1,0 +1,434 @@
+---
+title: "04_E_DecompositionMethods"
+format: html
+edi?tor: source
+params:
+  print_sol: false
+  print_examples: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+# Libraries
+
+```{r}
+library(fpp3)
+library(seasonal)
+library(fma)
+```
+
+# IMPORTANT: Summary of features to be satisfied by a good decomposition
+
+This is something to keep in mind throughout the entire session. You will understand it in due course.
+
+When comparing multiple possible decompositions of a time series, the following features to be satisfied by a good decomposition scheme may be used.
+
+1. A good decomposition has a **remainder (a.k.a random, a.k.a irregular) component** with a **variance smaller than that of the seasonal and trend components.** In other words, if the decomposition is reasonable, the trend and the seasonal component capture most of the structure in the time series.
+2. A good decomposition has a **remainder (a.k.a random, a.k.a irregular) component** with an amount of **autocorrelation that is as small as possible.** In other words, the trend and the seasonal component capture most of the information of the time series and the remainder resembles a white noise process as much as possible.
+
+In some instances **it may not be possible to obtain a decomposition that fulfills these two features for the entirety of the time range considered.**
+
+In these cases, we will pick the one the decomposition that comes closest to satisfying them.
+
+# Classical Decopomposition
+
+Classical decomposition is the first of the algorithms we are going to study. Typically, it will not lead to the best possible deocmposition. Howwever, it is easy to understand and will help you fully understand the concept of decomposition.
+
+We will do a deep-dive on this decomposition through an assignment. For the time being suffice it to say:
+
+* **It estimates the trend using moving averages**. Again, we will delve into these as part of the assignment on classical decomposition where we will implement it from scratch.
+* It can be applied **both to additive and multiplicative schemes**. For each of these, the algorithm changes slightly (as we will see).
+
+* **It has some strong limitations** that we will explain below. Most notably, **it assumes that the seasonal component remains constant over time**.
+  * No estimate of the trend-cycle or the remainder for the first few and last observations.
+  * Seasonal component repeats from year to year (remains constant)
+  * Not robust enough against unusual values or outliers in the series.
+
+Below an example. First let us filter the dataset:
+
+```{r}
+# Filter the series and select relevant columns
+us_retail_employment <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+```
+
+Now let us produce the decomposition. Here I am going to divide it in different steps so that you understand the output of each intermediate step and at the end will do it in a single snippet with every step chained with the pipe operator `%>%` 
+
+1. **Fit the model.** The output is a table with the different models fitted (we will see later than the `fpp3` library calls this a `mable`, short for *model table*):
+
+```{r}
+# Let us compute the classical decomposition using the function in the feasts library:
+classical_dec <- us_retail_employment %>%
+  
+  # Fit model
+  model(
+    classical = classical_decomposition(Employed, type = "additive")
+  ) 
+
+# Examine the output
+classical_dec
+```
+
+2. **Extract the components from the decomposition model using `components()`** on the model object:
+
+```{r}
+classical_comps <- 
+  classical_dec %>% 
+  components()
+
+# Examine the output
+classical_comps
+```
+
+3. **Plot the components** (in case you want to)
+
+```{r}
+classical_comps %>%
+  
+  # Generate timepoy of the variable "employed" in grey
+  autoplot()
+```
+
+All this could be done in a single code snippet. In the rest of the notebook I will use this form:
+
+```{r}
+us_retail_employment %>%
+  
+  # Fit model
+  model(
+    classical = classical_decomposition(Employed, type = "additive")
+  ) %>% 
+  
+  # Extract components
+  components() %>% 
+  
+  # Plot (if you want to)
+  autoplot()
+```
+
+
+# STL Decomposition
+
+Acronym for *"Seasonal and Trend Decomposition using LOESS"*
+
+**LOESS**: a method of **local regression**, used to estimate non-linear relationships. It stands for *LOcally Estimated Scatterplot Smoothing*. 
+
+The following is a cursory description of how a LOESS curve is computed:
+
+Suppose you have pairs of data points of the form $\bar{X} = {xi, yi}$. The LOESS regression curve
+
+* A positive integer $q < n$ is chosen (n = number of points)
+* For each point $\bar{X}$, the q points of your data that are closest to that point are selected.
+  + Each point is given a neighborhood weight based on its distance to $\bar{X}$.
+  + The closest a point is to $\bar{X}$, the greater its weight.
+* These weights are then used to fit a locally fit polinomial of degree $d$ to the data.
+  + For STL $d$ = 1 or 2. That is, the fitting is locally-linear or locally-quadratic.
+
+In summary, subsets of data used for each weighted least squares fit in LOESS are determined by a nearest neighbors algorithm. The data analyst is not required to specify a global function of any form to fit a model to the data, only to fit segments of the data.
+
+```{r, echo=FALSE, out.width='70%', fig.align="center"}
+knitr::include_graphics('./figs/8_1_loess.png')
+```
+
+Using LOESS, the **STL algorithm** is capable of recursively approximating the components of the time series. For details on how this is achieved, refer to [6], section 2.1.
+
+## STL Advantages
+
+* Handles any type of seasonallity (not only monthly or quarterly)
+* Seasonal component allowed to change over time. 
+  + Rate of change can be controlled by the user.
+* The version on the `fpp3` library is able to handle multiple seasonal periods. We will use this in due course!
+* The smoothness of the trend-cycle can also be controlled by the user
+* It can be robust to outliers
+
+## STL Disadvantages
+
+* Does not handle trading day or calendar variation automatically.
+* Only works for additive decompositions
+  + Multiplicative schemes can be made additive with a log transformation.
+  + Decompositions that are between additive and multiplicative can be obtained using a Box-Cox transformation
+* It can be robust to outliers (i.e., the user can specify a robust decomposition), so that occasional unusual observations will not affect the estimates of the trend-cycle and seasonal components. They will, however, affect the remainder component.
+* Might require user tuning to fit the LOESS windows
+  
+## STL main parameters
+
+* **Trend-cycle window** `trend(window = ?)`
+  + Controls how rapidly the trend-cycle component changes.
+  + Smaller values for more rapid changes.
+  + Number of consecutive observations to be used when estimating the trend.
+  + Must be an ODD number.
+
+* **Seasonal-window** `season(window = ?)`
+  + Controls how rapidly the seasonal component changes
+  + Smaller values for more rapid changes.
+  + Number of consecutive seasons to be used in estimating each value of the seasonal component.
+  + Must be an ODD number.
+  + `season(window='periodic')` sets the seasonal window to be *infinite*. That is, the window will use the entirety of the points of the TS to compute the seasonal component. As a result, the seasonal component will be computed by a window comprising the same points at each time $t$, which means that the seasonal component will be constant. 
+      + This is similar to what `classical decomposition does`.
+  
+* **Default values**
+  + `season(window = 13)`. This usually provides a good balance between **overfitting the seasonality and allowing it to slowly change over time**.
+  + `trend(window = 21)`
+
+## STL Example 1
+
+Let us resort again to `us_retail_employment`, which we generated earlier on this notebook:
+
+1. Create model object
+
+```{r}
+stl_dcmp_1 <- 
+  us_retail_employment %>%
+  model(stl = STL(Employed)) %>%
+  components()
+```
+
+```{r}
+stl_dcmp_1 %>% autoplot()
+```
+
+```{r}
+
+```
+
+The default setting of `season(window = 13)` does not allow the trend component to be flexible enough to adapt to the 2008 financial crisis. As a result, the effects of this financial crisis leak into de remainder component.
+
+## STL Example 2
+
+Manually adjust the value of the trend window (remember the default is 13) so that the effect of the financial crisis is better captured by the STL decomposition:
+
+```{r, eval=FALSE, include=!params$print_examples}
+us_retail_employment %>%
+  model(
+    STL(Employed ~ trend(window = "TODO") + # Manually change this value 
+                                            # from the default 21
+                   season(window = "TODO"), # Replace with "periodic" 
+                                            # or an integer other than 13
+        ) %>%
+  components() %>%
+  autoplot()
+```
+
+```{r, include=params$print_examples}
+us_retail_employment %>%
+  model(
+    STL(Employed ~ trend(window = 13) + # Manually change this value 
+                                            # from the default 21
+          
+                   season(window = 13), # Replace with "periodic" 
+                                        # or an integer other than 13
+        
+        robust = TRUE) # robust = TRUE makes the deocmposition less sensitive to
+                       # outliers. This does not necessarily improve the
+                       # decomposition and sometimes it is best to leave it as
+                       # false
+    ) %>% 
+  
+  components() %>%
+  autoplot() 
+```
+
+```{r, eval=FALSE, include=params$print_examples}
+# For clarity, model definition without splitting too much due to comments:
+us_retail_employment %>%
+  model(
+    STL(Employed ~ trend(window = 13) + season(window = 13), robust = TRUE)
+    )
+```
+
+```{r, eval=FALSE, include=params$print_examples}
+Choosing appropriate values for the STL decomposition can be difficult and 
+may require iterating over a set of values until a decomposition with a 
+remainder that fulfils certain features is achieved.
+
+In some instances it might not be possible to obtain a decomposition that works
+well in all time ranges.
+
+We will see this in the exercises
+```
+
+# Exercise 1 - STL
+
+Labour force in Australia - Decomposition
+
+The series `labour` details the number of persons in civilian labour force in Australia, each month, from February 1978 to August 1995.
+
+Bear in mind that you need to **install and load the library `fma`** for the series to be available
+
+```{r}
+labour_tsibble <-as_tsibble(labour)
+autoplot(labour_tsibble)
+```
+
+```{r}
+
+```
+
+## 1.1 Perform an STL decomposition of the data with the default values for the trend and seasonal window (that is, without specifying further parameters.)
+
+Below the expected output:
+
+```{r, echo=params$print_sol}
+stl_dcmp_1 <- labour_tsibble %>%
+  model(stl = STL(value)) %>%
+  components()
+
+stl_dcmp_1 %>% autoplot()
+```
+
+## 1.2 Take a look at the crisis around 1991-1992 and answer these questions:
+
+* Do the trend and or seasonal components adequately capture this crisis?
+  
+```{r, eval=FALSE, include=params$print_sol}
+The trend does not adequately capture the crisis.
+The default averaging window used for the moving average in the STL function
+is too wide and the trend is relatively insensitive to these changes.
+```
+
+* What do you think of the time series components in the vicinity of this crisis?
+
+```{r, eval=FALSE, include=params$print_sol}
+The trend and seasonal component remain relatively insensitive to the crisis.
+As a result most of the crisis is transferred to the remainder component.
+```
+
+* The grey bars printed on the left of the decomposition graphs when using `autoplot()` are created to compare the scale between graphs (the length of the  bar is the same on all graphs). Comparing the scale of the graphs, **do you think this is a good decomposition?** **why? why not?**
+  
+```{r, eval=FALSE, include=params$print_sol}
+The decomposition does not seem sensible, at least around the crisis of 91-92.
+There the fluctuations of the randim component are much greater than those
+of the seasonal component. This is clear if one compares the grey bars in both graphs.
+```
+
+* How would you **change the window parameters so that the trend captures better the 91-92 crisis?** Perform several attempts to improve the STL decomposition.
+  
+```{r, include = params$print_sol}
+# Reduction of the averaging windows to try to better capture the crisis at 91-92.
+labour_tsibble %>%
+  model(
+    STL(value ~ trend(window = 5) + # Manually change this value from the default 13
+                season(window = 5))
+    ) %>%
+  components() %>%
+  autoplot()
+```
+
+```{r}
+
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+After multiple attempts, we see that the crisis is still cascaded down to the
+remainder component to a great extent. In that region the remainder becomes
+at least of the same order than the seasonal component, if not greater.
+
+In this particular case the decomposition would not bring much to our analysis
+in the vicinity of the crisis. Whatever forecasting model we created for this 
+analysis would have to account for this crisis. For example:
+
+* Introducing macro regressors that related to the behavior of this 
+  macro variable in the crisis.
+* Introducing an intervention variable that would account for the crisis region.
+  We will see this when we study regressors specifically used for time series
+  analysis.
+
+Alternatively, we could exclude the crisis from our analysis.
+```
+
+# Exercise 2 - STL
+
+Decompose the time series of the daily average electricity demand in Victoria (Australia) using an STL decomposition. 
+
+First let us compute the daily electricity demand starting from `vic_elec`:
+
+```{r}
+vic_elec_d <-
+  vic_elec %>%
+    index_by(Date) %>%
+    summarize(avg_demand = mean(Demand)) %>%
+    filter(year(Date) == 2012)
+
+vic_elec_d %>% autoplot()
+```
+
+The decomposition with default values is fitted below (default values have been
+explicitly included):
+
+```{r}
+dcmp_1 <- 
+  vic_elec_d %>%
+      model(
+        decomp = STL(avg_demand ~ trend(window = 21) + season(window = 13))
+        ) %>%
+      components()
+
+dcmp_1 %>% autoplot()
+```
+
+Let us examine the ACF of the remainder component. We see that in fact, it is not white noise, having a lot of autocorrelation left in it.
+
+```{r}
+dcmp_1 %>% 
+  ACF(remainder) %>% 
+  autoplot()
+```
+
+## 2.1 Do you see any problem with this decomposition?
+
+```{r, eval = FALSE, include=params$print_sol}
+At the beginning and the end of the time series, where the seasonal pattern (see
+the original time series) deviates from the regular pattern in the middle of the
+time series, the variance of the remainder component becomes much larger than in
+the central region.
+
+So much so that its variance is greater than the variance of the seasonal components
+and even of the same order of magnitude as the variance of the trend component.
+
+A good decomposition would be able to capture the different patterns of the seasonal
+component, having a window that can adapt to the different time-scales that
+make up the dynamic of the time series.
+
+Also, the ACF plot reveals that the remainder is not white noise like. There is
+a lot of autocorrelation, meaning a lot of structure/information has not been
+captured by neither the trend nor the seasonal component and has leaked to the
+remainder component, something undesirable, since we want this coponent to be as
+random (white-noise like) as possible.
+```
+
+## 2.2 Adjust the windows of the seasonal and the trend component to improve the STL decomposition to the extent that it is possible:
+
+A possible expected output is depicted below:
+
+```{r, echo=params$print_sol}
+dcmp_2 <- 
+vic_elec_d %>%
+    model(
+      decomp = STL(avg_demand ~ season(window = 5) + 
+                                trend(window = 7))
+          ) %>%
+    components()
+
+dcmp_2 %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+dcmp_2 %>% 
+  ACF(remainder) %>% 
+  autoplot()
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+This is still not white noise, but at least now the variance of the remainder is
+smaller than the variance of the seasonal component.
+
+It is not always possible to get a decomposition that fulfils our quality criteria
+perfectly.
+
+To compare which series has less auto-correlation overall, we could use the
+Ljung-Box statistic, which we will see in later sessions
+```
+

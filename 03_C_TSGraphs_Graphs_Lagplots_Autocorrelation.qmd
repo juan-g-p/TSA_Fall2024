@@ -3,8 +3,8 @@ title: "03_C_TSGraphs_Lagplots_Autocorrelation"
 format: html
 edi?tor: source
 params:
-  print_sol: true
-  print_sol_int: true
+  print_sol: false
+  print_sol_int: false
 toc: true
 toc-location: left
 toc-depth: 6
@@ -26,6 +26,19 @@ This is not original material but a compilation of the following sources with so
 # Lagged variables and time-plots
 
 Given a time series we can compute its lags by shifting it in time a given number of steps. The lagged variable simply contains past information of the variable, which has been shifted as many steps as indicated by the number of the lag.
+
+In more technical terms: given a **variable $x_t$**, its lags correspond to **delayed versions of the variable**, with the number of the lag indicating the time delay:
+
+* The first lag of a variable $x_t$ is written as $x_{t-1}$. At any point in time $t$, the value of $x_{t-1}$ is the value of $x_t$ one timestep ago.
+* The second lag of a variable $x_t$ is written as $x_{t-2}$. At any point in time $t$, the value of $x_{t-2}$ is the value of $x_t$ two timestep ago.
+* ...
+* The n-th lag of a variable $x_t$ is written as $x_{t-n}$. At any point in time $t$, the value of $x_{t-n}$ is the value of $x_t$ $n$ timesteps ago.
+
+**Lagged variables are relevant in time series** for multiple reasons. **Primarily** because:
+
+1. By studying the relationship between the lags {$x_{t-1}$, $x_{t-2}$, $\cdots$, $x_{t-n}$} and $x_t$, we can **understand if the variable $x_t$ is related to its values some timesteps ago.
+2. By studying the relationship between the lags {$x_{t-1}$, $x_{t-2}$, $\cdots$, $x_{t-n}$} and a second variable $y_t$, we can **understand if the variable $y_t$ is related to what happened in the past in the variable x**. 
+    * **A typical business case:** current sales might be related to investment in marketing some timesteps ago.
 
 As with most things in life, this is better understood with an example:
 
@@ -198,6 +211,8 @@ recent_beer %>%
 ```
 
 ## Tend and seasonaity in ACF plots
+
+**THIS SECTION IS REALLY IMPORTANT AND ALL STUDENTS MUST LEARN TO RECOGNIZE THESE PATTERNS AND THEIR SUBTLETIES.** The assignments and exam will require this due to its importance.
 
 When data have a **trend:**
 
