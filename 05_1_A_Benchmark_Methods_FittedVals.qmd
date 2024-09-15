@@ -15,8 +15,8 @@ self-contained: true
 1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
 2.  Fable package documentation
 
--   https://fable.tidyverts.org/index.html
--   https://fable.tidyverts.org/articles/fable.html
+* [Link to Fable Homepage](https://fable.tidyverts.org/index.html)
+* [Link to Fable Article](https://fable.tidyverts.org/articles/fable.html)
 
 # Libraries
 
@@ -573,7 +573,7 @@ That **average change in the historical data** will in the end be the **slope of
 
 ![](figs/drift_method_2.jpeg){fig-align="center"}
 
-The drift method extrapolates this average change, estimated as a slope, into the future to compute $\hat{y}_{T+h|T}$ simply multiplying this average change by $h$. In other words, it creates a straight line covering the entire forecast horizon with a slope equal to the average change. Mathematically, it works as follows:
+The drift method extrapolates this average change into the future to compute $\hat{y}_{T+h|T}$ simply multiplying this average change by $h$. In other words, it creates a straight line covering the entire forecast horizon with a slope equal to the average change. Mathematically, it works as follows:
 
 If $\Delta y_t = y_t - y_{t-1}$ then the equation for the drift method may be written as:
 
