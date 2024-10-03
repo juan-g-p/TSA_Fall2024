@@ -439,3 +439,7 @@ Deduce the formula for a $3x7-MA$ of a time series $y_t$. That is, first take a 
 # Exercise 4
 
 Deduce the formula for a $2x8-MA$ of a time series $y_t$. That is, first take an 8-MA and then compute a 2-MA of that 8-MA.
+
+# Blank picture to practice
+
+![](figs/moving_average_blank.png){width="100%"}
