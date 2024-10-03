@@ -67,7 +67,9 @@ Calculate the de-trended series: $D_t = y_t - T_t$
 
 **Main assumption to compute the seasonal component**: the seasonal component remains constant over time. This is one of the main weaknesses of the classical decomposition.
 
-**Step 3.1.** Average the de-trended values for each component of the season.
+### **Step 3.1.** 
+
+Average the de-trended values for each component of the season.
 
 * Example: with monthly data the seasonal component for march is the average of all the detrended March values in the data
   
@@ -76,33 +78,49 @@ Calculate the de-trended series: $D_t = y_t - T_t$
         
 <br>
     
-**Step 3.2.** Adjust $S_{unadj}$, the output of step 3.1 to ensure that the sum of its **values adds to 0**.
+### **Step 3.2.** 
 
-* 3.2.1 Sum all the components of the vector $S_{unadj}$. Lets call this output $a$. This result is the total deviation from 0 we want to correct.
+Adjust $S_{unadj}$, the output of step 3.1 to ensure that the sum of its **values adds to 0**.
+
+If we call this adjusted seasonal component $S$, in classical decomposition it will be a vector of length $m$, just like **$S_{unadj}$**. We want the components of that vector to add up to 0:
+
+$$
+\text{Condition we want to attain:  }\sum_{i=1}^{m} S_i= 0
+$$
+
+We want this because, if this is the case, the seasonal component does not contribute to the average of the time series over one period:
+
+$$
+\frac{\sum_{i=1}^my_i}{m} = \frac{\sum_{i=1}^m(T_i + S_i + R_i)}{m} \underset{\underset{\sum_{i=1}^mS_i = 0}{\uparrow}}{=} \frac{\sum_{i=1}^m(T_i + R_i)}{m}
+$$
+
+The vector resulting from step 3.1, $S_{unadj \ i}$ does not satisfy this condition. We are going to correct each of the components of $S_{unadj \ i}$ by the same amount $x$ in order to fulfill the condition above:
+
+$$
+S_i = S_{Unadj \ i} + x
+$$
+
+To determine x:
+
+#### Step 3.2.1 
+
+Sum all the components of the vector $S_{unadj}$. Lets call this output $a$. This result is the total deviation from 0 we want to correct.
 
 $$
 \sum_{i=1}^{m}{S_{Unadj \ i}} = a
 $$
 
-* 3.2.2 Divide the previous result $a$ by the length of the seasonal period $m$. Then subtract that amount $a/m$ from every component of $S_{unadj}$
+#### Step 3.2.2 
+
+Obtain $x$ from the equation of the condition we want to attain:
 
 $$
-S_i = S_{Unadj \ i} - \frac{a}{m}
+\sum_{i=1}^{m} S_i = 0 \rightarrow \sum_{i=1}^{m} (S_{Unadj \ i} + x) = a + \sum_{i=1}^{m}x = a + m \cdot x = 0 \rightarrow x = -\frac{a}{m}
 $$
 
-* **Output**: the seasonal component $S$.
-    
-By doing this the seasonal component will not contribute to the mean value of the time series over one period. That is, the average of the seasonal component computed in this manner over one period will be 0. 
+By adding this amount to each $S_{unadj}$, we will obtain the seasonal component $S$
 
-$$
-\text{condition imposed:  }\sum_{i=1}^{m} S_i= 0
-$$
-
-As a result, the seasonal component does not contribute to the average of the time series over one period
-
-$$
-\frac{\sum_{i=1}^my_i}{m} = \frac{\sum_{i=1}^m(T_i + S_i + R_i)}{m} \underset{\underset{\sum_{i=1}^mS_i = 0}{\uparrow}}{=} \frac{\sum_{i=1}^m(T_i + R_i)}{m}
-$$
+* **Output**: the adjusted seasonal component $S$.
 
 ## Step 4 - Compute the remainder component
 
@@ -112,7 +130,8 @@ $R_t = D_t - S_t = y_t - T_t - S_t$
 
 ```{r}
 # Filter the series and select relevant columns
-us_retail_employment <- us_employment %>%
+us_retail_employment <- 
+  us_employment %>%
   filter(year(Month) >= 1990, Title == "Retail Trade") %>%
   select(-Series_ID)
 
@@ -212,22 +231,13 @@ df_seasonal <-
   
   manual_decomposition %>%
   
-  # turn into a tibble to be able to use group_by
-  # without the limitations on a tsibble
-  as_tibble() %>% 
-  
   # group by the created identifier
-  group_by(n_month) %>%
+  index_by(n_month) %>%
   
   # compute the average seasonal component for every month
   summarise(
     s_unadj = mean(detrended, na.rm = TRUE)
-  ) %>%
-  
-  ungroup() %>% 
-  
-  # Turn back into a tsibble
-  as_tsibble(index = n_month)
+  ) 
 
 df_seasonal
 
@@ -257,9 +267,15 @@ This is the resulting unadjusted seasonal component $S_{unadj}$:
 Let us check if the values of the component add up to 0 as we wanted to impose:
 
 ```{r}
+# Seasonal period
+m = 12
+
 #The sum does not add up to 0
 a = sum(df_seasonal$s_unadj)
 a
+
+# Correction x (see formula above)
+x = - a / m
 ```
 
 We can see that the sum is not 0. We will divide the sum by the length of the seasonal component (in this case $m$ = 12) and then distribute this deviation from 0 evenly over the seasonal component.
@@ -271,7 +287,7 @@ df_seasonal <-
   
   # Correction so that the sum of the seasoan components is 0
   mutate(
-        seasonal_c = s_unadj  - a/12
+        seasonal_c = s_unadj  + x
     ) %>% 
   
   # Drop s_unadj since we do not need it anymore.
@@ -307,19 +323,13 @@ select(manual_decomposition, Month, `2x12-MA`, seasonal_c, remainder)
 
 ### Test result:
 
-We have all the components. We are now going to compute the maximum absolute errors of our manual computation, comparing it with the result provided by the function `classical_decomposition()`
+We have all the components. Using the function `all.equal()` we can check that our computation matches exactly the output of the function `classical_decomposition`
 
 ```{r}
-# Evaluation of absolute errors
-max_err_seasonal = max(classical_dec$seasonal - manual_decomposition$seasonal_c, na.rm = TRUE)
-max_err_trend = max(classical_dec$trend - manual_decomposition$`2x12-MA`, na.rm = TRUE)
-max_err_rand = max(classical_dec$random - manual_decomposition$remainder, na.rm = TRUE)
-
-# Compute the max value of all these vectors
-max(c(max_err_seasonal, max_err_trend, max_err_rand))
+all.equal(classical_dec$trend, manual_decomposition$`2x12-MA`)
+all.equal(classical_dec$seasonal, manual_decomposition$seasonal_c)
+all.equal(classical_dec$random, manual_decomposition$remainder)
 ```
-
-The result is not 0 but it is sufficiently close to 0 that we can attribute this deviation to numerical errors (particularly given the fact that this error is much smaller than any of the components we want to compute).
 
 ### Extra: generate a plot of the components we just created
 
@@ -361,11 +371,11 @@ manual_decomposition_long %>%
   facet_grid(component ~ ., scales = "free_y")
 ```
 
-We can see that it looks just like the decomposition returned by the fable library.
+We can see that it looks just like the decomposition returned by the fable library, which is logical, since all the components are the same
 
 # Multiplicative scheme - classical decomposition
 
-In this case substractions are simply replaced by divisions.
+In this case, the algorithm is just the same. In fact the estimation of the trend is identical. However, now subtractions are replaced by divisions.
 
 ## Step 1 - Estimate trend
 
@@ -382,7 +392,9 @@ Calculate the de-trended series: $y_t / \hat{T_t}$
 
 **Main assumption to compute the seasonal component**: the seasonal component remains constant over time. This is one of the main weaknesses of the classical decomposition.
 
-**Step 3.1.** Average the de-trended values for each component of the season.
+### **Step 3.1.** 
+
+Average the de-trended values for each component of the season.
 
 * Example: with monthly data the seasonal component for march is the average of all the detrended March values in the data
   
@@ -391,45 +403,91 @@ Calculate the de-trended series: $y_t / \hat{T_t}$
         
 <br>
     
-**Step 3.2.** Adjust $S_{unadj}$, the output of step 3.1 to ensure that the sum of its elements **equals $m$**.
+### **Step 3.2.** 
 
-* 3.2.1 Sum all the components of the vector $S_{unadj}$. Lets call this output $a$.
-
-$$
-\sum_{i=1}^mS_{unadj\text{ i}} = a
-$$
-    
-* 3.2.2 Compute the necessary correction $x$ to be performed on $S_{unadj}$ to have a sum equal to $m$:
+Adjust each $S_{unadj\text{ i}}$ (output of step 3.1) by a specific amount to obtain the adjusted seasonal component $S_i$, forcing it to add up to $m$:
 
 $$
-\begin{align*}
-\text{Condition we want to attain}: && \sum_{i=1}^m{S_i} = m \\
-\text{Therefore: } && \sum_{i=1}^m{S_i} = \sum_{i=1}^mS_{unadj\text{ i}} + x = a + x = m \\
-\text{Resulting correction x: } && x = m - a = m - \sum_{i=1}^mS_{unadj\text{ i}}
-\end{align*}
+\text{Condition to attain: } \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) = m
 $$
 
-Now we divide $x$ by $m$ and add this quantity to each element of $S_{unadj}$:
-
-$$
-S_i = S_{Unadj \ i} + \frac{x}{m}
-$$
-    
-* **Output**: the seasonal component $S$. Check at this point that the condition we wanted to impose is fulfilled:
-
-$$
-\text{condition imposed:  }\sum_{i=1}^m{S_i} = m
-$$
-
-By doing this, the sum of the time series over a seasonal period becomes a weighted average of $T_iR_i$:
+This condition is interesting because, thanks to it, the sum of the time series over a seasonal period becomes a weighted average of $T_iR_i$ in which $S_i/m$ is the percent weight of each $T_iR_i$:
 
 $$
 \frac{\sum_{i=1}^m(T_i S_i R_i)}{m} = \underbrace{\sum_{i=1}^m\frac{S_i}{m}(T_i R_i) }_{\text{weighted avg.} \\ \text{of } R_iT_i \text{ since } \sum_{i=1}^mS_i/m = 1}
 $$
 
+To attain this condition we will follow the steps below:
+
+#### Step 3.2.1
+
+Sum all the components of the vector $Sunadj_i$. Lets call this output $a$. In general, $a$ will be different from $m$, although it can be very close.
+
+$$
+\sum_{i=1}^mS_{unadj\text{ i}} = a
+$$
+    
+#### Step 3.2.2 
+
+Compute the necessary correction $x$ to be added to each $S_{unadj\text{ i}}$ so that the resulting $S$ adds to $m$.
+
+If we assume that we are going to correct each $S_{unadj\text{ i}}$ by the same amount $x$, the resulting correction would be:
+
+$$
+\begin{align*}
+\text{Condition we want to attain}: && \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) = m \\
+\text{Developing the sums: } && \sum_{i=1}^m{S_i} = \sum_{i=1}^mS_{unadj\text{ i}} + \sum_{i=1}^mx = a + m \cdot x = m \\
+\text{Hence, the resulting correction x: } && x = \frac{m - a}{m} = 1-\frac{a}{m}
+\end{align*}
+$$
+
+$$
+\sum_{i=1}^{m}(S_{unadj\text{ i}} + x) \underset{\uparrow \\ \text{imposed}}{=} m
+$$
+
+
+
+If we made this correction, we would already fulfill the condition we wanted to attain.
+
+$$
+\sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) = a + m \cdot x = a + m \cdot (1-\frac{a}{m}) = a + m - a = m
+$$
+
+However, **we are going to make a different correction for each $S_i$ instead of the same correction for each $S_i$**. Specifically, the correction $x_i$ for each $S_i$ results from scaling the previous constant correction $x$ by a factor proportional to $S_{unadj\text{ i}}$ as shown below:
+
+$$
+x_i = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot x = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})
+$$
+
+We may check that this correction also fulfills the desired condition:
+
+$$
+\sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x_i) = \sum_{i=1}^{m}(S_{unadj\text{ i}}) + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = \\a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m}))
+$$
+
+Considering that $a$, $m$ and $(1-\frac{a}{m})$ are constants, we may take them out of the sum. Continuing where we left off:
+
+$$
+\sum_{i=1}^{m}S_i = a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = a + \frac{m}{a}(1-\frac{a}{m})\cdot \sum_{i=1}^{m}S_{unadj\text{ i}} = a + \frac{m}{a}(1-\frac{a}{m})\cdot a = \\ a + \frac{m}{a} \cdot a - \frac{m}{a} \cdot \frac{a}{m} \cdot a = a + m - a = m
+$$
+
+In conclusion, the correction $x_i$ to be added to each $S_{unadj\text{ i}}$ to obtain the corrected $S_i$ is:
+
+$$
+x_i = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot x = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})
+$$
+
+And the adjusted seasonal component $S$ will be computed out of $S_{unadj}$ as follows
+
+$$
+S_i = S_{unadj\text{ i}} + x_i
+$$
+
+* **Output**: the adjusted seasonal component $S$. **Check at this point that indeed $\sum_{i=1}^{m}S_i=m$**
+
 ## Step 4 - Compute the remainder component
 
-$\hat{R} = y_t / T_tS_t = D_t / S_t$
+$R_t = \frac{y_t}{T_tS_t} = \frac{D_t}{S_t}$
 
 # Exercise 1
 
@@ -444,9 +502,10 @@ a. Use `classical_decomposition` with `type=multiplicative` to calculate the tre
 
 ```{r, include = params$print_sol}
 # Let us compute the classical decomposition using the function in the feasts library:
-classical_dec <- gas %>%
+classical_dec <- 
+  gas %>%
   model(
-    classical_decomposition(Gas ~ season(4), type = "multiplicative")
+    c_mult = classical_decomposition(Gas, type = "multiplicative")
   ) %>%
   components()
 
@@ -487,6 +546,9 @@ manual_decomposition %>%
   geom_line(aes(y = `2x4-MA`), colour = "#D55E00") +
   labs(y = "Gas production (Petajoules)",
        title = "Australian gas production")
+
+# Check
+all.equal(classical_dec$trend, manual_decomposition$`2x4-MA`)
 ```
 
 ```{r, include=params$print_sol}
@@ -504,39 +566,36 @@ manual_decomposition %>% autoplot(detrended)
 ### 3. Compute the seasonal component grouping and averaging the detrended component
 
 res <- manual_decomposition %>%
+  
   index_by(n_quarter) %>%
   
   #Compute seasonal component
   summarise(
-    seasonal_c = mean(detrended, na.rm = TRUE)
+    S_unadj = mean(detrended, na.rm = TRUE)
   ) 
 
 res
 ```
 
 ```{r, include=params$print_sol}
-#Check the aspect of the obtained seasonal component
-res %>%
-  autoplot(seasonal_c)
-```
-
-```{r, include=params$print_sol}
 ### 4. Correct the seasonal components so that they add to m = 4
-
 m = 4
-sum_dev = m - sum(res$seasonal_c)
+a = sum(res$S_unadj)
+correction = 1 - a / m
 
 res <- res %>%
   # Correction so that the sum of the seasoan components is 0
-  mutate(seasonal_c = seasonal_c  + sum(sum_dev)/m)
+  mutate(seasonal_c = S_unadj + correction)
 
+# Check that the corrected seasonal component adds up to 4
 sum(res$seasonal_c)
 ```
 
 ```{r, include=params$print_sol}
 #Check the aspect of the obtained seasonal component
 res %>%
-  autoplot(seasonal_c)
+  autoplot(seasonal_c) +
+  geom_point(color="red")
 ```
 
 ```{r, include=params$print_sol}
@@ -548,7 +607,8 @@ manual_decomposition
 
 ```{r, include=params$print_sol}
 # Compute remainder component:
-manual_decomposition <- manual_decomposition %>%
+manual_decomposition <- 
+  manual_decomposition %>%
   mutate(remainder = detrended / seasonal_c)
 
 select(manual_decomposition, Quarter, Gas, `2x4-MA`, seasonal_c, remainder)
@@ -556,12 +616,65 @@ select(manual_decomposition, Quarter, Gas, `2x4-MA`, seasonal_c, remainder)
 
 ```{r, include = params$print_sol}
 # Evaluation of absolute errors
-max_err_seasonal = max(classical_dec$seasonal - manual_decomposition$seasonal_c, na.rm = TRUE)
-max_err_trend = max(classical_dec$trend - manual_decomposition$`2x4-MA`, na.rm = TRUE)
-max_err_rand = max(classical_dec$random - manual_decomposition$remainder, na.rm = TRUE)
-
-max(c(max_err_seasonal, max_err_trend, max_err_rand))
+all.equal(classical_dec$trend, manual_decomposition$`2x4-MA`)
+all.equal(classical_dec$seasonal, manual_decomposition$seasonal_c)
+all.equal(classical_dec$random, manual_decomposition$remainder)
 ```
+
+```{r}
+# m = 4
+# a = sum(res$S_unadj)
+# correction = 1 - a / m
+# 
+# res <- res %>%
+#   # Correction so that the sum of the seasoan components is 0
+#   mutate(seasonal_c = S_unadj + correction)
+
+
+# TODO:
+res2 <- 
+manual_decomposition %>% 
+  mutate(
+    n_quarter = quarter(Quarter)
+  ) %>% 
+  index_by(n_quarter) %>% 
+  summarize(
+    S_unadj = mean(detrended, na.rm = TRUE),
+  ) %>% 
+  mutate(
+    seasonal_c = S_unadj + 1 - (sum(S_unadj) / 4)
+  ) %>% 
+  select(n_quarter, seasonal_c) %>% 
+  as_tibble() %>% 
+  right_join(., manual_decomposition %>% select(-seasonal_c) %>% as_tibble(), by="n_quarter") %>% 
+  as_tsibble(index=Quarter)
+
+all.equal(res2$seasonal_c, classical_dec$seasonal)
+
+sum(classical_dec$seasonal[1:4])
+sum(res2$seasonal_c[1:4])
+
+
+res$seasonal_algo = classical_dec$seasonal[3:6]
+
+res$diff_man = res$S_unadj - res$seasonal_c
+res$diff_algo = res$S_unadj - res$seasonal_algo
+
+res$diffs_ratio = res$diff_algo / res$diff_man
+
+res2 <- 
+res %>% 
+  mutate(
+    a = sum(S_unadj),
+    correction1 = 1 - a/4,
+    correction2 = correction1 * S_unadj * (m/a),
+    seasonal_c2 = S_unadj + correction2
+  )
+
+res2$seasonal_c2
+res$seasonal_algo
+```
+
 
 ```{r, include = params$print_sol, eval = FALSE}
 The errors are small enough for us to consider that we have correctly 
