@@ -3842,9 +3842,9 @@ S_i = S_{Unadj \ i} + x
 <p>If we assume that we are going to correct each <span class="math inline">\(S_{unadj\text{ i}}\)</span> by the same amount <span class="math inline">\(x\)</span>, the resulting correction would be:</p>
 <p><span class="math display">\[
 \begin{align*}
-\text{Condition we want to attain}: &amp;&amp; \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) = m \\
-\text{Developing the sums: } &amp;&amp; \sum_{i=1}^m{S_i} = \sum_{i=1}^mS_{unadj\text{ i}} + m \cdot x = a + m \cdot x = m \\
-\text{Hence, the resulting correction x: } &amp;&amp; x = \frac{m - a}{m} = 1-\frac{a}{m}
+\text{Condition we want to attain}: &amp;&amp; \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) \underset{\begin{array}{c} \uparrow \\ \text{condition} \\ \text{imposed} \end{array}}{=} m \\
+\text{Developing the sums: } &amp;&amp; \sum_{i=1}^m{S_i} = \sum_{i=1}^mS_{unadj\text{ i}} + \sum_{i=1}^mx = a + m \cdot x \underset{\begin{array}{c} \uparrow \\ \text{condition} \\ \text{imposed} \end{array}}{=} m \\
+\text{Hence, solving for x: } &amp;&amp; x = \frac{m - a}{m} = 1-\frac{a}{m}
 \end{align*}
 \]</span></p>
 <p>If we made this correction, we would already fulfill the condition we wanted to attain.</p>
@@ -3857,11 +3857,15 @@ x_i = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot x = m \cdot \frac{S_{unadj\text
 \]</span></p>
 <p>We may check that this correction also fulfills the desired condition:</p>
 <p><span class="math display">\[
-\sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x_i) = \sum_{i=1}^{m}(S_{unadj\text{ i}}) + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = \\a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m}))
+\begin{align*}
+\sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x_i) = \sum_{i=1}^{m}(S_{unadj\text{ i}}) + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = \\ a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m}))
+\end{align*}
 \]</span></p>
 <p>Considering that <span class="math inline">\(a\)</span>, <span class="math inline">\(m\)</span> and <span class="math inline">\((1-\frac{a}{m})\)</span> are constants, we may take them out of the sum. Continuing where we left off:</p>
 <p><span class="math display">\[
+\begin{align*}
 \sum_{i=1}^{m}S_i = a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = a + \frac{m}{a}(1-\frac{a}{m})\cdot \sum_{i=1}^{m}S_{unadj\text{ i}} = a + \frac{m}{a}(1-\frac{a}{m})\cdot a = \\ a + \frac{m}{a} \cdot a - \frac{m}{a} \cdot \frac{a}{m} \cdot a = a + m - a = m
+\end{align*}
 \]</span></p>
 <p>In conclusion, the correction <span class="math inline">\(x_i\)</span> to be added to each <span class="math inline">\(S_{unadj\text{ i}}\)</span> to obtain the corrected <span class="math inline">\(S_i\)</span> is:</p>
 <p><span class="math display">\[
@@ -3915,76 +3919,9 @@ S_i = S_{unadj\text{ i}} + x_i
 </div>
 </div>
 <ol type="a">
-<li><p>Use <code>classical_decomposition</code> with <code>type=multiplicative</code> to calculate the trend-cycle and seasonal indices</p></li>
+<li><p>Use <code>classical_decomposition</code> with <code>type=multiplicative</code> to calculate the trend-cycle and seasonal components</p></li>
 <li><p>Compute and plot the seasonally adjusted data.</p></li>
 <li><p>Compute manually the classical decomposition of the series (as we did in class, but keep in mind that this scheme is multiplicative and that now the seasonal period is 4 instead of 12).</p></li>
-</ol>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># m = 4</span></span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co"># a = sum(res$S_unadj)</span></span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="co"># correction = 1 - a / m</span></span>
-<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
-<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a><span class="co"># res &lt;- res %&gt;%</span></span>
-<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   # Correction so that the sum of the seasoan components is 0</span></span>
-<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="co">#   mutate(seasonal_c = S_unadj + correction)</span></span>
-<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co">:</span></span>
-<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>res2 <span class="ot">&lt;-</span> </span>
-<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>manual_decomposition <span class="sc">%&gt;%</span> </span>
-<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_quarter =</span> <span class="fu">quarter</span>(Quarter)</span>
-<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">index_by</span>(n_quarter) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
-<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">S_unadj =</span> <span class="fu">mean</span>(detrended, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">seasonal_c =</span> S_unadj <span class="sc">+</span> <span class="dv">1</span> <span class="sc">-</span> (<span class="fu">sum</span>(S_unadj) <span class="sc">/</span> <span class="dv">4</span>)</span>
-<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(n_quarter, seasonal_c) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">right_join</span>(., manual_decomposition <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>seasonal_c) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>(), <span class="at">by=</span><span class="st">&quot;n_quarter&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tsibble</span>(<span class="at">index=</span>Quarter)</span>
-<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(res2<span class="sc">$</span>seasonal_c, classical_dec<span class="sc">$</span>seasonal)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Mean relative difference: 2.572381e-06&quot;</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(classical_dec<span class="sc">$</span>seasonal[<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 4</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(res2<span class="sc">$</span>seasonal_c[<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 4</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>seasonal_algo <span class="ot">=</span> classical_dec<span class="sc">$</span>seasonal[<span class="dv">3</span><span class="sc">:</span><span class="dv">6</span>]</span>
-<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>diff_man <span class="ot">=</span> res<span class="sc">$</span>S_unadj <span class="sc">-</span> res<span class="sc">$</span>seasonal_c</span>
-<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>diff_algo <span class="ot">=</span> res<span class="sc">$</span>S_unadj <span class="sc">-</span> res<span class="sc">$</span>seasonal_algo</span>
-<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>diffs_ratio <span class="ot">=</span> res<span class="sc">$</span>diff_algo <span class="sc">/</span> res<span class="sc">$</span>diff_man</span>
-<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>res2 <span class="ot">&lt;-</span> </span>
-<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>res <span class="sc">%&gt;%</span> </span>
-<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">a =</span> <span class="fu">sum</span>(S_unadj),</span>
-<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">correction1 =</span> <span class="dv">1</span> <span class="sc">-</span> a<span class="sc">/</span><span class="dv">4</span>,</span>
-<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">correction2 =</span> correction1 <span class="sc">*</span> S_unadj <span class="sc">*</span> (m<span class="sc">/</span>a),</span>
-<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">seasonal_c2 =</span> S_unadj <span class="sc">+</span> correction2</span>
-<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb40-17"><a href="#cb40-17" aria-hidden="true" tabindex="-1"></a>res2<span class="sc">$</span>seasonal_c2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.8752824 1.0739708 1.1256812 0.9250656</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>seasonal_algo</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.8752824 1.0739708 1.1256812 0.9250656</code></pre>
-</div>
-</div>
-<ol start="4" type="a">
 <li><p>Change one observations to be an outlier (e.g., add 300 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?</p></li>
 <li><p>Does it make any difference if the outlier is near the end rather than in the middle of the series?</p></li>
 <li><p>Does it make any difference if the outlier is near the end rather than in the middle of the series?</p></li>

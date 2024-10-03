@@ -435,17 +435,11 @@ If we assume that we are going to correct each $S_{unadj\text{ i}}$ by the same 
 
 $$
 \begin{align*}
-\text{Condition we want to attain}: && \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) = m \\
-\text{Developing the sums: } && \sum_{i=1}^m{S_i} = \sum_{i=1}^mS_{unadj\text{ i}} + \sum_{i=1}^mx = a + m \cdot x = m \\
-\text{Hence, the resulting correction x: } && x = \frac{m - a}{m} = 1-\frac{a}{m}
+\text{Condition we want to attain}: && \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) \underset{\begin{array}{c} \uparrow \\ \text{condition} \\ \text{imposed} \end{array}}{=} m \\
+\text{Developing the sums: } && \sum_{i=1}^m{S_i} = \sum_{i=1}^mS_{unadj\text{ i}} + \sum_{i=1}^mx = a + m \cdot x \underset{\begin{array}{c} \uparrow \\ \text{condition} \\ \text{imposed} \end{array}}{=} m \\
+\text{Hence, solving for x: } && x = \frac{m - a}{m} = 1-\frac{a}{m}
 \end{align*}
 $$
-
-$$
-\sum_{i=1}^{m}(S_{unadj\text{ i}} + x) \underset{\uparrow \\ \text{imposed}}{=} m
-$$
-
-
 
 If we made this correction, we would already fulfill the condition we wanted to attain.
 
@@ -462,13 +456,17 @@ $$
 We may check that this correction also fulfills the desired condition:
 
 $$
-\sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x_i) = \sum_{i=1}^{m}(S_{unadj\text{ i}}) + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = \\a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m}))
+\begin{align*}
+\sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x_i) = \sum_{i=1}^{m}(S_{unadj\text{ i}}) + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = \\ a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m}))
+\end{align*}
 $$
 
 Considering that $a$, $m$ and $(1-\frac{a}{m})$ are constants, we may take them out of the sum. Continuing where we left off:
 
 $$
+\begin{align*}
 \sum_{i=1}^{m}S_i = a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = a + \frac{m}{a}(1-\frac{a}{m})\cdot \sum_{i=1}^{m}S_{unadj\text{ i}} = a + \frac{m}{a}(1-\frac{a}{m})\cdot a = \\ a + \frac{m}{a} \cdot a - \frac{m}{a} \cdot \frac{a}{m} \cdot a = a + m - a = m
+\end{align*}
 $$
 
 In conclusion, the correction $x_i$ to be added to each $S_{unadj\text{ i}}$ to obtain the corrected $S_i$ is:
@@ -498,7 +496,7 @@ gas <- tail(aus_production, 5*4) %>% select(Gas)
 gas
 ```
 
-a. Use `classical_decomposition` with `type=multiplicative` to calculate the trend-cycle and seasonal indices
+a. Use `classical_decomposition` with `type=multiplicative` to calculate the trend-cycle and seasonal components
 
 ```{r, include = params$print_sol}
 # Let us compute the classical decomposition using the function in the feasts library:
@@ -563,8 +561,8 @@ manual_decomposition %>% autoplot(detrended)
 ```
 
 ```{r, include=params$print_sol}
-### 3. Compute the seasonal component grouping and averaging the detrended component
-
+### 3. Compute the unadjustedseasonal component grouping and 
+# averaging the detrended component
 res <- manual_decomposition %>%
   
   index_by(n_quarter) %>%
@@ -581,11 +579,11 @@ res
 ### 4. Correct the seasonal components so that they add to m = 4
 m = 4
 a = sum(res$S_unadj)
-correction = 1 - a / m
+x_i = res$S_unadj * (m/a) * (1 - a/m) # Vector of corrections
 
 res <- res %>%
-  # Correction so that the sum of the seasoan components is 0
-  mutate(seasonal_c = S_unadj + correction)
+  # Correction so that the sum of the adjusted seasonal adds up to 4
+  mutate(seasonal_c = S_unadj + x_i)
 
 # Check that the corrected seasonal component adds up to 4
 sum(res$seasonal_c)
@@ -615,73 +613,10 @@ select(manual_decomposition, Quarter, Gas, `2x4-MA`, seasonal_c, remainder)
 ```
 
 ```{r, include = params$print_sol}
-# Evaluation of absolute errors
+# Comparison of manual computations with computations from the library:
 all.equal(classical_dec$trend, manual_decomposition$`2x4-MA`)
 all.equal(classical_dec$seasonal, manual_decomposition$seasonal_c)
 all.equal(classical_dec$random, manual_decomposition$remainder)
-```
-
-```{r}
-# m = 4
-# a = sum(res$S_unadj)
-# correction = 1 - a / m
-# 
-# res <- res %>%
-#   # Correction so that the sum of the seasoan components is 0
-#   mutate(seasonal_c = S_unadj + correction)
-
-
-# TODO:
-res2 <- 
-manual_decomposition %>% 
-  mutate(
-    n_quarter = quarter(Quarter)
-  ) %>% 
-  index_by(n_quarter) %>% 
-  summarize(
-    S_unadj = mean(detrended, na.rm = TRUE),
-  ) %>% 
-  mutate(
-    seasonal_c = S_unadj + 1 - (sum(S_unadj) / 4)
-  ) %>% 
-  select(n_quarter, seasonal_c) %>% 
-  as_tibble() %>% 
-  right_join(., manual_decomposition %>% select(-seasonal_c) %>% as_tibble(), by="n_quarter") %>% 
-  as_tsibble(index=Quarter)
-
-all.equal(res2$seasonal_c, classical_dec$seasonal)
-
-sum(classical_dec$seasonal[1:4])
-sum(res2$seasonal_c[1:4])
-
-
-res$seasonal_algo = classical_dec$seasonal[3:6]
-
-res$diff_man = res$S_unadj - res$seasonal_c
-res$diff_algo = res$S_unadj - res$seasonal_algo
-
-res$diffs_ratio = res$diff_algo / res$diff_man
-
-res2 <- 
-res %>% 
-  mutate(
-    a = sum(S_unadj),
-    correction1 = 1 - a/4,
-    correction2 = correction1 * S_unadj * (m/a),
-    seasonal_c2 = S_unadj + correction2
-  )
-
-res2$seasonal_c2
-res$seasonal_algo
-```
-
-
-```{r, include = params$print_sol, eval = FALSE}
-The errors are small enough for us to consider that we have correctly 
-implemented the algorithm in the function `classical_decomposition()`.
-
-It would be interesting to explore the specific reasons for this deviation, 
-but that is something we will not do.
 ```
 
 d. Change one observations to be an outlier (e.g., add 300 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?
