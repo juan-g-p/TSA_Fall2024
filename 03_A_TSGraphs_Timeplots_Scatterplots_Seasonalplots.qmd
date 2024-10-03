@@ -2,9 +2,9 @@
 title: "03_A_TSGraphs_Timeplots_Scatterplots_Seasonalplots"
 editor: source
 params:
-  print_sol: false
-  print_sol_int: false
-  hidden_notes: false
+  print_sol: true
+  print_sol_int: true
+  hidden_notes: true
 toc: true
 toc-location: left
 toc-depth: 6

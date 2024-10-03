@@ -17,7 +17,7 @@ library(kableExtra)
 
 1. Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
 
-This material is by no means original, but rather an expansion of some sections of reference 1 giving futher indications
+This material is by no means original, but rather an extension of some sections of reference 1 giving further indications
 
 # Packages
 
@@ -61,7 +61,7 @@ By shifting this window we could compute the value of the moving average time se
 
 ### Important difference between windows at $t$ and at $t+1$ (neighboring windows)
 
-* These windows **differ on two points**.
+* These windows **differ in two points**.
   * The window for $t$ includes $y_{t-3}$ but not $y_{t+4}$.
   * The window for $t+1$ includes $y_{t+4}$ but not $y_{t-3}$.
 
@@ -388,14 +388,14 @@ us_retail_employment_ma %>%
 
 # Exercise 2
 
-Take the dataset `vic_elec` and aggregate the data to obtain the mean quarterly half hourly demand using `index_by()`. That each, for each quarter, compute the mean half-hourly demand.
+Take the dataset `vic_elec` and aggregate the data to obtain the mean quarterly half hourly demand using `index_by()`. That is, for each quarter, compute the mean half-hourly demand.
 
 Then compute a 2x4-MA of the resulting series that is centered.
 
 ```{r, include=params$print_sol}
 q_elec <- 
   vic_elec %>% 
-    index_by(yearquarter(Time)) %>% 
+    index_by(quarter = yearquarter(Time)) %>% 
     summarise(
       q_demand = mean(Demand)
     )
@@ -431,3 +431,11 @@ q_elec <-
 # Check that both vectors match exactly
 all.equal(q_elec$`2x4-MA`, q_elec$`2x4-MA_alt`)
 ```
+
+# Exercise 3
+
+Deduce the formula for a $3x7-MA$ of a time series $y_t$. That is, first take a 7-MA and then the 3-MA of that 7-MA.
+
+# Exercise 4
+
+Deduce the formula for a $2x8-MA$ of a time series $y_t$. That is, first take an 8-MA and then compute a 2-MA of that 8-MA.

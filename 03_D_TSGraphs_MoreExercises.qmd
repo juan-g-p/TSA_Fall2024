@@ -2,7 +2,7 @@
 title: "03_D_TSGraphs_MoreExercises"
 editor: source
 params:
-  print_sol: false
+  print_sol: true
 toc: true
 toc-location: left
 toc-depth: 6

@@ -3,8 +3,8 @@ title: "04_E_DecompositionMethods"
 format: html
 edi?tor: source
 params:
-  print_sol: false
-  print_examples: false
+  print_sol: true
+  print_examples: true
 toc: true
 toc-location: left
 toc-depth: 6
@@ -23,9 +23,9 @@ library(fma)
 
 This is something to keep in mind throughout the entire session. You will understand it in due course.
 
-When comparing multiple possible decompositions of a time series, the following features to be satisfied by a good decomposition scheme may be used.
+When comparing multiple possible decompositions of a time series, the following features may be used.
 
-1. A good decomposition has a **remainder (a.k.a random, a.k.a irregular) component** with a **variance smaller than that of the seasonal and trend components.** In other words, if the decomposition is reasonable, the trend and the seasonal component capture most of the structure in the time series.
+1. A good decomposition has a **remainder (a.k.a random, a.k.a irregular) component** with a **variance smaller than that of the seasonal and trend components.** In other words, if the decomposition is reasonable, the trend and the seasonal component capture most of the variance in the time series.
 2. A good decomposition has a **remainder (a.k.a random, a.k.a irregular) component** with an amount of **autocorrelation that is as small as possible.** In other words, the trend and the seasonal component capture most of the information of the time series and the remainder resembles a white noise process as much as possible.
 
 In some instances **it may not be possible to obtain a decomposition that fulfills these two features for the entirety of the time range considered.**

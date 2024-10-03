@@ -3,7 +3,7 @@ title: "00_C_basic_tibbles_dplyr_exercises"
 format: html
 editor: visual
 params:
-  print_sol: false
+  print_sol: true
 toc: true
 toc-location: left
 toc-depth: 6
@@ -51,7 +51,7 @@ If you want information about the datasets, you may run the following code in th
 
 ## `filter()`
 
-### Ex 1.  Select the subset of the babynames dataset that contains data between 1990 and 2010 about female babies:
+### Ex 1. Select the subset of the babynames dataset that contains data between 1990 and 2010 about female babies:
 
 ```{r, include=params$print_sol}
 # Solution 1
@@ -69,7 +69,7 @@ babynames %>%
   )
 ```
 
-### Ex 2.  Select the subset of the babynames dataset that contains data between 1990 and 2010 regarding babies named either Mary, Sarah or Carrie:
+### Ex 2. Select the subset of the babynames dataset that contains data between 1990 and 2010 regarding babies named either Mary, Sarah or Carrie:
 
 ```{r, include=params$print_sol}
 names_vector <- c("Mary", "Sarah", "Carrie")
@@ -81,7 +81,7 @@ babynames %>%
   )
 ```
 
-### Ex 3.  Filter the flights dataset to contain only the flights that took place in June, July, August and September. Keep only the subset of flights that were delayed. Store the result in a variable called `res`
+### Ex 3. Filter the flights dataset to contain only the flights that took place in June, July, August and September. Keep only the subset of flights that were delayed. Store the result in a variable called `res`
 
 ```{r, include=params$print_sol}
 # Solution 1
@@ -101,7 +101,7 @@ res <-
     )
 ```
 
-### Ex 4.  Take the result of 3 and select only the subset of flights that have a plane tail number (variable `tailnum`) that starts with N. For this you will need to use the function `substr()`. Research online how the function works.
+### Ex 4. Take the result of 3 and select only the subset of flights that have a plane tail number (variable `tailnum`) that starts with N. For this you will need to use the function `substr()`. Research online how the function works.
 
 ```{r, include=params$print_sol}
 # Solution 1 (using the pipe)
@@ -115,25 +115,25 @@ res %>%
 
 ## `select()`
 
-### Ex 5.  Take the flights dataset and select only the first 3 columns
+### Ex 5. Take the flights dataset and select only the first 3 columns
 
 ```{r, include=params$print_sol}
 flights %>% select(1:3)
 ```
 
-### Ex 6.  Take the flights dataset and select only the columns between `year` and `dep_delay`
+### Ex 6. Take the flights dataset and select only the columns between `year` and `dep_delay`
 
 ```{r, include=params$print_sol}
 flights %>% select(year:dep_delay)
 ```
 
-### Ex 7.  Take the flights dataset and select all the columns except those between `year` and `dep_delay`:
+### Ex 7. Take the flights dataset and select all the columns except those between `year` and `dep_delay`:
 
 ```{r, include=params$print_sol}
 flights %>% select(-(year:dep_delay))
 ```
 
-### Ex 8.  Take the flights dataset, place the variable `tailnum` at the beginning of the dataset, drop the variable `carrier` and keep the rest of the columns in their original order:
+### Ex 8. Take the flights dataset, place the variable `tailnum` at the beginning of the dataset, drop the variable `carrier` and keep the rest of the columns in their original order:
 
 ```{r, include=params$print_sol}
 flights %>% 
@@ -180,7 +180,7 @@ babynames %>%
 
 ## `mutate()`
 
-### Ex 11.  Use `mutate()` to create two new columns in the flights dataset:
+### Ex 11. Use `mutate()` to create two new columns in the flights dataset:
 
 -   using `make_date()` combine `year`, `month` and `day` to create a `date` object. You may research online or use `?make_date` on the console to understand how `make_date()` works
 -   create a new column that returns `FALSE` if `arr_delay` is smaller than an hour and `TRUE` else. For this us `ifelse()` create a conditional. Reseach online how `ifelse()` works in dplyr or use `?ifelse()` to get help from the console.
@@ -207,7 +207,7 @@ flights %>%
   select(date, hour_ind, arr_delay, everything())
 ```
 
-### Ex 12.  Use `mutate()` and `substr()` to create a new column with the initial letter of the name of every entry in the dataset `babynames`.
+### Ex 12. Use `mutate()` and `substr()` to create a new column with the initial letter of the name of every entry in the dataset `babynames`.
 
 ```{r, include=params$print_sol}
 babynames %>% 
@@ -219,7 +219,7 @@ babynames %>%
 
 ## `group_by()` + `summarize()`
 
-### Ex 13.  Use `group_by()` + `summarize()` to get the `mean()` and `median()` value of `arr_delay` each month. You will need to specify a correct value for the argument `na.rm` of the funtions `mean()` and \``median()`.
+### Ex 13. Use `group_by()` + `summarize()` to get the `mean()` and `median()` value of `arr_delay` each month. You will need to specify a correct value for the argument `na.rm` of the funtions `mean()` and \``median()`.
 
 ```{r, include=params$print_sol}
 flights %>% 
@@ -232,7 +232,7 @@ flights %>%
 
 ## `group_by()` + `filter()` + `ungroup()`
 
-### Ex 14.  Use `group_by()`, `filter()` and `ungroup()` to get a list of the most unpopular male and female `babynames` names each year
+### Ex 14. Use `group_by()`, `filter()` and `ungroup()` to get a list of the most unpopular male and female `babynames` names each year
 
 ```{r, include=params$print_sol}
 babynames %>% 
@@ -245,7 +245,7 @@ babynames %>%
 
 ## `group_by()` + `mutate()` + `ungroup()`
 
-### Ex 15.  Use `group_by()`, `mutate()` and `ungroup()`
+### Ex 15. Use `group_by()`, `mutate()` and `ungroup()`
 
 Use the function `dense_rank()` in combination with `group_by()`, `mutate()` and `ungroup()` to create a rank of flights within the same day based upon their `arr_delay`. Flights with greater delay should have the smallest rank. Research online or on the help how `dense_rank()` works.
 

@@ -4,7 +4,7 @@ format: html
 edi?tor: source
 params:
   print_sol: false
-  print_sol_int: false
+  print_sol_int: true
 toc: true
 toc-location: left
 toc-depth: 6
@@ -334,7 +334,7 @@ With the concepts we have seen in this class, you should be able to tell which t
 
 ![](figs/4_correlograms_examples.png)
 
-```{r, include=params$print_sol, eval = FALSE}
+```{r, include=params$print_sol_int, eval = FALSE}
 3 - D - series exhibits a clear trend and D is the only correlogram that matches 
 this. We also observe spikes at lag 12. Since this is monthly data, this 
 corresponds to yearly seasonality. It matches the data structure.
@@ -352,7 +352,7 @@ No seasonality and a bit of trend. The only correlogram matching this is B.
 
 # Exercise 2 - time series graphs
 
-Use the following graph functions: `autoplot()`, `gg_season()`, `gg_subseries()`, `gg_lag()`, `ACF()` and explore features of the time series `Total Private` from the dataset `us_employment` (loaded with `fpp3`):
+Use the following graph functions: `autoplot()`, `ACF()` and explore features of the time series `Total Private` from the dataset `us_employment` (loaded with `fpp3`):
 
 ```{r}
 us_employment
@@ -374,26 +374,14 @@ autoplot(total_private) +
 ```
 
 ```{r, include=params$print_sol}
-total_private %>% gg_season(Employed)
-```
-
-```{r, include=params$print_sol}
-gg_subseries(total_private, Employed)
-```
-
-```{r, include=params$print_sol}
-gg_lag(total_private, Employed, lags = 1:12)
-```
-
-```{r, include=params$print_sol}
 autoplot(ACF(total_private, Employed))
 ```
 
 ```{r, include=params$print_sol, eval = FALSE}
-In all of these plots, the trend is so dominant that it is hard to see anything 
+The trend is so dominant that it is hard to see anything 
 else.
 
-In particular the lagplots and correlogram show very strong and positive correlation
+In particular the correlogram shows very strong and positive correlation
 between adjacent lags that decay very slowly. The effect of seasonality is much
 smaller than the effect of the trend and cannot be perceived by visual inspection
 of the correlogram.
@@ -432,7 +420,6 @@ h02_monthly
 2.  Create and interpret the following graphs
 
 -   Time-plot with sufficient resolution to visually identify the seasonality
--   Seasonal plot and seasonal subseries plots to identify the evolution of the seasonal component.
 -   ACF plots and lag plots to identify the seasoanlity
 
 ```{r, include=params$print_sol}
@@ -457,24 +444,6 @@ There is also a noteworthy drop every February.
 
 ```{r, include=params$print_sol}
 h02_monthly %>%
-  gg_season(Cost)
-```
-
-```{r, include=params$print_sol, eval = FALSE}
-The graph reveals the underlying upwards trend of the series, as well as the drop occurring every February.
-```
-
-```{r, include=params$print_sol}
-h02_monthly %>%
-  gg_subseries(Cost)
-```
-
-```{r, include=params$print_sol, eval = FALSE}
-The trends have been greater in the higher peaking months like august, september, october, november, december...
-```
-
-```{r, include=params$print_sol}
-h02_monthly %>%
   gg_lag(Cost, geom='point', lags=1:16)
 ```
 
@@ -485,8 +454,6 @@ h02_monthly %>%
 
 ```{r, include=params$print_sol, eval = FALSE}
 The strong yearly seasonality is clear in the spike of the ACF every 12 lags(). 
-The lagplots show a separate cluster of points in almost every graph that matches 
-the large sales in January.
 ```
 
 # Exercise 4 - time series graphs
@@ -500,7 +467,6 @@ head(us_gasoline)
 Create and interpret the following graphs:
 
 1.  Timeplot with sufficient resolution to spot the beginning of each year.
-2.  Seasonal and seasonal subseries plots to examine a period of 1 year.
 3.  Lagplots and correlogram to examine if there is any seasonality.
 
 ```{r, include=params$print_sol}
@@ -524,31 +490,12 @@ Shape of seasonality seems to have changed over time.
 
 ```{r, include=params$print_sol}
 us_gasoline %>%
-  gg_season(Barrels)
-```
-
-```{r, include=params$print_sol, eval = FALSE}
-The noise makes it difficult to spot the seasonal pattern.
-```
-
-```{r, include=params$print_sol}
-us_gasoline %>%
-  gg_subseries(Barrels, period = "year")
-```
-
-```{r, include=params$print_sol, eval=FALSE}
-The bluelines mark the average levels in each week of the year.
-On average, production seems to increase until Q3 to then decrease.
-```
-
-```{r, include=params$print_sol}
-us_gasoline %>%
   gg_lag(Barrels, geom='point')
 ```
 
 ```{r, include=params$print_sol}
 us_gasoline %>%
-  ACF(Barrels, lag_max = 160) %>% autoplot()
+  ACF(Barrels, lag_max = 52*4) %>% autoplot() # depict four seasons
 ```
 
 ```{r, include=params$print_sol, eval = FALSE}

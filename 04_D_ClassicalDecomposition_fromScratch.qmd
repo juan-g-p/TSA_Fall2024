@@ -79,9 +79,17 @@ Calculate the de-trended series: $D_t = y_t - T_t$
 **Step 3.2.** Adjust $S_{unadj}$, the output of step 3.1 to ensure that the sum of its **values adds to 0**.
 
 * 3.2.1 Sum all the components of the vector $S_{unadj}$. Lets call this output $a$. This result is the total deviation from 0 we want to correct.
-    
+
+$$
+\sum_{i=1}^{m}{S_{Unadj \ i}} = a
+$$
+
 * 3.2.2 Divide the previous result $a$ by the length of the seasonal period $m$. Then subtract that amount $a/m$ from every component of $S_{unadj}$
-    
+
+$$
+S_i = S_{Unadj \ i} - \frac{a}{m}
+$$
+
 * **Output**: the seasonal component $S$.
     
 By doing this the seasonal component will not contribute to the mean value of the time series over one period. That is, the average of the seasonal component computed in this manner over one period will be 0. 
@@ -401,9 +409,13 @@ $$
 \end{align*}
 $$
 
-Now we divide $x$ by $m$ and add this quantity to each element of $S_{unadj}$
+Now we divide $x$ by $m$ and add this quantity to each element of $S_{unadj}$:
+
+$$
+S_i = S_{Unadj \ i} + \frac{x}{m}
+$$
     
-* **Output**: the seasonal component $S$. Check at this point that the following condition is fulfilled:
+* **Output**: the seasonal component $S$. Check at this point that the condition we wanted to impose is fulfilled:
 
 $$
 \text{condition imposed:  }\sum_{i=1}^m{S_i} = m

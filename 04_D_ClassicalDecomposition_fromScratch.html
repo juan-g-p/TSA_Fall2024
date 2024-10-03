@@ -3164,9 +3164,19 @@ vertical-align: -.125em;
 <p><br></p>
 <p><strong>Step 3.2.</strong> Adjust <span class="math inline">\(S_{unadj}\)</span>, the output of step 3.1 to ensure that the sum of its <strong>values adds to 0</strong>.</p>
 <ul>
-<li><p>3.2.1 Sum all the components of the vector <span class="math inline">\(S_{unadj}\)</span>. Lets call this output <span class="math inline">\(a\)</span>. This result is the total deviation from 0 we want to correct.</p></li>
-<li><p>3.2.2 Divide the previous result <span class="math inline">\(a\)</span> by the length of the seasonal period <span class="math inline">\(m\)</span>. Then subtract that amount <span class="math inline">\(a/m\)</span> from every component of <span class="math inline">\(S_{unadj}\)</span></p></li>
-<li><p><strong>Output</strong>: the seasonal component <span class="math inline">\(S\)</span>.</p></li>
+<li>3.2.1 Sum all the components of the vector <span class="math inline">\(S_{unadj}\)</span>. Lets call this output <span class="math inline">\(a\)</span>. This result is the total deviation from 0 we want to correct.</li>
+</ul>
+<p><span class="math display">\[
+\sum_{i=1}^{m}{S_{Unadj \ i}} = a
+\]</span></p>
+<ul>
+<li>3.2.2 Divide the previous result <span class="math inline">\(a\)</span> by the length of the seasonal period <span class="math inline">\(m\)</span>. Then subtract that amount <span class="math inline">\(a/m\)</span> from every component of <span class="math inline">\(S_{unadj}\)</span></li>
+</ul>
+<p><span class="math display">\[
+S_i = S_{Unadj \ i} - \frac{a}{m}
+\]</span></p>
+<ul>
+<li><strong>Output</strong>: the seasonal component <span class="math inline">\(S\)</span>.</li>
 </ul>
 <p>By doing this the seasonal component will not contribute to the mean value of the time series over one period. That is, the average of the seasonal component computed in this manner over one period will be 0.</p>
 <p><span class="math display">\[
@@ -3579,9 +3589,12 @@ vertical-align: -.125em;
 \text{Resulting correction x: } &amp;&amp; x = m - a = m - \sum_{i=1}^mS_{unadj\text{ i}}
 \end{align*}
 \]</span></p>
-<p>Now we divide <span class="math inline">\(x\)</span> by <span class="math inline">\(m\)</span> and add this quantity to each element of <span class="math inline">\(S_{unadj}\)</span></p>
+<p>Now we divide <span class="math inline">\(x\)</span> by <span class="math inline">\(m\)</span> and add this quantity to each element of <span class="math inline">\(S_{unadj}\)</span>:</p>
+<p><span class="math display">\[
+S_i = S_{Unadj \ i} + \frac{x}{m}
+\]</span></p>
 <ul>
-<li><strong>Output</strong>: the seasonal component <span class="math inline">\(S\)</span>. Check at this point that the following condition is fulfilled:</li>
+<li><strong>Output</strong>: the seasonal component <span class="math inline">\(S\)</span>. Check at this point that the condition we wanted to impose is fulfilled:</li>
 </ul>
 <p><span class="math display">\[
 \text{condition imposed:  }\sum_{i=1}^m{S_i} = m
