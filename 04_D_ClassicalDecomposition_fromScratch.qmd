@@ -24,7 +24,7 @@ NOTE: this material is not original, but rather an extension of the following re
 library(fpp3)
 ```
 
-# Classical decomposition:
+# Classical decomposition
 
 It is the starting point for most other methods of time series decomposition. In addition, it is simple enough that it can be easily implemented from scratch, which is something we are going to do in class.
 
@@ -115,7 +115,7 @@ $$
 Obtain $x$ from the equation of the condition we want to attain:
 
 $$
-\sum_{i=1}^{m} S_i = 0 \rightarrow \sum_{i=1}^{m} (S_{Unadj \ i} + x) = a + \sum_{i=1}^{m}x = a + m \cdot x = 0 \rightarrow x = -\frac{a}{m}
+\sum_{i=1}^{m} S_i = 0 \rightarrow \sum_{i=1}^{m} (S_{Unadj \ i} + x) = a + \sum_{i=1}^{m}x = a + m \cdot x \underset{\begin{array}{c} \uparrow \\ \text{condition} \\ \text{imposed} \end{array}}{=} 0 \rightarrow \text{    Solving for x } \rightarrow x = -\frac{a}{m}
 $$
 
 By adding this amount to each $S_{unadj}$, we will obtain the seasonal component $S$
@@ -273,12 +273,16 @@ m = 12
 #The sum does not add up to 0
 a = sum(df_seasonal$s_unadj)
 a
+```
 
+We can see that the sum is not 0. Let us compute the correction $x$ using the equation above:
+
+```{r}
 # Correction x (see formula above)
 x = - a / m
 ```
 
-We can see that the sum is not 0. We will divide the sum by the length of the seasonal component (in this case $m$ = 12) and then distribute this deviation from 0 evenly over the seasonal component.
+Now we apply that correction:
 
 ```{r}
 df_seasonal <- 
@@ -293,6 +297,7 @@ df_seasonal <-
   # Drop s_unadj since we do not need it anymore.
   select(n_month, seasonal_c)
 
+# Check that the sum is indeed 0
 sum(df_seasonal$seasonal_c)
 ```
 
@@ -447,7 +452,7 @@ $$
 \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) = a + m \cdot x = a + m \cdot (1-\frac{a}{m}) = a + m - a = m
 $$
 
-However, **we are going to make a different correction for each $S_i$ instead of the same correction for each $S_i$**. Specifically, the correction $x_i$ for each $S_i$ results from scaling the previous constant correction $x$ by a factor proportional to $S_{unadj\text{ i}}$ as shown below:
+However, **we are going to make a different correction for each $S_{unadj\text{ i}}$ instead of the same correction for each of them**. Specifically, the correction $x_i$ for each $S_{unadj\text{ i}}$ results from scaling the previous constant correction $x$ by a factor proportional to $S_{unadj\text{ i}}$ as shown below:
 
 $$
 x_i = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot x = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})

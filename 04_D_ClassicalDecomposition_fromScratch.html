@@ -3226,7 +3226,7 @@ window.Quarto = {
   <ul>
   <li><a href="#references" id="toc-references" class="nav-link active" data-scroll-target="#references">References</a></li>
   <li><a href="#packages" id="toc-packages" class="nav-link" data-scroll-target="#packages">Packages</a></li>
-  <li><a href="#classical-decomposition" id="toc-classical-decomposition" class="nav-link" data-scroll-target="#classical-decomposition">Classical decomposition:</a></li>
+  <li><a href="#classical-decomposition" id="toc-classical-decomposition" class="nav-link" data-scroll-target="#classical-decomposition">Classical decomposition</a></li>
   <li><a href="#additive-schemes---classical-decomposition" id="toc-additive-schemes---classical-decomposition" class="nav-link" data-scroll-target="#additive-schemes---classical-decomposition">Additive schemes - classical decomposition</a>
   <ul>
   <li><a href="#step-1---estimate-trend" id="toc-step-1---estimate-trend" class="nav-link" data-scroll-target="#step-1---estimate-trend">Step 1 - Estimate trend</a></li>
@@ -3318,7 +3318,7 @@ window.Quarto = {
 </div>
 </section>
 <section id="classical-decomposition" class="level1">
-<h1>Classical decomposition:</h1>
+<h1>Classical decomposition</h1>
 <p>It is the starting point for most other methods of time series decomposition. In addition, it is simple enough that it can be easily implemented from scratch, which is something we are going to do in class.</p>
 <p>Essentially are 2 variants of classical decomposition:</p>
 <ul>
@@ -3399,7 +3399,7 @@ S_i = S_{Unadj \ i} + x
 <h4 class="anchored" data-anchor-id="step-3.2.2">Step 3.2.2</h4>
 <p>Obtain <span class="math inline">\(x\)</span> from the equation of the condition we want to attain:</p>
 <p><span class="math display">\[
-\sum_{i=1}^{m} S_i = 0 \rightarrow \sum_{i=1}^{m} (S_{Unadj \ i} + x) = a + \sum_{i=1}^{m}x = a + m \cdot x = 0 \rightarrow x = -\frac{a}{m}
+\sum_{i=1}^{m} S_i = 0 \rightarrow \sum_{i=1}^{m} (S_{Unadj \ i} + x) = a + \sum_{i=1}^{m}x = a + m \cdot x \underset{\begin{array}{c} \uparrow \\ \text{condition} \\ \text{imposed} \end{array}}{=} 0 \rightarrow \text{    Solving for x } \rightarrow x = -\frac{a}{m}
 \]</span></p>
 <p>By adding this amount to each <span class="math inline">\(S_{unadj}\)</span>, we will obtain the seasonal component <span class="math inline">\(S\)</span></p>
 <ul>
@@ -3638,10 +3638,13 @@ S_i = S_{Unadj \ i} + x
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] -0.2273091</code></pre>
 </div>
+</div>
+<p>We can see that the sum is not 0. Let us compute the correction <span class="math inline">\(x\)</span> using the equation above:</p>
+<div class="cell">
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Correction x (see formula above)</span></span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">=</span> <span class="sc">-</span> a <span class="sc">/</span> m</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>We can see that the sum is not 0. We will divide the sum by the length of the seasonal component (in this case <span class="math inline">\(m\)</span> = 12) and then distribute this deviation from 0 evenly over the seasonal component.</p>
+<p>Now we apply that correction:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>df_seasonal <span class="ot">&lt;-</span> </span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  </span>
@@ -3655,7 +3658,8 @@ S_i = S_{Unadj \ i} + x
 <span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Drop s_unadj since we do not need it anymore.</span></span>
 <span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(n_month, seasonal_c)</span>
 <span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(df_seasonal<span class="sc">$</span>seasonal_c)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Check that the sum is indeed 0</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(df_seasonal<span class="sc">$</span>seasonal_c)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 5.329071e-15</code></pre>
 </div>
@@ -3851,7 +3855,7 @@ S_i = S_{Unadj \ i} + x
 <p><span class="math display">\[
 \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x) = a + m \cdot x = a + m \cdot (1-\frac{a}{m}) = a + m - a = m
 \]</span></p>
-<p>However, <strong>we are going to make a different correction for each <span class="math inline">\(S_i\)</span> instead of the same correction for each <span class="math inline">\(S_i\)</span></strong>. Specifically, the correction <span class="math inline">\(x_i\)</span> for each <span class="math inline">\(S_i\)</span> results from scaling the previous constant correction <span class="math inline">\(x\)</span> by a factor proportional to <span class="math inline">\(S_{unadj\text{ i}}\)</span> as shown below:</p>
+<p>However, <strong>we are going to make a different correction for each <span class="math inline">\(S_{unadj\text{ i}}\)</span> instead of the same correction for each of them</strong>. Specifically, the correction <span class="math inline">\(x_i\)</span> for each <span class="math inline">\(S_i\)</span> results from scaling the previous constant correction <span class="math inline">\(x\)</span> by a factor proportional to <span class="math inline">\(S_{unadj\text{ i}}\)</span> as shown below:</p>
 <p><span class="math display">\[
 x_i = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot x = m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})
 \]</span></p>
