@@ -1,0 +1,151 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+```
+
+# Part 1
+
+Decompose the time series below using classical decomposition. Do it using the function `classical_decomposition` from the fpp3 library as well as implementing the algorithm from scracth.
+
+```{r}
+a10 <- 
+  # 1. Dataframe containing monthly medicare expenses per type of drug
+  PBS %>%
+  
+  # 2. Filter for antidiabetic drigs
+  filter(ATC2 == "A10") %>%
+  
+  # 3. select subset of columns
+  select(Month, Concession, Type, Cost) %>%
+  
+  # 4. Add the total expenditure per month
+  index_by(Month) %>% 
+  summarise(TotalC = sum(Cost)) %>%
+  
+  # 5. Scale to millions
+  mutate(Cost = TotalC / 1e6)
+
+# 6. Plot
+autoplot(a10, Cost) +
+  labs(y = "$ (millions)",
+       title = "Australian antidiabetic drug sales")
+```
+
+## 1.1 
+
+Using the function `classical_decomposition`, obtain the components. Store them in an object called class_dcmp1
+
+```{r}
+class_dcmp1 <- 
+  # YOUR CODE GOES HERE
+```
+
+# 1.2 
+
+Obtain the same decomposition manually using the algorithm described in notebook 04_D. Store all the results in different columns of a dataframe (tsibble) called `manual_dcmp1`
+
+# 1.2.1 Obtain the trend using moving averages
+
+```{r}
+manual_dcmp1 <- 
+  # Your code goes here
+```
+
+# 1.2.2 Detrend the time series
+
+```{r}
+manual_dcmp1 <- 
+  # Your code goes here
+```
+
+# 1.2.3 Obtain the unadjusted seasonal component
+
+Obtain the unadjusted seasonal component. Store it in a dataframe called `df_seasonal`, in a column called `s_unadj`
+
+```{r}
+# Any additional code you require goes here
+
+
+df_seasonal <- 
+  # Your code goes here
+```
+
+# 1.2.4 
+
+Adjust the seasonal component as indicated in the notebook 04_D_ClassicalDecomposition_fromScratch. Store it within `df_seasonal` in a new column called `seasonal_c`.
+
+```{r}
+# Any additional code to be added goes here:
+
+# Update df_seasonal
+df_seasonal <- 
+  df_seasonal %>% 
+  # Your code goes here
+```
+
+# 1.2.5 
+
+Import the seasonal component from `df_seasonal` into `manual_dcmp1` using a `left_join`
+
+```{r}
+manual_dcmp1 <- 
+  left_join(manual_dcmp1, df_seasonal, by = "n_month")
+```
+
+# 1.2.6 
+
+Compute the remainder component
+
+```{r}
+manual_dcmp1 <- 
+  # Your code goes here
+  
+```
+
+# 1.2.7
+
+Depict your manual decomposition using gg_plot
+
+```{r}
+# As an additional ggplot visualization exercise, below the code to visualize
+# the decomposition we have computed manually
+
+# Define levels for the factor variable to ensure proper ordering
+# in the facet grid figure.
+factor_levels = c("Cost", "trend", "seasonal_c", "remainder")
+
+manual_decomposition_long <- 
+  
+  manual_dcmp1 %>% 
+
+    # Rename so that the labels are consistent
+    rename(trend = `2x12-MA`) %>% 
+  
+    # Select the columns of interest
+    select(Month, Cost, trend, seasonal_c, remainder) %>% 
+  
+    # Generate long format based on a single variable so that we can
+    # facet_grid following this variable
+    pivot_longer(cols = Cost:remainder, names_to = "component") %>% 
+    
+    # Convert to factor to ensure proper ordering in the figure
+    mutate(
+      component = factor(component, levels=factor_levels)
+    )
+
+# Now generate the graph
+manual_decomposition_long %>% 
+  
+  ggplot(aes(x = Month, y = value)) +
+  
+  geom_line() +
+  
+  # scales = "free_y" so that each component has an adapted y-axis range
+  facet_grid(component ~ ., scales = "free_y")
+```
+

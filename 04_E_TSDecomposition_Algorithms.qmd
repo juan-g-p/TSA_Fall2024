@@ -200,6 +200,12 @@ The default setting of `season(window = 13)` does not allow the trend component 
 
 Manually adjust the value of the trend window (remember the default is 13) so that the effect of the financial crisis is better captured by the STL decomposition:
 
+**NOTE**: the code below has a **bug**. You need to 
+
+1. Replace "TODO" by the default arguments
+2. Correct the syntax so that the code runs.
+3. Adjust the windows to attain the desired effect.
+
 ```{r, eval=FALSE, include=!params$print_examples}
 us_retail_employment %>%
   model(
