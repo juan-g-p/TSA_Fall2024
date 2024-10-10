@@ -2,7 +2,7 @@
 title: "04_B_MovingAverages_TrendEstimation"
 editor: source
 params:
-  print_sol: false
+  print_sol: true
 toc: true
 toc-location: left
 toc-depth: 6
@@ -210,7 +210,7 @@ plotlist[[5]] + plotlist[[6]]
 
 Note that:
 
-1. A larger number of points in the moving average order in a smoother curve. 
+1. A larger number of points in the moving average result in a smoother curve. 
     * This is because more points are included in the averaging window. With each movement of the window, only two of the points in the window change. **Therefore the more points contained in the window, the slower the computation of the moving average changes with each window shift**.
 2. Because we are using centered moving averages and we have required our windows to be complete (we used `.complete = TRUE`), no values are computed for the first $(m-1)/2$ points or the last $(m-1)/2$ points.
 
@@ -438,8 +438,10 @@ Deduce the formula for a $3x7-MA$ of a time series $y_t$. That is, first take a 
 
 # Exercise 4
 
-Deduce the formula for a $2x8-MA$ of a time series $y_t$. That is, first take an 8-MA and then compute a 2-MA of that 8-MA.
+Deduce the formula for a $2x8-MA$ of a time series $y_t$. That is, first take an 8-MA and then compute a 2-MA of that 8-MA. Ensure that the end result corresponds to a centered moving average that has the same number of points to the left and to the right.
 
 # Blank picture to practice
+
+I include here this blank picture of a time series so that you can **practice with pen and paper drawing the windows required for exercises 3 and 4 and obtaining the formulas by hand**.
 
 ![](figs/moving_average_blank.png){width="100%"}

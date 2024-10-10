@@ -246,12 +246,12 @@ Let us look as an example. If we use a logarithmic transforamtion on the data:
 We would fit the model in the transformed domain, to our transformed data, hence generating
 
 * Fitted values in the transformed domain: $\hat{w}_{t|t-1} \underset{\underset{\text{Notation}}{\uparrow}}{=} \hat{w_t}$
-* Residuals in the transformed domain: $w_t - \hat{w_t}$
+* Residuals in the transformed domain (**innovation residuals**): $w_t - \hat{w_t}$
 
 By reversing the transformation (backtransforming) we would obtain:
 
-* Fitted values in the transformed domain: $\hat{y_t} = e^{\hat{w}_t}$
-* Residuals in the transformed domain: $y_t - \hat{y_t}$
+* Fitted values in the original domain: $\hat{y_t} = e^{\hat{w}_t}$
+* Residuals in the original domain (**residuals**): $y_t - \hat{y_t}$
 
 We will see later in this notebook that, in the `fpp3` library, we can obtain both the innovation residuals and the residuals using the funciton `augment()`-
 
@@ -684,6 +684,10 @@ To forecast a decomposed time series $\hat{S_t}$ and $\hat{A_t}$ are forecast se
 -   $\hat{A_t}$: any non-seasonal forecasting method may be used (drift method, Holt's method, ARIMA)...
 -   $\hat{S_t}$: usually assumed to remain unchanged, or to change very slowly. Many times it is forecast by taking the observations of the last season, that is, using simply a seasonal naïve model.
 
+In the `fpp3` library, we attain all of the above using the function `decomposition_model()`. Below a summary image of what this function attains:
+
+![](figs/decomposition_model_function.png){fig-align="center"}
+
 ## Fitting the model
 
 Let us again resort to the `employed` time series:
@@ -721,11 +725,24 @@ The seasonal component is stored in a column named `season_year` and the seasona
 fit <- employed %>% 
   model(
     decomp = decomposition_model(
-                # Specify the decomposition scheme to be used.
+      
+                # 1. Specify the decomposition scheme to be used.
+                #    You may specify the windows of STL or other arguments for
+                #.   the decomposition method of your choice
                 STL(Employed),
-                # Specify a model for the seasonally adjusted component (in this case, a drift).
+                
+                # 2. Specify a model for the seasonally adjusted component 
+                #.   A model with no seasonality is to be used. In this case, a drift.
+                #.   season_adjust is the name of the seasonally adjusted component
+                #.   resulting from appliying the STL deomposition. This name could be
+                #.   slightly different in other methods, so beware.
                 RW(season_adjust ~ drift()),
-                # Specify a model for the seasonal component (unnecesary, since SNAIVE is the default).
+                
+                # 3. Specify a model for the seasonal component (SNAIVE is the default).
+                #    A model with seasonality is to be used.
+                #.   season_year is the name of the seasonal component resulting
+                #.   from applying the STL decomposition. This name could be slightly
+                #.   different in other methods, so beware.
                 SNAIVE(season_year)
             )
   )

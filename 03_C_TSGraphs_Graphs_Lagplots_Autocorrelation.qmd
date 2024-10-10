@@ -3,7 +3,7 @@ title: "03_C_TSGraphs_Lagplots_Autocorrelation"
 format: html
 edi?tor: source
 params:
-  print_sol: false
+  print_sol: true
   print_sol_int: true
 toc: true
 toc-location: left
