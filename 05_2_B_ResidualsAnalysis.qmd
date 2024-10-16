@@ -12,6 +12,12 @@ toc-depth: 6
 self-contained: true
 ---
 
+```{r, include=FALSE, eval=FALSE}
+TODO:
+* p-values uniformly distributed under the null: https://stats.stackexchange.com/questions/10613/why-are-p-values-uniformly-distributed-under-the-null-hypothesis.
+```
+
+
 ```{r, error=FALSE, warning=FALSE, message = FALSE}
 library(fpp3)
 library(patchwork)
@@ -19,15 +25,13 @@ library(patchwork)
 
 # References
 
-1.  Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
-2.  Fable package documentation
-
--   https://fable.tidyverts.org/index.html
--   https://fable.tidyverts.org/articles/fable.html
-
-3.  Hyndman, R. J. (2023, January 28). Degrees of freedom for a Ljung-Box test. Rob J Hyndman. [Link](https://robjhyndman.com/hyndsight/ljung_box_df.html)
-
-    * p-values uniformly distributed under the null: https://stats.stackexchange.com/questions/10613/why-are-p-values-uniformly-distributed-under-the-null-hypothesis.
+1. Hyndman, R.J., & Athanasopoulos, G., 2021. *Forecasting: principles and practice*. 3rd edition.
+2. Fable package documentation
+   - [Link 1](https://fable.tidyverts.org/index.html)
+   - [Link 2](https://fable.tidyverts.org/articles/fable.html)
+3. Hyndman, R. J. (2023, January 28). Degrees of freedom for a Ljung-Box test. Rob J Hyndman. [Link](https://robjhyndman.com/hyndsight/ljung_box_df.html)
+4. Bonar, P. A. J., Goodall, G. J., & Armstrong, S. D. (2019). *Exploring seasonality and periodicity in time series data*. National Center for Biotechnology Information (NCBI). Available at: [Link](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6337927/)
+5. Khomyanin, I. (2024, May 17). *Tales of the Undead Salmon: Exploring Bonferroni Correction in Multiple Hypothesis Testing*. HackerNoon. Available at: [Link](https://hackernoon.com/tales-of-the-undead-salmon-exploring-bonferroni-correction-in-multiple-hypothesis-testing)
 
 # Libraries
 
@@ -45,23 +49,25 @@ In general, **for time series models** we are going to check **4 properties of t
 3.  Constant variance of the residuals (homoscedasticity).
 4.  Normal distribution of the residuals.
 
+A separate .pdf files summarizes these conditions. Below a more succint discussion:
+
 **1 and 2** are definitely more relevant when assessing the model. A model that does not satisfy them can be improved upon. Several methods may satisfy them and we may need to select among them.
 
--   Bias is easy to fix by subtracting the mean of your residuals from your forecasts.
+-   Bias (mean deviated from 0) is easy to fix by subtracting the mean of your residuals from your forecasts.
 
 -   Autocorrelation is less difficult to fix. You may need to include auto regressive terms, external aggressors or change the model altogether. We will deal with these topics later in the subject.
 
 **3 and 4** are useful to easily compute prediction intervals and to have prediction intervals that are not too wide.
 
--   Apart from a box-cox transformation, there is usually little you can do to ensure the normality and heteroscedasticity of your residuals.
+-   Apart from a box-cox or other transformations, there is usually little you can do to ensure the normality and heteroscedasticity of your residuals. If this is a problem, changing the model may be the best option.
 
--   There are alternative approaches to computing the prediction intervals (bootstrapping) that will allow us to produce confidence intervals even in these situations.
+-   There are alternative approaches to computing the prediction intervals (bootstrapping) that will allow us to produce confidence intervals even in situations were normality is lost, as long as residuals are uncorrelated and homoskedastic (constant variance).
 
 Please read carefully [section 5.4](https://otexts.com/fpp3/) of the book as well as the **pdf uploaded to blackboard**.
 
 The properties above are general checkpoints for time series models. Some specific models (e.g linear models) will require that we do some additional checks on the residuals. We will see this in due course.
 
-# Example 1
+# Example 1 - Production of Bricks
 
 ```{r}
 bricks <- aus_production %>%
@@ -69,7 +75,7 @@ bricks <- aus_production %>%
   select(Bricks)
 ```
 
-Note that here we have fit more than one model in one fit:
+Note that here we have created more than one model in one fit object. The result is a model table (`malble` in this library) with two models.
 
 ```{r}
 bricks_fit <- bricks %>% model(
@@ -80,11 +86,16 @@ bricks_fit <- bricks %>% model(
 bricks_fit
 ```
 
-## MEAN model
+The code below extracts the fitted values for all the models in the `mable`. The column `.model` is used to distinguish between fitted values:
 
 ```{r}
-model_vals <- bricks_fit %>% augment()
+model_vals <- 
+  bricks_fit %>% 
+  augment()
 ```
+
+
+## MEAN model
 
 ```{r}
 model_vals %>% 
@@ -92,6 +103,8 @@ model_vals %>%
   autoplot(Bricks, colour = "gray") +
   geom_line(aes(y=.fitted), colour = "blue", linetype = "dashed")
 ```
+
+The command `gg_tsresiduals` provides a convenient summary chart to examine briefly the propertes of the residuals.
 
 ```{r}
 bricks_fit %>% 
@@ -131,14 +144,19 @@ p1 + p2
 
 ```
 
-```{r, include=FALSE}
+An additional graph that can be helpful to asses homoskedasticity is a time-series of boxplots.
+
+Time Series of boxplots with each box-plot comprising 1 year:
+
+```{r}
 model_vals <- 
   
   model_vals %>% 
   
   # Create a new column signalling the year of each observation
   mutate(
-    year = year(Quarter)
+    year = year(Quarter),
+    year_group = floor((year - 1970) / 2) * 2 + 1970 # Group two consecutive years
   ) 
   
 # Create a time series of box-plots with each box-plot containing
@@ -154,10 +172,23 @@ model_vals %>%
   theme(axis.text.x=element_text(angle = 90))
 ```
 
+Time Series of boxplots with each box-plot comprising 2 years:
+
+```{r}
+model_vals %>% 
+  
+  # Select the appropriate model within model vals
+  filter(.model == "Mean") %>% 
+  
+  # Depict the ts of box-plots
+  ggplot(aes(x = factor(year_group), y = .innov)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle = 90))
+```
+
 ```{r}
 
 ```
-
 
 1.  The residuals are highly correlated, as the correlogram clearly shows (ACF values outside the dashed bounds)
 
@@ -170,12 +201,11 @@ Note in the time plot that the residuals are simply the time series minus its me
 
 3.  Visual inspection of the variance of the residuals across historical data indicates lack of homoscedasticity. There are recession periods (such as 1982 or 1974) where the variation of the series is much higher.
 
--   **NOTE:** in case of doubt, best judgement regarding homoskedasticity can be attained combining visual inspection with some form of statistical testing, but we will spare that for now.
+-   **NOTE:** in case of doubt, best judgement regarding homoskedasticity can be attained combining visual inspection with some form of statistical testing, but in this subject we will only use visual inspection to assess homoskedasticity.
 
 4.  Visual inspection agrees with the hypothesis that the residuals are fairly normal. The histogram seems relatively bell shaped and the distribution adjusts fairly well to the QQ-plot (except on the tails and perhaps a bit in the middle). The boxplot further confirms the relative symmetry of the distribution, showing as well that the mean is close to the median.
 
 -   To formally assess the normality we would need to perform a test, something we will not do for now.
--   Understand that **the normality check is applied to the unordered set of residuals** (the frequency distribution of the residuals). We may have residuals that follow a normal distribution but that are arranged in a heteroscedastic manner.
 
 ## NAIVE model
 
@@ -215,17 +245,21 @@ p1 + p2
 
 ```
 
+An additional tool we could use to further support the analysis of whether residuals are homoskedastik or not is a time series of boxplots
 
+Time Series of boxplots with each box-plot comprising 1 year:
 
-```{r, include=FALSE}
+```{r}
 model_vals <- 
   
   model_vals %>% 
   
   # Create a new column signalling the year of each observation
   mutate(
-    year = year(Quarter)
-  ) 
+    year = year(Quarter),
+    year_group = floor((year - 1970) / 2) * 2 + 1970 # Group two consecutive years
+  )
+  
   
 # Create a time series of box-plots with each box-plot containing
 # the observations within a year
@@ -239,21 +273,32 @@ model_vals %>%
   theme(axis.text.x=element_text(angle = 90))
 ```
 
+Time Series of boxplots with each box-plot comprising 2 years:
+
+```{r}
+model_vals %>% 
+  
+  # Select the appropriate model within model vals
+  filter(.model == "Nv") %>% 
+  
+  ggplot(aes(x = factor(year_group), y = .innov)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle = 90))
+```
+
+
 ```{r}
 
 ```
 
-1.  The residuals are clearly correlated.
-2.  The innovation residuals mean is close to 0 (0.08). To formally assess if this difference is statistically significant we could perform a t-test.
+1.  The residuals are clearly correlated. It is impportant to note that the remaining spikes at multiples of the seasonal period (4, 8, 12, 16, 20...) means that our model has not adequately captured the seasonal pattern in the data.
+2.  The innovation residuals mean is close to 0 (0.08). To formally assess if this difference is statistically significant we could perform a t-test. Ultimately, whether this bias is significant or not will depend on our particular application and goal. In any case, we could remove it from the forecasts.
 3.  These residuals are more homoscedastic than those of the mean model. The variance of the residuals remains more uniform across the historical data. The crisis in 1974 and 1982-83 could be treated as outliers.
-
--   **NOTE:** in case of doubt, best judgement regarding homoskedasticity can be attained combining visual inspection with some form of statistical testing, but we will spare that for now.
-
 4.  Visually the residuals seem to be normally distributed. The histogram seems symmetric and relatively bell-shaped. The values adjust well in the qq-plot with the exception of the tails. The box-plox confirms the symmetry of the distribution and the closeness of mean and median.
 
 -   To formally assess the normality we would need to perform a test, something we will not do for now.
 
-# Example 2
+# Example 2 - Stock data
 
 ```{r}
 # Re-index based on trading days
@@ -399,21 +444,19 @@ p2 <- ggplot(data = mean_vals, aes(y = .innov)) +
 p1 + p2
 ```
 
--   
 
-    1.  The residuals seem uncorrelated
+1.  The residuals seem uncorrelated. This may be surprising, but remember that the fitted values of the naïve model are the first lag of the data. This means that the residuals of the naïve model are actually:
 
--   
+$$
+\text{residuals of naïve model:} \ \ \ \hat{y}_{t|t-1} = y_t - y_{t-1}
+$$
+We will see later in the subject that, if the data is a random walkm then $y_t - y_{t-1}$ is equal to white noise $\varepsilon_t$. In many instances, if only prices are considered, a lot of stock market assets turn out to resemble quite closely a random walk. The reason for this will be explained later, but it is related to the efficient market hypothesis.
 
-    2.  The mean of the residuals is actually close to 1, indicating that there is a bias in the forecasts. The bias might be small compared to the actual price taht we are trying to predict, but we could remove it nonetheless.
+2.  The mean of the residuals is actually close to 1, indicating that there is a bias in the forecasts. The bias might be small compared to the actual price that we are trying to predict, but we could remove it nonetheless.
 
--   
+3.  The varaince of the residuals stays much the same across the historical data apart from one around traiding day 130-140. Therefore the residuals variance can be treated as constant.
 
-    3.  The varaince of the residuals stays much the same across the historical data apart from one around traiding day 130-140. Therefore the residuals variance can be treated as constant.
-
--   
-
-    4.  The histogram suggest that the distribution is not fully normal, particularly due to the long right tail where the couple outliers accumulate. We can further inspect this with the above QQ-PLOT, which shows substantial deviation of normaility on the right tail. However, this being due to a few outliers and te distribution following the normal density for the mid range of the variable, the normality assumption might be acceptable for the computation of prediction intervals.
+4.  The histogram suggest that the distribution is not fully normal, particularly due to the long right tail where the couple outliers accumulate. We can further inspect this with the above QQ-PLOT, which shows substantial deviation of normaility on the right tail. However, this being due to a few outliers and te distribution following the normal density for the mid range of the variable, the normality assumption might be acceptable for the computation of prediction intervals.
 
 ## MEAN model
 
@@ -451,25 +494,17 @@ p2 <- ggplot(data = mean_vals, aes(y = .innov)) +
 p1 + p2
 ```
 
--   
+1.  The residuals are highly correlated. Clearly the residuals themselves exhibit the same trend than the data. After all the residuals are the difference between the model and the fitted values and, since the latter are constant in this model, the residuals exhibit the same trend than the original series.
 
-    1.  The residuals are highly correlated. Clearly the residuals themselves exhibit the same trend than the data. After all the residuals are the difference between the model and the fitted values and, since the latter are constant in this model, the residuals exhibit the same trend than the original series.
+2.  The mean of the residuals is actually 0. **This is a good example of how a very bad model can actually be unbiased!!**. The fact that the mean of the residuals is 0 does not mean that they are small, it means that positive and negative residuals compensate.
 
--   
+3.  The residuals seem fairly homoscedastic, except for the outliers mentioned before.
 
-    2.  The mean of the residuals is actually 0. **This is a good example of how a very bad model can actually be unbiased!!**. The fact that the mean of the residuals is 0 does not mean that they are small, it means that positive and negative residuals compensate.
-
--   
-
-    3.  The residuals seem fairly homoscedastic, except for the outliers mentioned before.
-
--   
-
-    4.  The histogram, qq-plot and box-plot clearly show how the residuals are not normal.
+4.  The histogram, qq-plot and box-plot clearly show how the residuals are not normal.
 
 # Exercise 1
 
-Analyse the residuals of the decomposition model from exercise 1 in notebook 5_1. Below the code to fit the model we used to depict the data and fit the model:
+Analyse the residuals of the decomposition model from exercise 1 in notebook *05_1_A_Benchmark_Methods_FittedVals*. Below the code to fit the model we used to depict the data and fit the model:
 
 ```{r}
 retail_series <- aus_retail %>%
@@ -509,7 +544,7 @@ fit_dcmp %>% gg_tsresiduals()
 
 # Portmanteau tests for autocorrelation
 
-Checking if each autocorrelation coefficient is within the negligible autocorrelation limits is equivalent to carrying out multiple hypothesis tests, each one with a small probability of giving a false positive. When performing multiple tests, it is likely that at least one will give a false positive.
+Checking if each autocorrelation coefficient is within the negligible autocorrelation limits is equivalent to carrying out multiple hypothesis tests, each one with a small probability of giving a false positive. When performing multiple tests, it is likely that at least one will give a false positive. If the student is unfamiliar with this phenomenon, I recommend reading references 4 and 5.
 
 A possible solution is to test whether the first $l$ autocorreltaion coefficients differ much from the expected outcome for a white noise process. Carrying a test on multiple ACFs is sometimes called a **portmanteau test**, from the french word describing a rack carrying several items of clothing.
 
@@ -522,6 +557,7 @@ There are different possible statistics for Portmanteau tests:
 Q = T \sum_{k=1}^\ell r_k^2,
 \end{align*}
 ```
+
 -   $l$ is the maximum lag being considered
 -   $T$ is the number of observations
 -   $r_k$ is the k-th autocorrelation coefficient
@@ -533,13 +569,14 @@ Q = T \sum_{k=1}^\ell r_k^2,
 Q^* = T(T+2) \sum_{k=1}^\ell (T-k)^{-1}r_k^2.
 \end{align*}
 ```
+
 -   $l$ is the maximum lag being considered
 -   $T$ is the number of observations
 -   $r_k$ is the k-th autocorrelation coefficient
 
 **Main idea behind both tests:**
 
-Instead of evaluating the magnitude of each autocorrelation coefficient, we seek to generate a metric of the overall ammount of autocorrelation of the series. Both the **Box-Pierce and Ljung-Box statistic grow as the amount of autocorrelation in the series grows**. This is because the terms within the sum are proportional to $r_k^2$, achieving two things:
+Instead of evaluating each autocorrelation coefficient individually against a boundary value, we seek to generate a metric of the overall amount of autocorrelation of the series. Both the **Box-Pierce and Ljung-Box statistic are defined to grow as the amount of autocorrelation in the series grows**. This is because the terms within the sum are proportional to $r_k^2$, achieving two things:
 
 1.  All the terms of the sum are greater than 0. The greater the autocorrelation of the different lags, the greater the statistic.
 2.  Very small autocorrelations become much smaller when squaring them, while medium-large autocorrelations remain relevant in the sum when squaring them. In fact, all autocorrelations become smaller when squaring them because they are $\leq 1$. But the smaller the autocorrelation, the more its initial module is reduced when squaring it. This ensures that very small auto-correlation coefficients do not substantially contribute to the growth of the statistic while medium-large autcorrelation coefficients remain relevant within the sum of the statistic.
@@ -564,7 +601,6 @@ The examples below might seem obvious but are worth giving some thought (this id
 $l$ (the number of terms in the sum) is something we need to choose. The following recommendations are to be followed
 
 -   $l = 10$ for non-seasonal data
-
 -   $l = 2m$ for seasonal data, where $m$ is the period of seasonality
 
 -   **Caution**:
@@ -573,78 +609,49 @@ $l$ (the number of terms in the sum) is something we need to choose. The followi
 
 **Distribution of the statistic**:
 
+The most difficult part when creating a hypothesis test is to prove that a given statistic follows a certain distribution. We are not going to do this here. 
+
+Instead, we will take the result that, **under the null Hypothesis that the series under study is white noise, both $Q$ and $Q*$ would follow a $\chi^2$ distribution with $(l-K)$ degrees of freedom**, where:
+
+- $l$ is the amount of lags considered in the sum of the statistic. Remember the recommendations given in the previous section.
+- $K$ are the degrees of freedom constrained during the test. Without any constraints, the set of $l$ autocorrelation coefficients would have $l$ degrees of freedom, but with $K$ constraints it has $l-K$ degrees of freedom.
+
+**The adequate value for $K$ depends strongly on the model type**. There is **debate in the time series community about the correct value for K for these tests**. We are going to follow the recommendations below, taken from reference 3.
+
+- If we want to test whether some data (and not the residuals of a certain model) is white noise, we will set $K=0$ for the test. That is because there would be nothing imposing constraints on the data.
+- If we are testing any of the benchmark models described in this notebook (Mean, Naive, Drift or Seasonal Naive), we will set $K$ to be equal to the number of parameters of the model. Remember this is obtained using the function `tidy()`. Accordingly, the degrees of freedom of the statistic would be $l-K$.
+- For other model types, limited empirical evidence from reference 3 recommends the following:
+    - For ARIMA models, use $K=p+q$ and hence $l-K=l-p-q$ degrees of freedom for the statistic.
+    - For seasonal ARIMA models, use $K=p+q$ and hence $l-K=l-p-q$ degrees of freedom for the statistic.
+    - For regression with ARIMA errors, use $K=p+q$ and hence $l-K=l-p-q$ degrees of freedom for the statistic.
+    - For OLS regression, use $K=0$ and hence $l$ degrees of freedom for the statistic.
+    - For non-seasonal ETS models, use $K=\text{number of smoothing parameters}$ and $l-K$ degrees of freedom for the statistic.
+    - For seasonal ETS models, use $K=0$ and hence $l$ degrees of freedom for the statistic.
+
+Below a summary of $H_0$ and $H_1$:
+
 -   $H_0: r_{ks}\;come\;from\;white\;noise$.
     -   In this case $Q$ and $Q*$ would follow a $\chi^2$ distribution with $(l-K)$ degrees of freedom, where $K$ is the number of parameters in the model.
-        -   If we are calculating the autocorrelation coefficients from raw data and not the autocorrelation of the residuals of a certain model, set $K=0$ for the test.
 -   $H_1: r_{ks}\;do\;not\;come\;from\;white\;noise$
 
 **Interpretation of the test**:
 
-The test is a right-tailed test. Under $H_0$ (residuals are non-correlated), the value of the statistic should be small and we should remain in the "fail to reject" region. If the statistic resulting from our series is too high, we enter the rejection region. Those values of the statistic have very low probability of occurrence if $H_0$ is true. Thus, we would reject if the the statistic is big enough (p-value is sufficiently small).
+The test is a right-tailed test. Under $H_0$ (residuals are non-correlated), the value of the statistic should be small and we should remain in the "fail to reject" region. If the statistic resulting from our series is too high, we enter the rejection region. Those values of the statistic have very low probability of occurrence if $H_0$ is true. Thus, we would reject $H_0$ if the the statistic is big enough. This corresponds to a p-value sufficiently small to reject the test.
 
-As usual, we set a confidence level $\alpha$ to maintain type I error under control. We then compute the statistic and its associated p-value. If its p-value is smaller than alpha, we reject $H_0$. Otherwise we fail to reject $H_0$.
+As usual, we set a confidence level $\alpha$ to maintain the type I error under control. We then compute the statistic and its associated p-value. If its p-value is smaller than alpha, we reject $H_0$. Otherwise we fail to reject $H_0$.
 
 ```{r, echo=FALSE, out.width='60%', fig.align="center", fig.cap="Right tailed test with Chi-squared distribution"}
 knitr::include_graphics('./figs/12_Chisquared_right_labeled.png')
 ```
 
-## How to determine K, number of parameters of the model
-
-This can be done with the function `tidy()` applied to the fitted model. However, in this particular case, because `decomposition_model()` uses a combination of models, it is necessary to assess the number of parameters of each individual model and then sum them. If we apply `tidy()` to the model fitted using `decomposition_model()` we get the following error pointing us to this fact:
-
-```{r, error = TRUE}
-tidy(fit_dcmp)
-```
-
-So we now proceed to see how many parameters each of the individual models has:
-
-### Number of parameters of the drift model:
-
-```{r}
-dcmp <- retail_series %>%
-        model(stl = STL(log(Turnover))) %>%
-        components()
-
-season_adjust <- dcmp %>% select(season_adjust)
-
-fit_drift <- season_adjust %>%
-             model(Drift = RW(season_adjust ~ drift()))
-
-tidy(fit_drift)
-
-# We see that only one parameter is involved in fitting the drift model.
-```
-
-### Number of parameters of the seasonal naive model
-
-```{r}
-seasonal <- select(dcmp, season_year)
-
-fit_snaive <- seasonal %>% model(SNaive = SNAIVE(season_year ~ lag("year")))
-
-tidy(fit_snaive)
-
-# We see that no parameters are involved in fitting the seasonal naive model (as expected)
-```
-
-### Number of parameters of `decomposition_model()`:
-
-In this case we are choosing to:
-
--   Predict the seasonally adjusted component using a drift model (1 parameter)
--   Predict the seasonal component using a seasonal naive model (0 parameters)
-
-So the total number of parameters of `decomposition_model()` is 1 + 0 = 1.
-
-We will therefore set $K=1$ in the formula for the degrees of freedom of the Box-Pierce and Ljung-Box tests: $l-K$. Remember that it is necessary to know the degrees of freedom
-
 ## Obtaining the Box-Pierce and Ljung-Box statistics:
 
-we will use the functions `augment()` to obtain the residuals and then `features()` from the `fabletools` library applied to the innovation residuals.
+We will use the functions `augment()` to obtain the residuals and then `features()` from the `fabletools` library (loaded along `fpp3`) applied to the innovation residuals.
 
-In the following code `lag` = $l$ and `dof` = $K$.
+IMPORTANT: note the definition of `dof` and `lag`, arguments required for the test in the code below:
 
-**IMPORTANT WARNING**: the Box-Pierce and Ljung-Box statistics will follow a $\chi^2$ distribution with $l-K$ degrees of freedom if $H_0$ is true, but in the code below `dof` refers to the numbers of degrees of freedom constrained by the model (that is, the number $K$ of parameters in the model). The way the library is coded can be confusing, so **please beware of this**.
+- `lag`: the number of autocorrelation coefficients to be considered for the test. That is, **$l$ in the previous discussion.**
+- `dof`: **degrees of freedom to be constrained during the test**, that is, **the value of $K$ in the previous discussion.**
 
 ```{r}
 fit_dcmp %>% augment() %>% features(.innov, box_pierce, lag = 24, dof = 1)
@@ -753,16 +760,26 @@ p1 + p2
 # and symmetry) all seem to indicate that the normality assumption is fair.
 ```
 
-5.  What if we wanted to fit the model to more than one country of the dataset `global economy`?
+5.  What if we wanted to fit more than one model to more than one country of the dataset `global economy`? Attempt to fit both a Naïve and a Mean model to the countries of `c("Australia", "Spain", "Germany")`. A detailed solution will be provided.
 
 ```{r, include=params$print_sol}
-aus_exports <- filter(global_economy, Country %in% c("Australia", "Spain", "Germany"))
+# IN THIS CASE, IF WE DO NOT FILTER THE DATASET FOR A SPECIFIC COUNTRY, WE WOULD
+# HAVE ONE TIME SERIES PER COUNTRY.
+# LET US RETAIN THREE COUNTRIES IN THE DATASET
+exports_data <- filter(global_economy, Country %in% c("Australia", "Spain", "Germany"))
 
-# Define and estimate a model
-fit <- aus_exports %>% model(
+
+# THE CODE BELOW NOW FITS ALL THE MODELS WE DEFINE WITHIN THE BOUNDS OF model()
+# TO ALL THE TIME SERIES CONTAINED IN THE DATASET, IN THIS CASE 3.
+
+# THE RESULTING TABLE OF MODELS HAS ONE ROW PER TIME SERIES AND ONE COLUMN PER
+# MODEL + COLUMNS CORRESPONDING TO THE KEY OF THE ORIGINAL TSIBBLE "exports_data".
+
+fit <- exports_data %>% model(
                                 Nv = NAIVE(Exports),
                                 Mean = MEAN(Exports)
                              )
 
+# WE COULD USE THE COMMANDS
 fit
 ```

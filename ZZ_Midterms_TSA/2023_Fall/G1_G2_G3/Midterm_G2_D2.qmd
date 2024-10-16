@@ -1,0 +1,35 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(astsa)
+```
+
+```{r}
+chicken %>% as_tsibble() %>% autoplot()
+```
+
+```{r}
+cmort %>% 
+  as_tsibble(index = as.Date(index)) %>% 
+  autoplot()
+```
+
+```{r}
+cpg %>% as_tsibble() %>% autoplot()
+```
+
+```{r}
+djia %>% as_tsibble()
+```
+
+```{r}
+global_economy %>% 
+  filter(Code == "CHN") %>% 
+  select(Year, GDP) %>% 
+  autoplot()
+```
+

@@ -1,0 +1,297 @@
+---
+title: "8_TS_BDBA_2022F_Midterm"
+toc: true
+toc-location: body
+toc-depth: 6
+self-contained: true
+format: html
+editor: visual
+params:
+  print_sol: false
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import data
+
+```{r}
+
+library(readr)
+DATASET <- read_csv("Spain_Arrivals_Monthly.csv")
+
+DATASET <- DATASET%>% 
+            mutate(year = substr(period, 1, 4),
+                   month = substr(period, 6, 8),
+                   ym = make_yearmonth(year = year, month = month),
+                   value = as.numeric(gsub(".", "", value, fixed=TRUE))
+                   ) %>% 
+            select(ym, value) %>% 
+            as_tsibble()
+            # mutate(t = gsub(".", "", value, fixed=TRUE))
+            
+DATASET
+```
+
+# 1. Create a time-plot of the series, adjusting the time grid so that it signals the beginning of every year (1 point).
+
+```{r}
+# Your code goes here
+DATASET %>% 
+  autoplot(value) + 
+  scale_x_yearmonth(date_breaks = "1 year",
+               minor_breaks = "1 month") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+## 1.1 Looking at the timeplot prior to 2020, what is the seasonal period you would expect? (max. 30 words)
+
+------------------------------------------------------------------------
+
+I expect yearly seasonality. Increasing in months January - July, and then decreasing from August to December.
+
+------------------------------------------------------------------------
+
+# 2. TS Decomposition (2 points)
+
+## 2.1 Perform an X11 Decomposition with default parameters. (0.5 points)
+
+Store the resulting components in a variable called `x11_dcmp`. Then depict the decomposition.
+
+```{r, include=!params$print_sol, eval=FALSE}
+x11_dcmp <- DATASET %>%
+  model(x11 = X_13ARIMA_SEATS(value ~ x11())) %>%
+  components()
+x11_dcmp %>% autoplot(value)
+```
+
+### 2.1.1 Is the result an additive, multiplicative or other type (mixed) decomposition? (30 words max.) (0.25 points)
+
+------------------------------------------------------------------------
+
+I would say it is mixed, before 2020 it appears additive, but after 2020 it becomes multiplicative.
+
+------------------------------------------------------------------------
+
+## 2.2 Perform an STL decomposition with default arguments (0.5 points)
+
+Store the resulting components in a variable called `STL_defaults`. Then depict the resulting decomposition.
+
+```{r, include=params$print_sol}
+STL_defaults <- DATASET %>%
+  model(
+    stl = STL(value)) %>%
+  components()
+STL_defaults %>% autoplot()
+```
+
+## 2.3 Which of these two decompositions is more appropriate? Justify briefly (50 words). (0.5 points)
+
+------------------------------------------------------------------------
+
+In this case I believe an X11 decomposition is more appropriate, as when you look at the variation in the remainder in comparison to the trend and the seasonal components, X11 manages to capture the most variability, in STL there is still information in the data.
+
+------------------------------------------------------------------------
+
+## 2.4 Asjust the parameters of the STL decomposition to improve it. (0.5 points)
+
+```{r, include=params$print_sol}
+STL_dcmp_2 <- DATASET %>%
+  model(
+    stl = STL(value ~ trend(window = 9) +
+              season(window = 5))) %>%
+  components()
+STL_dcmp_2 %>% autoplot()
+```
+
+# 3. Autocorrelation (2 points)
+
+## 3.1 Create an ACF of the seasonal component resulting from the X11 decomposition. Depict 36 lags. (0.66 points)
+
+```{r, include=params$print_sol}
+
+x11_dcmp %>% 
+  ACF(seasonal, lag_max = 36) %>% 
+  autoplot()
+```
+
+### 3.1.1 Which lags exhibit the strongest positive correlation? Why? (30 words max)
+
+------------------------------------------------------------------------
+
+Lags that are multiples of 6 exhibit the strongest autocorrelation.
+
+------------------------------------------------------------------------
+
+## 3.2 Create an ACF plot of the entire time series, depicting up to 36 lags: (0.67 points)
+
+```{r}
+# Your code goes here
+DATASET %>% 
+  ACF(lag_max = 36) %>% 
+  autoplot()
+```
+
+### 3.2.1 Which lag exhibits the strongest positive correlation? Why? (30-40 words max)
+
+------------------------------------------------------------------------
+
+The strongest positive correlation is in lag 1.
+
+------------------------------------------------------------------------
+
+## 3.3 Create an ACF plot of the remainder component of the X11 decomposition. Depict 36 lags. (0.67 points)
+
+```{r}
+x11_dcmp %>% 
+  ACF(irregular, lag_max = 36) %>% 
+  autoplot()
+```
+
+### 3.3.1 Does the decomposition look like white noise? (30 words).
+
+------------------------------------------------------------------------
+
+More than 5% should exhibit high ACF, although after 1 year it looks like white noise, in the first 12 months a significant of autocorrelation is present, and therefore there it is not white noise.
+
+------------------------------------------------------------------------
+
+# 4. Cross-validation (2 points)
+
+## 4.1 Create a sub-time series that contains only observations prior to 2020. Call this time series `sp_arrivals_2019` (0.25 points).
+
+```{r, include=params$print_sol}
+sp_arrivals_2019 <- DATASET %>% filter_index(~ "2019-12")
+sp_arrivals_2019
+```
+
+## 4.2 Using `sp_arrivals_2019`, create a series of training datasets for cross-validation fulfilling the following (0.25 points).
+
+-   The smallest dataset contains all the observations up to and including Oct 2017.
+-   The datasets increase one observation at a time
+
+```{r, include=params$print_sol}
+rows_to_include <- nrow(sp_arrivals_2019 %>% filter_index(~ "2017-10"))
+
+dataset_tr <- sp_arrivals_2019 %>% 
+  stretch_tsibble(.init = rows_to_include, .step = 1)
+dataset_tr
+```
+
+## 4.3 Fit the following models to each of the training datasets (0.5 points)
+
+-   Mean model
+-   Naive model
+-   Drift model
+-   Seasonal naive model
+-   Decomposition model using:
+    -   The STL decomposition with-non default values defined in 2.4. Alternatively you may use the standard STL arguments.
+    -   The drift component for the seasonally adjusted component
+    -   The SMAIVE component for the seasonal component
+
+```{r, include=params$print_sol}
+fit <- dataset_tr %>% 
+  model(
+    mean = MEAN(value),
+    naive = NAIVE(value),
+    drift = RW(value ~ drift()),
+    snaive = SNAIVE(value),
+    dcmp = decomposition_model(
+                # Decomposition scheme to be used:
+                STL(value ~ trend(window = 9) + season(window = 5)),
+                # Model for Seasonally Adjusted component
+                RW(season_adjust ~ drift())
+                #SNaive already applied as default to seasonal comp
+            )
+  )
+fit
+```
+
+## 4.4 Perform forecasts of up to one seasonal period. Then compute the error metrics **for each of the forecast horizons and models** using `accuracy()`. Order the models by increasing RMSE for each forecast horizon. (0.75 points)
+
+```{r, include=params$print_sol}
+forecasts <- fit %>%
+  forecast(h = 12)
+
+forecasts <- forecasts %>%
+  group_by(.model, .id) %>% 
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "value", distribution = value) %>% 
+  select(h, everything())
+
+summary <- forecasts %>% accuracy(DATASET, by = c(".model", "h")) %>% arrange(h, RMSE)
+summary
+```
+
+## 4.5 Compute the average RMSE of each model for all the forecast horizons (0.75 points).
+
+```{r, include=params$print_sol}
+rmse_crossval <- summary %>% group_by(.model) %>% summarise("Avg_RMSE" = mean(RMSE)) %>% arrange(Avg_RMSE)
+
+rmse_crossval
+```
+
+### 4.5.1 Which is the best performing model on average in terms of RMSE? (30 words)
+
+------------------------------------------------------------------------
+
+Snaive model as it has the lowest RMSE
+
+------------------------------------------------------------------------
+
+# 5. Single train-test split (2.5 points)
+
+## 5.1 Fit a seasonal naive model to `sp_arrivals_2019`. Perform forecasts of up to one year ahead. (0.5 points)
+
+```{r, include=params$print_sol}
+fit_SNAIVE <- sp_arrivals_2019 %>% model(
+  SNaive = SNAIVE(value))
+
+forecasts_snaive <- fit_SNAIVE %>% forecast(h = 12)
+
+```
+
+## 5.2 Compute the average RMSE of the previous forecasts (averaged over all forecast horizons) (0.5 points)
+
+```{r, include=params$print_sol}
+summary <- forecasts_snaive %>% accuracy(DATASET, by = c(".model")) %>% arrange(RMSE)
+av_snaive_rmse <- summary$RMSE
+
+```
+
+## 5.3 Cumpute the difference between the average RMSE of the SNAIVE model on these forecasts with the average (over all horizons) RMSE of the SNAIVE of the cross-validated metrics of point 4.5. (0.75 points)
+
+```{r, include=params$print_sol}
+av_snaive_rmse
+(rmse_crossval %>% filter(.model == "snaive"))$Avg_RMSE
+#Difference:
+av_snaive_rmse - (rmse_crossval %>% filter(.model == "snaive"))$Avg_RMSE
+```
+
+### 5.3.1 What are the units of this result? (20 words max)
+
+------------------------------------------------------------------------
+
+The units will be the same as the dataset. Number of passengers.
+
+------------------------------------------------------------------------
+
+### 5.3.2 How would you interpret this result? (75 words max)
+
+------------------------------------------------------------------------
+
+Your answer goes here
+
+------------------------------------------------------------------------
+
+## 5.4 Depict the forecasts provided by the SNAIVE model together with the actual values of the time series beyond 2020 (0.75 points)
+
+```{r, include=params$print_sol}
+fitted_vals_snaive <- fit_SNAIVE %>% augment()
+
+forecasts %>%
+  autoplot(DATASET, level = FALSE) +
+  autolayer(fitted_vals_snaive, .fitted, colour = "blue", linetype = "dashed")
+```

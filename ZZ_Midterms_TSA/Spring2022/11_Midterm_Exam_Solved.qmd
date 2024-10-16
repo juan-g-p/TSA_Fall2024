@@ -1,0 +1,241 @@
+---
+title: "TSeries_Analysis_Midterm_exam"
+author: "Juan Garbayo de Pablo"
+output:
+  bookdown::html_document2:
+    number_sections: no
+    toc: true
+    toc_depth: 6
+    toc_float: false
+    toc_collapsed: false
+    self_contained: true
+    lib_dir: libs
+---
+
+### Import libraries
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+```
+
+### 1. Import the .csv data and format it as a tsibble (**0 points**)
+
+The dataset consists of a date column (yearmonth column) and a data caolumn detailing the total number of unemployed people in Spain.
+
+```{r}
+unemp <- readr::read_csv("spain_unemployment_format.csv")
+
+# Convert column "date" to a yearmonth object
+unemp <- unemp %>% 
+      mutate(date = yearmonth(date)) %>% 
+      as_tsibble()
+
+head(unemp)
+```
+
+### 2. Graphical analysis (**4 points**):
+
+#### 2.1 Generate a timeplot of the data, adjusting its grid adequately to signal at least the end of every year (**1 point**)
+
+```{r}
+unemp %>% 
+  autoplot() +
+  
+  scale_x_yearmonth(date_breaks = "1 year",
+                    date_minor_breaks = "1 year") +
+  
+  # Flip x-labels by 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
+```{r}
+
+```
+
+#### 2.2 Generate a seasonal subseries plot (**0.5 points**)
+
+```{r}
+unemp %>%
+  gg_subseries(unemp) +
+  labs(
+    y = "Unemployed people",
+    title = "Unemployed people in Spain"
+  )
+```
+```{r}
+
+```
+
+#### 2.3 Answer the following questions based on the foregoing graphs and any other graphs you might deem necessary (**1 point**).
+
+1. Which seasonal period would you expect? (Justify briefly)
+2. Describe the average seasonal pattern exhibited by the unemployment in Spain? (Justify briefly)
+3. Would you say the series is multiplicative or additive? (Justify briefly)
+
+#### 2.4 Generate and interpret a correlogram of the series (**1.5 points**)
+
+* IMPORTANT: extend the correlogram to cover **at least 4 seasonal periods.**
+
+For the interpretation, briefly answer these:
+
+* Any particular pattern you can recognize?
+* Can you spot the seasonality on the correlogram?. Why might this be?
+
+```{r}
+unemp %>%
+  ACF(unemp, lag_max = 48) %>%
+  autoplot() +
+  labs(title="Unemployed people in Spain")
+```
+```{r}
+
+```
+
+### 3. Decomposition (**3 points**)
+
+#### 3.1 STL Decomposition with default arguments (**1 point**) 
+
+Perform an STL decomposition using default arguments. Depict the decomposition. Compare the seasonal and remainder components. 
+
+* Are there any time periods that are not adequately captured by the decomposition? Pay attention to the remainder component and justify briefly your answer.
+
+* Does the relative magnitude of the resulting components make sense? (how big they are compared to one another). Justify briefly.
+
+```{r}
+unemp_cmp <- unemp %>%
+              model(
+                STL(unemp)
+                ) %>%
+              components()
+
+autoplot(unemp_cmp)
+```
+```{r}
+
+```
+
+#### 3.2 Adjust the arguments used in the STL decomposition to improve the decomposition in those time regions. (**1 point**).
+
+* NOTE: be sure to store the result of the decomposition in a separate variable prior to printing it. We will be working with the components.
+
+* NOTE: the resulting decomposition may not be perfect regarding the homoskedasticity of the remainder, but there must be an improvement in the relative magnitude of the components.
+
+```{r}
+unemp_cmp <- unemp %>%
+              model(
+                STL(unemp ~ trend(window = 5) + # Manually change this value from the default 13
+                            season(window = 13))
+                ) %>%
+              components()
+
+autoplot(unemp_cmp)
+```
+```{r}
+
+```
+
+#### 3.3 Generate the correlogram of the seasonal component. (**1 point**)
+
+* Include at least 4 seasonal periods.
+* **Briefly interpret the correlogram.**
+
+```{r}
+unemp_cmp %>%
+  ACF(season_year, lag_max = 48) %>%
+  autoplot() +
+  labs(title="Unemployed people in Spain")
+```
+```{r}
+
+```
+
+### 4. Converting to quarterly data (**2 points**)
+
+#### 4.1 Using `index_by()` compute a quarterly series based on the **average quarterly unemployment (1 point)**
+
+* Store the result of the index_by() operation in a separate variable
+
+```{r}
+unemp_q_mean <- unemp %>%
+  
+  # Step 1: Indicate level of aggregation desired in the index. In this case
+  # we will start with a weekly aggregation:
+  index_by(quarter = yearquarter(date)) %>%
+  
+  # Step 2: aggregate variables with the desired output
+  summarise(
+    unemp = mean(unemp, na.rm = TRUE), # Computes the mean NO2 levels for each calendar week.
+  )
+
+unemp_q_mean
+```
+#### 4.2 Perform an STL decomposition of the result (**0.5 Points**)
+
+* NOTE: you may use the default arguments or the arguments for the decomposition
+
+```{r}
+unemp_q_mean_cmp <- unemp_q_mean %>%
+                      model(
+                        STL(unemp ~ trend(window = 5) + # Manually change this value from the default 13
+                                    season(window = 13))
+                        ) %>%
+                      components()
+
+autoplot(unemp_q_mean_cmp)
+```
+
+```{r}
+
+```
+
+#### 4.3 Generate again the correlogram of the seasonal component (**0.5 Points**)
+
+* Extend the results for at least 4 seasonal periods
+* What can you say about the seasonal period?
+
+```{r}
+unemp_q_mean_cmp %>%
+  ACF(season_year, lag_max = 48) %>%
+  autoplot() +
+  labs(title="Unemployed people in Spain")
+```
+
+### 5. Time Series data wrangling (**1 point**) 
+
+So far, we have averaged the unemployment values over each quarter. Technically, to make the unemployment series quarterly starting from monthly data, we should pick up the value corresponding to the last month of every quarter.
+
+Follow these steps to achieve this:
+
+#### 5.1 Convert the original monthly series back to a tibble using `as_tibble()` and store it in a new variable (**0 points**)
+
+```{r}
+unemp_tb <- unemp %>% as_tibble()
+```
+
+#### 5.2 Generate a new column called `quarter` indicating the year and quarter of each data point using `mutate()` and `yearquarter()` (**0 points**)
+
+```{r}
+unemp_tb <- unemp_tb %>% mutate(quarter = yearquarter(date))
+unemp_tb
+```
+
+#### 5.3. Using `group_by()` on this tibble combined with `max()`, generate a table (a tibble) that, for each quarter, details the last month of the quarter. Store it in a new variable. (**0.5 points**)
+
+```{r}
+q_last_month <-unemp_tb %>% 
+  group_by(quarter) %>%
+  summarise(
+    l_month = max(date)
+  ) %>%
+  ungroup()
+
+q_last_month
+```
+
+#### 5.4. Using a `left_join()` between this new tibble and the original monthly tsibble, obtain a series that keeps only one data point per quarter (the point corresponding to the latest month of each quarter). (**0.5 points**)
+
+**NOTE**: you may need to use the argument `by` of `left_join()` to specify that the column on which you wish to join both tables has a different name in each table. You may run `?left_join()` on your console to read the documentation or google how to do this.
+
+```{r}
+unemp_q <- left_join(q_last_month, unemp, by=c("l_month" = "date"))
+unemp_q
+```

@@ -1,0 +1,198 @@
+---
+title: "Untitled"
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+```{r}
+# Importing CSV as tsibble
+ts <- read_csv("FCTS_G2_Midterm_2024Fall.csv") %>%
+  mutate(ym = yearmonth(start_timestamp)) %>% 
+  as_tsibble(index = ym) %>%
+  select(ym, value)
+```
+
+
+# 1. Examine the time series and assess whether the data is stationary or not. Reason your answer in a detailed manner.
+
+```{r}
+ts %>% autoplot()
+ts %>% ACF(value) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+1. Mean stationarity not fulfilled. There is a trend.
+2. Variance stationarity not fulfilled. Variance grows with level.
+3. Seasonal pattern present (deterministic)
+
+------------------------------------------------------------------------
+
+# 2. If it is not stationary, take any necessary actions to render it sationary. Explain the procedure briefly
+
+```{r}
+# Variance stationarity
+lambda <- ts %>%
+  features(value, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+
+ts %>% autoplot(box_cox(value, lambda))
+
+# Seasonality and trend
+ts <- 
+  ts %>% 
+  mutate(
+    d6_value = difference(value, 6),
+    d12_value = difference(value, 12),
+    d12_d1_value = difference(d12_value, 1),
+    d12_d1_d1_value = difference(d12_d1_value, 1)
+  )
+
+ts %>% autoplot(d6_value)
+ts %>% autoplot(d12_value)
+ts %>% autoplot(d12_d1_value)
+ts %>% autoplot(d12_d1_d1_value)
+
+ts %>% ACF(d6_value, lag_max = 48) %>% autoplot()
+ts %>% ACF(d12_value, lag_max = 48) %>% autoplot()
+ts %>% ACF(d12_d1_value, lag_max = 48) %>% autoplot()
+ts %>% ACF(d12_d1_d1_value, lag_max = 48) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (40 words max)
+
+------------------------------------------------------------------------
+
+# 3. Propose one or more appropriate ARIMA models for the data at hand. Whatever you consider applies. Reason how you have proceeded.
+
+```{r}
+ts %>% gg_tsdisplay(d12_d1_value, plot_type="partial", lag_max=48)
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (40 words max).
+
+------------------------------------------------------------------------
+
+# 4. Fit your proposed ARIMA model(s) to the data. Add another auto-arima model. Add as well an automatically selected ETS model to the data. Then answer the questions below.
+
+NOTE: for the auto-arima model set stepwise = TRUE.
+
+
+4.1 Which ARIMA model / models would you select and why? Consider both your proposed models and auto-arima.
+
+```{r}
+fit <- 
+  ts %>% 
+  model(
+      arima110110 = ARIMA(box_cox(value, lambda) ~ pdq(1,1,0) + PDQ(1,1,0)),
+      arima110011 = ARIMA(box_cox(value, lambda) ~ pdq(1,1,0) + PDQ(0,1,1)),
+      arima011110 = ARIMA(box_cox(value, lambda) ~ pdq(0,1,1) + PDQ(1,1,0)),
+      arima011011 = ARIMA(box_cox(value, lambda) ~ pdq(0,1,1) + PDQ(0,1,1)),
+      auto_arima = ARIMA(box_cox(value, lambda)),
+      auto_ETS = ETS(value)
+  )
+
+# Examine auto-arima
+fit %>% select(auto_arima) %>% report()
+
+# Examine auto-ETS
+fit %>% select(auto_ETS) %>% report()
+
+# Print goodness of fit metrics
+fit %>% glance() %>% arrange(AICc)
+```
+
+------------------------------------------------------------------------
+
+Since all ARIMA models have d=1 and D=1, I select the one with smallest AICc (arima011011)
+
+------------------------------------------------------------------------
+
+4.2 Examine the resulting ETS model and explain the choices made for the error, trend and season components. 
+
+If you had fitted the model manually, would you made the same choices?
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (max 60 words)
+
+-   ERROR: set to M to match the seasonality
+-   TREND: set to Ad to avoid multiplicative trends that can overshoot quickly
+-   SEASON: set to M because data is multiplicative and we have done not transformation
+
+------------------------------------------------------------------------
+
+4.3 Explain briefly how automatic model selection works
+
+------------------------------------------------------------------------
+
+In forecasting automatic selection uses AICc to compare multiple models. A set of models are fitted and they are compared in terms of AICc, picking the one with smallest AICc.
+
+....
+
+------------------------------------------------------------------------
+
+# 5. Pick the ARIMA model / models you selected in 4, the ETS model as well as an SNAIVE model as a benchmark to perform cross validation. For this process, consider the following:
+
+## 5.1 Create your training datasets.
+
+The smallest training dataset shall leave out 30 percent of the observations for testing purposes and the training datasets shall increase in steps of 5 observations.
+
+Store your training datasets in a variable called `ts_cv`
+
+```{r}
+init_obs <- as.integer(0.7*nrow(ts))
+
+ts_cv <- 
+  ts %>% 
+  stretch_tsibble(
+    .init = init_obs,
+    .step = 5  
+      )
+
+ts_cv %>% 
+  as_tibble() %>% 
+  group_by(.id) %>% 
+  summarize(nobs = n())
+```
+
+## 5.2 Fit your models to the training datasets and establish which models make the best predictions for a forecast horizon of half a year. Use MAE as a criteria.
+
+```{r}
+fit_cv <- 
+  ts_cv %>% 
+  model(
+    arima011011 = ARIMA(box_cox(value, lambda) ~ 0 + pdq(0,1,1) + PDQ(0,1,1)),
+    arima011011_or = ARIMA(value ~ 0 + pdq(0,1,1) + PDQ(0,1,1)),
+    arima011011_log = ARIMA(log(value) ~ 0 + pdq(0,1,1) + PDQ(0,1,1)),
+    ets_M_Ad_M = ETS(value ~ error("M") + trend("Ad") + season("M")),
+    snaive = SNAIVE(value)
+  )
+
+fc_cv <- 
+  fit_cv %>% 
+  forecast(h=12) 
+```
+
+## 5.3 Using the same results of 5.2, compare the differences in performance of the three models for the forecast horizon of 6 in both absolute and relative terms. For absolute terms, use MAE. Provide an accurate interpretation of the error metrics you use, including the units of the error metrics.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+89
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (max 50 words)
+
+------------------------------------------------------------------------

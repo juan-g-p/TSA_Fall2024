@@ -1,0 +1,150 @@
+### Import libraries
+
+DO NOT IMPORT MORE LIBRARIES. `fpp3` and `readr` are the 
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+### 1. Import the .csv data and format it as a tsibble (**0 points**)
+
+The dataset consists of a date column (yearmonth column) and a data caolumn detailing the total number of unemployed people in Spain.
+
+```{r}
+unemp <- readr::read_csv(file.choose())
+
+# Convert column "date" to a yearmonth object
+unemp <- unemp %>% 
+      mutate(date = yearmonth(date)) %>% 
+      as_tsibble()
+
+head(unemp)
+```
+
+### 2. Graphical analysis:
+
+#### 2.1 (1.5 points)
+
+Filter for data before January 2008 and store the result in a new variable dataframe called `unemp_filt`. Create a timeplot of the filtered timeseries, adjusting its grid its grid adequately to signal at least the end of every year. Then answer the questons below the code snippet
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+Answer the following questions now based on the data and the foregoing graph:
+
+1. How long is a timestep in the dataset provided?
+2. What is the length of a seasonal period?
+
+--------
+
+Your answers go here (30. words max)
+
+--------
+
+#### 2.2 (1.5 points)
+
+Create an ACF plot of the filtered time series and identify any relevant patterns. Describe the patterns in the space for text allocated below.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+--------
+
+Your answer goes here (max 40 words)
+
+--------
+
+
+#### 2.3 (2 points)
+
+1. Produce a good estimate of the trend using moving averagaes, the same estimate the function `classical_decomposition()` would produce. Store this estimate of the trend in the dataframe `unemp_filt`, in a column called `trend`. 
+2. Proceed to detrend the time series in an additive manner and store the result within `unemp_filt` in a column called `detrended`. 
+3. Create an ACF plot of the detrended series and compare it against the ACF of question 2.2. Write the comparison in the space allocated below the code snippet.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+--------
+
+Compare ACF against ACF of question 2 (max 40 words)
+
+--------
+
+### 3.
+
+#### 3.1 (1 points)
+
+Decompose the time series using an STL decomposition and classical decomposition. To compute the classical decomposition, use the function `classical_decomposition()`. DO NOT do the decomposition operations yourself.
+
+- Store the components of the stl decomposition in a dataframe called `stl_dcmp`
+- Store the components of the classical decomposition in a dataframe calles `class_dcmp`
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+#### 3.2 (1 points)
+
+Create a timeplot that contains, on the same graph:
+
+- The original time series, grayed out in the background.
+- The stl trend as a red dashed line.
+- The classical decomposition trend as a blue dashed line
+
+What is the main difference between both trends? Why does this difference occur? Answer the question in the space allocated below.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+
+--------
+
+YOUR ANSWER GOES HERE (max 40 words.)
+
+--------
+
+### 4. 
+
+#### 4.1 (2 point)
+
+Fit a `decomposition_model()` to the data in `unemp_filt` that:
+
+1. Uses `classical_decomposition()` to decompose the time series.
+2. Uses the drift model for the seasonally adjusted series.
+3. Uses the seasonal naive model for the seasonal component.
+
+Call the model produced by `decomposition_model()` `dcmp_model`
+
+Produce forecasts for 2 years and then create the following graphs
+
+Graph 1: graph of the forecasts along with the training data contained in `unemp_filt`.
+Graph 2: graph of the forecasts along with all the data contained in `unemp`, not only the data before 2008 contained in `unemp_filt`.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+### 5. (1 point)
+
+Out of the original time series contained in `unemp`, create another that contains only the first value of the time series every year. 
+
+Hint: at the end, to update the resulting `tsibble`, you will need to use the function `update_tsibble(index=...)`. This last function is required to define that the years are the index (time variable) of the final resulting tsibble.
+
+Create a timeplot of the result and answer the question at the end.
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+What would the seasonal period be in this time series?
+
+--------
+
+Your answer goes here (max 15 words)
+
+--------

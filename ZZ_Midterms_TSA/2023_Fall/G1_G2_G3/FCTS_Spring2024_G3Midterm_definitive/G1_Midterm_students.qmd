@@ -1,0 +1,219 @@
+---
+title: "FCTS_2024_Spring_G1_Midterm"
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+```{r}
+ts <- read_csv("FCTS_Spring2024_G3Midterm.csv") %>% as_tsibble(index = index)
+```
+
+# 1. Examine the time series and examine whether the data is stationary or not. Reason your answer in a detailed manner.
+
+```{r}
+ts %>% autoplot()
+
+ts %>% ACF(value) %>% autoplot()
+
+lambda <- ts %>%
+  features(value, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+lambda
+```
+
+------------------------------------------------------------------------
+
+- Mean stationarity: there is a trend - no mean stationarity
+- Variance stationarity: no need to perform a transformation - stationarity
+- Regular patterns (seasonality): no seasonality on the series
+
+Conclusion: non-stationary.
+
+------------------------------------------------------------------------
+
+# 2. If it is not stationary, take any necessary actions to render it sationary. Explain the procedure followed briefly.
+
+```{r}
+ts <- 
+  ts %>% 
+  mutate(
+    d_value = difference(value, 1),
+    d_d_value = difference(d_value, 1)
+  )
+
+ts %>% autoplot(d_value)
+ts %>% autoplot(d_d_value)
+
+# ASSESS overdifferencing
+ts %>% ACF(d_value) %>% autoplot()
+ts %>% ACF(d_d_value) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+Apply first and second order differences to remove the trend.
+
+Assessed overdifferencing using the ACF. Second order differences incur in overdifferencing. First order differences are enough.
+
+------------------------------------------------------------------------
+
+# 3. Propose one or more appropriate ARIMA models for the data at hand. Whatever you consider applies. Reason how you have proceeded.
+
+```{r}
+ts %>% gg_tsdisplay(d_value, plot_type="partial")
+```
+
+------------------------------------------------------------------------
+
+d_value is a white noise process. So p=0 and q=0.
+
+P=0 and Q=0 because there is no seasonality.
+
+------------------------------------------------------------------------
+
+# 4. Fit your proposed ARIMA model(s) to the data. Add another auto-arima model. Add as well an automatically selected ETS model to the data. Then answer the questions below.
+
+```{r}
+fit <- 
+  ts %>% 
+  model(
+    arima010 = ARIMA(value ~ pdq(0, 1, 0) + PDQ(0, 0, 0)),
+    # arima010_nc = ARIMA(value ~ 0 + pdq(0, 1, 0) + PDQ(0, 0, 0)),
+    # arima010_c = ARIMA(value ~ 1 + pdq(0, 1, 0) + PDQ(0, 0, 0)),
+    auto_arima = ARIMA(value),
+    auto_ETS = ETS(value)
+  )
+```
+
+## 4.1 Which ARIMA model / models would you select and why? Consider both your proposed models and auto-arima.
+
+```{r}
+fit %>% select(arima010) %>% report()
+fit %>% select(auto_arima) %>% report()
+
+# Both models have d=1 and D=0 - comparison in temrs of AICc possible
+fit %>% glance()
+```
+
+------------------------------------------------------------------------
+
+Despite autoARIMA having smaller AICc, in this case we know it is overparametrizing white noise, so we should stick to our ARIMA010 model (white noise).
+
+------------------------------------------------------------------------
+
+## 4.2 Examine the resulting ETS model and explain the choices made for the error, trend and season components.
+
+```{r}
+fit %>% select(auto_ETS)  %>% report()
+```
+
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (max 40 words)
+
+-   ERROR: set as additive, since there is no multiplicative seasonality.
+-   TREND: additive damped, avoiding multiplicative trends, which can quickly overshoot in forecasting contexts.
+-   SEASON: set to "N" (None) since there is no seasonality.
+
+Conclusion: auto_ETS seems to propose something sensible.
+
+------------------------------------------------------------------------
+
+## 4.3 Explain briefly how automatic model selection works
+
+------------------------------------------------------------------------
+
+In forecasting, automatic seleciton is based on AICc, which balances goodness of fit (log-likelihood) with model complexity (n_parameters). Multiple models are fitted and the model with smallest AICc is picked.
+
+------------------------------------------------------------------------
+
+# 5. Pick one of the ARIMA models, the ETS model and thseNAIVE model as benchmark to perform cross validation. For this process, consider the following:
+
+## 5.1 Create your training datasets.
+
+The smallest training dataset shall leave out 30 percent of the observations for testing purposes and the training datasets shall increase in steps of 5 observations.
+
+Store your training datasets in a variable called `ts_cv`
+
+```{r}
+init_obs <- as.integer(nrow(ts)*0.7)
+
+ts_cv <- 
+  ts %>% 
+  stretch_tsibble(
+    .init = init_obs,
+    .step = 5
+  )
+
+ts_cv %>% 
+  as_tibble() %>% 
+  group_by(.id) %>% 
+  summarize(n_obs = n())
+```
+
+## 5.2 Fit your models to the data and establish which models make the best predictions for a forecast horizon of 8.
+
+```{r}
+fit_cv <- 
+  ts_cv %>% 
+  model(
+    arima010 = ARIMA(value ~ 0 + pdq(0, 1, 0) + PDQ(0, 0, 0)),
+    auto_ETS = ETS(value ~ error("A") + trend("Ad") + season("N")),
+    naive = NAIVE(value)
+  )
+
+# 8 * 31 * 3
+fc_cv <- 
+  fit_cv %>% 
+  forecast(h = 8) %>% 
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "value", distribution = value) %>% 
+  select(h, everything()) # Reorder columns
+
+fc_cv %>% 
+  accuracy(ts, by=c(".model", "h")) %>% 
+  filter(h == 8) %>% 
+  arrange(RMSE)
+
+fc_cv %>% 
+  accuracy(ts, by=c(".model", "h")) %>% 
+  arrange(RMSE)
+```
+
+## 5.3 Compare the differences in performance of the three models for the forecast horizon of 8 in both absolute and relative terms. For absolute terms, use MAE. Provide an accurate interpretation of the error metrics you use, including the units of the error metrics.
+
+```{r}
+cv_errors <- 
+  fc_cv %>% 
+    accuracy(ts, by=c(".id", ".model", "h", "index")) %>%      
+    select(.id, .model, h, index, RMSE) %>% 
+    rename(error=RMSE)
+
+cv_errors %>% 
+  group_by(.model, h) %>% 
+  summarize(MAE = mean(error, na.rm = TRUE))
+
+cv_errors %>% 
+  left_join(ts, by="index") %>% 
+  mutate(perc_error = error/value) %>% 
+  group_by(.model, h) %>% 
+  summarize(
+    MAE = mean(abs(error), na.rm=TRUE),
+    MAPE = mean(abs(perc_error), na.rm=TRUE)*100
+  )
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (max 50 words)
+
+------------------------------------------------------------------------

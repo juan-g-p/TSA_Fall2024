@@ -1,0 +1,259 @@
+---
+title: "TSeries_Analysis_Midterm_exam"
+author: "Juan Garbayo de Pablo"
+output:
+  bookdown::html_document2:
+    number_sections: no
+    toc: true
+    toc_depth: 6
+    toc_float: false
+    toc_collapsed: false
+    self_contained: true
+    lib_dir: libs
+---
+
+### Import libraries
+
+```{r, error=FALSE, warning=FALSE, message = FALSE}
+library(fpp3)
+```
+
+### 1. Import the .csv data and format it as a tsibble (**0 points**)
+
+The dataset consists of a date column (yearmonth column) and a data caolumn detailing the total number of unemployed people in Spain.
+
+```{r}
+unemp <- readr::read_csv("spain_unemployment_format.csv")
+
+# Convert column "date" to a yearmonth object
+unemp <- unemp %>% 
+      mutate(date = yearmonth(date)) %>% 
+      as_tsibble()
+
+head(unemp)
+```
+
+### 2. Graphical analysis:
+
+#### 2.1 (1.5 points)
+
+Filter for data smaller than January 2008 and store the result in a new variable dataframe called `unemp_filt`. Create a timeplot of the filtered timeseries, adjusting its grid its grid adequately to signal at least the end of every year. Then answer the questons below the code snippet
+
+```{r}
+# YOUR CODE GOES HERE
+unemp_filt <- 
+  unemp %>% 
+    filter(date < yearmonth("January 2008")) 
+
+unemp_filt %>% 
+  autoplot() + 
+  scale_x_yearmonth(
+    breaks = "2 years",
+    minor_breaks = "1 year"
+  )
+```
+
+Answer the following questions now based on the data and the foregoing graph:
+
+- How long is a timestep in the dataset provided?
+- What is the length of a seasonal period?
+
+--------
+
+Your answers go here (30 words max)
+
+- A timstep represents one month
+- The length of the seasonal period is 12 (12 months = 1 year). This is what we usually call "m".
+
+--------
+
+#### 2.2 (1.5 points)
+
+Create an ACF plot of the filtered timeseries and identify any relevant patterns
+
+```{r}
+unemp_filt %>% 
+  ACF(lag_max = 12*6) %>% 
+  autoplot()
+```
+
+--------
+
+Your answer goes here (max 40 words)
+
+- Seasonal pattern identifiable at spikes of lags multpiple of 24.
+- Mild trend interating with seasonal pattern visible in the slowly decreasing ACF at the beginning.
+
+--------
+
+
+#### 2.3 (2 points)
+
+1. Produce a good estimate of the trend using moving avergaes. Store this estimate of the trend in the dataframe `unemp_filt`, in a column called `trend`. 
+2. Proceed to detrend the time series in an additive manner and store the result within `unemp_filt` in a column called `detrended`. 
+3. Create an ACF plot of the detrended series and compare it against the ACF of question 2.2
+
+```{r}
+# YOUR CODE GOES HERE
+
+# ESTIMATE OF THE TREND
+unemp_filt <-
+  unemp_filt %>% 
+  mutate(
+    MA_12 = slider::slide_dbl(unemp, mean,
+                              .before=6, .after=5, .complete=TRUE),
+    trend = slider::slide_dbl(MA_12, mean,
+                              .before=0, .after=1, .complete=TRUE),
+    detrended = unemp-trend
+  )
+
+# Check: timeplot of detrended
+unemp_filt %>% autoplot(detrended)
+
+# Produce ACF pot
+unemp_filt %>% 
+  ACF(detrended, lag_max = 60) %>% 
+  autoplot()
+```
+
+--------
+
+Compare ACF against ACF of question 2 (max 30 words)
+
+Compared to the ACF of question 2, this one exhibits a more clear seasonal pattern, since the trend has been removed and the random component seems to not have a very big effect.
+
+--------
+
+### 3.
+
+#### 3.1 (1 points)
+
+Decompose the time series using an STL decomposition and classical decomposition.
+
+- Store the components of the stl decomposition in a dataframe called `stl_dcmp`
+- Store the components of the classical decomposition in a dataframe calles `class_dcmp`
+
+```{r}
+stl_dcmp <- 
+  unemp_filt %>% 
+  model(
+    stl = STL(unemp)
+  ) %>% 
+  components()
+
+stl_dcmp %>% autoplot()
+
+class_dcmp <- 
+  unemp_filt %>% 
+  model(
+    classical = classical_decomposition(unemp, type = "additive")
+  ) %>% 
+  components()
+
+class_dcmp %>% autoplot()
+```
+
+#### 3.2 (1 points)
+
+Create a timeplot that contains, on the same graph:
+
+- The original time series, greyed out in the background.
+- The stl trend as a red dashed line.
+- The classical decomposition trend as a blue dashed line
+
+What is the main difference between both trends? Why does this difference happen?
+
+```{r}
+unemp_filt %>%
+  autoplot(unemp) +
+  autolayer(class_dcmp, trend, colour = "blue", linetype = "dashed") +
+  autolayer(stl_dcmp, trend, colour = "red", linetype = "dashed") 
+```
+
+
+--------
+
+YOUR ANSWER GOES HERE (max 40 words.)
+
+The main difference between both trends is the computation for the trend in classical decomposition does not provide values at the border.
+
+This is because the classical decomposition trend uses moving averages of complete windows.
+
+--------
+
+### 4. 
+
+#### 4.1 (1 point)
+
+Fit a `decomposition_model()` to the data in `unemp_filt` that:
+
+1. Uses `classical_decomposition()` to decompose the time series.
+2. Uses the drift model for the seasonally adjusted series.
+3. Uses the seasonal naive model for the seasonal component.
+
+Call the model produced by `decomposition_model()` `dcmp_model`
+
+```{r}
+unemp %>% 
+  model(
+    classical_decomposition(unemp)
+  ) %>% 
+  components()
+```
+
+
+```{r}
+# YOUR CODE GOES HERE
+
+fit <- 
+  unemp_filt %>% 
+  model(
+      dcmp_model = decomposition_model(
+      # 1. Decomposition_model
+      classical_decomposition(unemp, type="additive"),
+      
+      # 2.Drift model
+      RW(season_adjust ~ drift()),
+      
+      # 3. SNAIVE model
+      SNAIVE(seasonal)
+    )
+  )
+
+fc <- 
+  fit %>% forecast(h=24)
+
+fc %>% 
+  autoplot(level=FALSE) +
+  autolayer(unemp, unemp, alpha=0.25)
+```
+
+### 5. (1 point)
+
+Out of the original time series contained in `unemp`, create that contains only the first value of the time series every year. 
+
+Afterwards, crete a new column called `year` that provides the year of each remaining datapoint and use `update_tsibble(index=...)` to update the index of the tsibble.
+
+Create a timeplot of the result and answer the question at the end.
+
+```{r}
+unemp_year <- 
+  unemp %>% 
+    mutate(n_month = month(date)) %>% 
+    filter(n_month == 1) %>% 
+    mutate(year = year(date)) %>% 
+    update_tsibble(index=year) %>% 
+    select(year, unemp)
+
+unemp_year %>% autoplot()
+```
+
+What would the seasonal period be in this time series?
+
+--------
+
+Your answer goes here (max 15 words)
+
+Yearly data has no seasonality, so there would be no seasonal period in this data.
+
+--------

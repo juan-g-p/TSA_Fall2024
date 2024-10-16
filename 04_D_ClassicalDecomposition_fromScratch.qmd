@@ -4,13 +4,34 @@ author: "Juan Garbayo - TS Analysis"
 format: html
 editor: source
 params:
-  print_sol: false
-  print_sol_int: false
+  print_sol: true
+  print_sol_int: true
 toc: true
 toc-location: left
 toc-depth: 6
 self-contained: true
 ---
+
+```{r, include=FALSE, eval=FALSE}
+TODOs:
+1. Justificar mejor por qué se ajusta el seasonal component a los valores 0 y m.
+Hacer esta justificación en un apartado al final de notebook, para los alumnos
+que estén interesados en entenderlo, ya que no es necesario, lo que me intere
+* Additive: se ajusta a 0 porque, al quitar la trend de manera aditiva te va a
+quedar algo que se mueve por encima y por debajo de 0. El valor medio del detrended
+no tiene por qué ser 0, 
+
+2. Dejar claro cuáles son los objetivos:
+  - Que practiquen implementar un algoritmo
+  - Que practiquen la comparación de resultados y que practiquen incluir comprobaciones
+    intermedias
+  - Que entiendad el significado de todos los términos de la descomposición, así
+    como el orden en el que se obtienen:
+      1. Trend
+      2. Detrended
+      3. Seasonal
+      4. Remainder
+```
 
 # References
 

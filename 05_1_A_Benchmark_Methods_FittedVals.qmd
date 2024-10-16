@@ -3,7 +3,7 @@ title: "05_1_A_Benchmark_Methods_FittedVals"
 format: html
 editor: source
 params:
-  print_sol: false
+  print_sol: true
 toc: true
 toc-location: left
 toc-depth: 6
@@ -76,7 +76,7 @@ The image below illustrates this:
 
 ## Time Series case - Fitted values and forecasts
 
-The following figure will serve to clarify the difference between the concepts of **fitted values** and **forecasts**. This figure **summarizes the forecasting cast** and is **very relevant for both this and the second part of the course**:
+The following figure will serve to clarify the difference between the concepts of **fitted values** and **forecasts**. This figure **summarizes the forecasting task** and is **very relevant for both this and the second part of the course**:
 
 ```{r, echo=FALSE, out.width='100%', fig.align="center"}
 knitr::include_graphics('./figs/forecasting_task.png')
@@ -85,7 +85,7 @@ knitr::include_graphics('./figs/forecasting_task.png')
 In this figure: 
 
 * The black dots represent the **available observations at the time of forecasting** $y_t$. These extend fron $t=1$ to $t=T$
-* The blue dots represent the **fitted values**, values returned by the model we have fitted in the training region producing estimates of the model parameters.
+* The blue dots represent the **fitted values**, values returned by the model we have fitted in the training region.
   * These fitted values are defined as *one step ahead forecasts on the training data*: $y_{t|t-1}$. More on this later.
   * The observations minus the fitted values are the **residuals** of the model.
 * The green dots represent the **forecasts beyond the available data**, at a **horizon h**: $y_{T+h|T}$. 
@@ -176,7 +176,7 @@ The table below summarizes the comparison between the concepts of **fitted value
 | Range                            | Extend beyond the range of time of the training data (beyond $T$) | Limited to the time range corresponding to the training data ($t \leq T$) |
 | Steps                            | Can be **multi-step**, that is, for a horizon $h>1$ | Are one-step ahead ($h=1$)                               |
 
-**Importantly** sometimes fitted values will not be strictly one-step ahead forecasts (for example in the Mean model). When we encounter examples of this, I will mention it explicitly. But the definition holds for the general case.
+**Importantly** sometimes fitted values will not be strictly one-step ahead forecasts (for example in the mean model). When we encounter examples of this, I will mention it explicitly. But the definition holds for the general case.
 
 ## Point Forecast and Forecast Distribution
 
@@ -653,6 +653,14 @@ tidy(fit)
 The drift model has only one parameter, the slope of the line joining the first and the last observation.
 
 # Forecasting with decomposition
+
+```{r, include=FALSE, eval=FALSE}
+# TODO: incluir aquí, por separado, el modelo al season adjust y al seasonal_c
+# y hace runa figura donde se muestren estos junto con los forecast totales.
+
+# Ahora mismo lo hago en clase y es suficiente, pero quizá debería hacerlo aquí.
+```
+
 
 If an appropriate decomposition algorithm for the time series has been found, then in many instances it is of insterest to build two separate models:
 

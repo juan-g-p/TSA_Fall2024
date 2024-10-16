@@ -1,0 +1,215 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+```{r}
+ts <- 
+  read_csv("FCTS_Wd_G1_Spring2024.csv") %>%
+  mutate(ym = yearmonth(ym)) %>% 
+  as_tsibble(index = ym) 
+```
+
+# 1. Examine the time series and examine whether the data is stationary or not. Reason your answer in a detailed manner.
+
+```{r}
+ts %>% autoplot()
+
+ts %>% ACF(value, lag_max = 12*4) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+- Trtend stationarity: ok
+- Variance stationarity: ok
+- Regular patterns?: it has seasonality - non-stationary.
+
+------------------------------------------------------------------------
+
+# 2. If it is not stationary, take any necessary actions to render it sationary. Explain the procedure briefly
+
+```{r}
+ts <- 
+  ts %>% 
+  mutate(
+    d12_value = difference(value, 12),
+    d12_d1_value = difference(d12_value, 1)
+  )
+
+ts %>% autoplot(d12_value)
+ts %>% autoplot(d12_d1_value)
+
+ts %>% ACF(d12_value, lag_max = 12*4) %>% autoplot()
+ts %>% ACF(d12_d1_value, lag_max = 12*4) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+Performed seasonal differences to remove seasonal pattern.
+
+Checked if subsequent differencing helps, but it incurs in overdifferencing.
+
+Seasonal differenced series is taken as stationary.
+
+------------------------------------------------------------------------
+
+# 3. Propose one or more appropriate ARIMA models for the data at hand. Whatever you consider applies. Reason how you have proceeded.
+
+NOTE: if either the ACF or PACF does not exhibit relevant cut-offs or a tail-off, consider the corresponding model order (p, q, P or Q) to be 0.
+
+```{r}
+ts %>% gg_tsdisplay(d12_value, plot_type="partial", lag_max=48)
+```
+
+------------------------------------------------------------------------
+
+Non-seasonal part
+- ACF cut off at l=4
+- PACF - no relevant lags
+- q=4, p=0
+
+Seasonal part
+- ACF cut-off at s.lag 1 -> Q=1, P=0
+- PACF cut-off at s.lag 2 -> P=2, Q=0
+
+------------------------------------------------------------------------
+
+# 4. Fit your proposed ARIMA model(s) to the data. Add another auto-arima model. Add as well an automatically selected ETS model to the data. Then answer the questions below.
+
+NOTE: for the auto-arima model set stepwise = FALSE. NOTE: in your manually selected models, set explicitly all the values for p, d, q and P, D, Q (use both the functions `pdq()` and `PDQ()`)
+
+```{r}
+
+```
+
+
+```{r}
+fit <- 
+  ts %>% 
+  model(
+    arima004012 = ARIMA(value ~ pdq(0, 0, 4) + PDQ(0, 1, 2)),
+    arima004110 = ARIMA(value ~ pdq(0, 0, 4) + PDQ(1, 1, 0)),
+    auto_arima = ARIMA(value, stepwise=FALSE), # 100012
+    auto_ETS = ETS(value)
+  )
+
+fit %>% select(arima004012) %>% report()
+
+fit %>% glance()
+```
+
+
+
+4.1 Which ARIMA model / models would you select and why? Consider both your proposed models and auto-arima.
+
+```{r}
+# ARIMA004012 smallest AIC. 
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (max 40 words)
+
+------------------------------------------------------------------------
+
+4.2 Examine the resulting ETS model and explain the choices made for the error, trend and season components.
+
+```{r}
+fit %>% select(auto_ETS) %>% report()
+```
+
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (max 40 words)
+
+-   ERROR: additive, matches additive seasonality
+-   TREND: no trend, so set to None
+-   SEASON: set to additive
+
+Conclusion: auto_ETS seems to propose something sensible.
+
+------------------------------------------------------------------------
+
+4.3 If you have not tried it, try fitting an ARIMA(0, 0, 0)(0, 1, 1). Explain what happens when you try this.
+
+------------------------------------------------------------------------
+
+```{r}
+ts %>% model(ARIMA(value ~ pdq(0, 0, 0) + PDQ(0, 1, 1)))
+```
+
+
+The function is failing to find a model that fulfils the stationarity and invertibility conditions. We get a "null" model.
+
+------------------------------------------------------------------------
+
+# 5. Pick the ARIMA model / models you selected in 4, the ETS model as well as an SNAIVE model as a benchmark to perform cross validation. For this process, consider the following:
+
+## 5.1 Create your training datasets.
+
+The smallest training dataset shall leave out 30 percent of the observations for testing purposes and the training datasets shall increase in steps of 5 observations.
+
+Store your training datasets in a variable called `ts_cv`
+
+```{r}
+init_obs <- as.integer(0.7*nrow(ts))
+
+ts_cv <- 
+  ts %>% 
+  stretch_tsibble(
+    .init = init_obs,
+    .step  = 5
+  )
+
+ts_cv %>% 
+  as_tibble() %>% 
+  group_by(.id) %>% 
+  summarize(nobs = n())
+```
+
+## 5.2 Fit your models to the training datasets and establish which models make the best predictions for a forecast horizon of half a year. Use MAE as a criteria.
+
+```{r}
+fit_cv <- 
+  ts_cv %>% 
+    model(
+      arima100012 = ARIMA(value ~ 0 + pdq(1,0,0) + PDQ(0,1,2)),
+      arima004012 = ARIMA(value ~ 0 + pdq(0,0,4) + PDQ(0,1,2)),
+      ets = ETS(value ~ error("A") + trend("N") + season("A")),
+      snaive = SNAIVE(value)
+    )
+
+fc_cv <- fit_cv %>% forecast(h=6)
+
+fc_cv <- 
+  fc_cv %>% 
+  group_by(.id, .model) %>%
+  mutate(h = row_number()) %>%
+  ungroup() %>%
+  as_fable(response = "value", distribution = value) %>% 
+  select(h, everything()) # Reorder columns
+
+fc_cv %>% 
+  accuracy(ts, by=c(".model", "h")) %>% 
+  filter(h==6) %>% 
+  arrange(RMSE)
+```
+
+## 5.3 Using the same results, compare the differences in performance of the three models for the forecast horizon of 6 in both absolute and relative terms. For absolute terms, use MAE. Provide an accurate interpretation of the error metrics you use, including the units of the error metrics.
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+YOUR ANSWER GOES HERE (max 50 words)
+
+------------------------------------------------------------------------
