@@ -1,0 +1,291 @@
+---
+title: "ZZ_TSA_G1_2023Fall_Midterm"
+editor: source
+params:
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+## INSTRUCTIONS
+
+1.  Do not add additional code snippets. You may add more to play around, but in the end only the code snippets created within the exam shall be delivered.
+2.  Stick to the word count when providing written answers. Be as clear and brief as possible.
+
+## 0. Load libraries
+
+If you do not load the libraries, subsequent code to load the dataframe will not work.
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+## 1. Import the .csv data and format it as a tsibble (**0 points**)
+
+The file is in the datasets folder: **spain_unemployment_format.csv**
+
+Run the code below and a pop-up window will appear prompting you to select the file.
+
+```{r, eval=FALSE}
+unemp <- readr::read_csv(file.choose())
+
+# Convert column "date" to a yearmonth object
+unemp <- unemp %>% 
+      mutate(date = yearmonth(date)) %>% 
+      as_tsibble()
+
+unemp
+```
+
+## 2. Graphical analysis (3 points)
+
+### 2.1 Generate a timeplot of the data, adjusting its grid adequately to signal at least the end of every year.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+unemp %>% head(5)
+
+unemp %>% autoplot() + scale_x_yearmonth(date_breaks = "1 year", minor_breaks = "1 year") + theme(axis.text.x = element_text(angle = 90))
+
+
+
+# DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+### 2.2 Approximate the trend of the graph using an appropriate moving average. Then depict the timeplot again, with both the original time series and the resulting estimate of the trend. Adjust the x-grid so that the end of every year is clear.
+
+Requirements:
+
+1.  **Compute the moving average as a classical decomposition would**.
+2.  Store the result in a new variable (column) within `unemp` called `trend_class`.
+3.  Plot the time series in one color and the trend in another color.
+
+FEEDBACK: THIS IS WRONG. SHOULD HAVE USED 2X12 MA. SEE SOLUTION
+
+```{r, include=!params$print_sol}
+# Centered Moving Averages 
+(unemp <- unemp %>% mutate("trend_class" = slider::slide_dbl(unemp, mean, .before = 3, .after = 3, .complete = TRUE)))
+
+# Plot 
+unemp %>%
+  autoplot(unemp) + geom_line(aes(y = `trend_class`), colour = "#D55E00") + labs(y = "Unemployment", title = "Unemployment in Spain")
+
+
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+### 2.3 Remove `trend_class` from the time series, that is, compute the **detrended time series**. Store it in a new variable (column) within `unemp` called `detrended_class`
+
+**NOTE**: if you failed to compute the trend component in the previous question, you may compute the classical decomposition using `classical_decomposition()` and use the trend resulting from it to detrend the time series.
+
+Requirements:
+
+1.  Store the result in a new variable (column) called `detrended_class` within `unemp`
+2.  Depict the detrended component on a time-plot with a grid that signals the end of every year.
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+unemp <- unemp %>% mutate(detrended_class = unemp - `trend_class`,)
+unemp
+
+
+(major_ticks_seq = seq(1, 21, 1))
+(minor_ticks_seq = seq(1, 21, 1))
+
+unemp %>% autoplot(detrended_class) 
+
+  + 
+  scale_x_continuous(breaks = major_ticks_seq, minor_breaks = minor_ticks_seq) + 
+  theme(axis.text.x = element_text(angle = 90))
+
+# MISSING 
+
+
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+### 2.4 Compute the ACF plots indicated below. Also answer the question below:
+
+1.  ACF plot of the original time series
+2.  ACF plot of the detrended time series
+
+Q1: WHICH IS THE LENGTH OF THE SEASONAL PERIOD AND WHERE DO YOU SEE IT?
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+
+unemp %>%
+  ACF(unemp) %>%
+  autoplot()
+
+unemp %>%
+  ACF(detrended_class) %>%
+  autoplot()
+
+
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+------------------------------------------------------------------------
+
+**YOUR ANSWER TO BOTH Q1 30 WORDS MAX**
+
+There's a yearly seasonality (length of 12 months). It's possible to see in the ACF of the "detrended_class", as there's a peak in 12 and presumably later at 24, and a low bottom at 6 and then 18 (12 months later).
+
+FEEDBACK: instead of saying presumably, you could have actually depicted it specifying lag_max...
+
+------------------------------------------------------------------------
+
+# 3. STL Decomposition (**2.5 points**)
+
+Perform an STL decomposition. Specifically, create two stl decompositions:
+
+1.  STL decomposition with default arguments. Name the dataframe containing the components `stl_default`.
+2.  STL decomposition with adjusted parameters. Adjust the parameters you deem necessary to improve the decomposition and name the dataframe containing the components `stl_adjust`.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+stl_default = unemp %>% model(stl = STL(unemp)) %>% components() %>% autoplot()
+stl_default
+
+stl_adjust = unemp %>%
+  model(STL(unemp ~ trend(window = 7) + season(window = 7), robust = TRUE)) %>% components() %>% autoplot()
+stl_adjust
+
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+# 4. Fitting two models (**3 points**)
+
+## 4.1 Fitting the models
+
+Fit the models below to the variable `unemp` (that is, to the original time series):
+
+1.  `decomposition_model()` using the **drift model** for the *seasonally adjusted series* and **seasonal naïve model** for the *seasonal component*. Call this model `dcmp_drift`.
+
+-   For the **stl decomposition, adjust the parameters as you did in exercise 3.**
+
+2.  `decomposition_model()` using a **simple exponential smoothing** model for the *seasonally adjusted series* and a **seasonal naïve model** for the *seasonal component*. Call this model `dcmp_stl`.
+
+-   For the **stl decomposition, adjust the parameters as you did in exercise 3.**
+
+Store the result of fitting the models in a variable called `fit`
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+fit <- unemp %>% model(
+    dcmp_drift = decomposition_model(
+                STL(unemp ~ trend(window = 7) + season(window = 7)),
+                RW(season_adjust ~ drift()),
+                NAIVE(season_year)
+            ),
+    dcmp_stl = decomposition_model(
+                STL(unemp ~ trend(window = 7) + season(window = 7)),
+                ETS(season_adjust ~ error("A") + trend ("N") + season("N")),
+                SNAIVE(season_year)
+            )
+  )
+
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+## 4.2 Performing forecasts
+
+Perform 12 step ahead forecasts (1 year) using both models. Store the results in a variable called `fc`.
+
+Then depict the forecasts along with the original time series and the corresponding confidence intervals. Create one figure per model.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+(fit %>% augment())
+
+
+fc = fit %>%
+  forecast(h = 12) 
+
+fc %>% autoplot(unemp) 
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+# 4.3 Analyze the residuals of the `dcmp_drift` model.
+
+Analyze **only normality and heteroskedasticity of the residuals** of the model.
+
+**NOTE**: since you have two models in `fit`, to use the `gg_tsresiduals()` command you need to select only one of them first. If you have named them as I indicated, the following code should do the trick. Add additional graphs and tests you deem necessary.
+
+```{r, eval=FALSE}
+fit %>% 
+  select(dcmp_drift) %>% # Select only dcmp_drift
+  gg_tsresiduals()
+
+
+
+```
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+model_vals = fit %>% augment()
+
+model_vals %>% as_tibble() %>%
+  filter(.model == "dcmp_drift") %>%
+  summarise(mean = mean(.innov, na.rm = TRUE))
+
+# Generate qq_plot
+qq_plot <- ggplot(model_vals, aes(sample = .innov))
+qq_plot <- qq_plot + stat_qq() + stat_qq_line()
+qq_plot
+
+# Generate box-plot
+boxplot <- ggplot(data = model_vals, aes(y = .innov)) +
+      geom_boxplot(fill="light blue", alpha = 0.7) +
+      stat_summary(aes(x=0), fun="mean", colour= "red") 
+boxplot
+
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+
+
+
+
+
+
+
+```
+
+------------------------------------------------------------------------
+
+**YOUR ANSWER GOES HERE. MAX 60 WORDS.**
+
+The mean of the residuals is significantly close to zero, as seen by the box plot. On the other hand, the qqplot shows closeness to the line, with deviation from the legs. A constant variance can be observed, except for some outliers at the end (indicating homsocoedasiticyt).
+
+THE MOST IMPORTANT PART IS THE AUTOCORRELATION!!
+
+ALSO PAY ATTENTION TO THE SOLUTION, YOU SHOULD USE MORE TECHNICAL LANGUAGE.
+
+------------------------------------------------------------------------
+
+# 5. STL decomposition comparison (**1.5 points**)
+
+This points builds on the result of point 3. Consider the two decompositions `stl_default` and `stl_adjust` fitted in point 3.
+
+1.  Plot the ACF of the remainder of both decompositions.
+2.  Compute a single number that measures the amount of autocorrelation left in the remainder of each decomposition.
+
+-   For `stl_default` call this single number `corr_metric_default`
+-   For `stl_adjust` call this single number `corr_metric_adjust`
+-   Check that `corr_metric_adjust` \< `corr_metric_default`.
+-   Compute `corr_metric_default / corr_metric_adjust`. Give a short interpretation of the result
+
+```{r, input=!params$print_sol}
+## YOUR CODE GOES HERE
+
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+------------------------------------------------------------------------
+
+**YOUR INTERPRETATION GOES HERE. MAX 20 WORDS.**
+
+------------------------------------------------------------------------

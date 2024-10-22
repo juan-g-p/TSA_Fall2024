@@ -1,0 +1,298 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import Data
+
+Run the code below. A pop-up window will appear. Select the file `ts_data.csv` provided along with the exam
+
+```{r}
+ts_data <- 
+  read.csv(file.choose()) %>% 
+    mutate(
+      ym = yearmonth(start_timestamp)
+    ) %>% 
+    as_tsibble(index = ym) %>% 
+    select(ym, value)
+
+ts_data
+```
+
+# 1. (2.5 points)
+
+Create two plots: a plot of the original time series `value` and a plot of the log-transformed time series.
+
+They should have minor breaks every year and major breaks every four years.
+
+Then answer the question.
+
+FEEDBACK: you managed to destroy the dataset so that not even this runs... some points for writing code that makes partial sense
+
+```{r}
+# YOUR CODE GOES HERE
+# DON NOT CREATE ANY ADDITIONAL CODE SNIPPETS.
+# ALL THE CODE SHALL BE CONTAINED HERE
+
+library(fpp3)
+
+ts_data$ym <- yearmonth(ts_data$ym)
+
+ts_data_ts <- ts(ts_data$value, frequency = 12)
+# 
+# ts_data_tsibble <- ts_data %>%
+#   as_tsibble(index = ym) %>% 
+#   mutate(log_value = log(value))
+
+ts_data %>% autoplot() + 
+  scale_x_yearquarter(date_breaks = "4 year",
+    minor_breaks = "1 year") 
+
+log_ts_data %>% autoplot() + 
+  scale_x_yearquarter(date_breaks = "4 year",
+    minor_breaks = "1 year")
+
+log_ts_data = ts_data %>% mutate (value=log(value))
+
+```
+
+------------------------------------------------------------------------
+
+QUESTION: What does the log transformation attain?
+
+**YOUR ANSWER GOES HERE (20 WORDS)**
+
+The log transformation shows less variability of the data and more of a pattern exhbiting constant percentage changes in the original data . The linear shape also is showing somewhat exponential growth.
+
+------------------------------------------------------------------------
+
+# 2. (3 points)
+
+## 2.1
+
+Create new column wihin `ts_data` with a moving average of the log-transformed time series. Use the same moving average as classical decomposition would.
+
+Call that moving average `log_trend_class`.
+
+Then create a new time-plot of the log transformed series with `log_trend_class` superimposed.
+
+FEEDBACK: nonsense. Did not study moving average or did anything of group assignment
+
+```{r}
+# YOUR CODE GOES HERE
+# DON NOT CREATE ANY ADDITIONAL CODE SNIPPETS
+# ALL THE CODE SHALL BE CONTAINED HERE.
+
+library(fpp3)
+
+ts_data$ym <- as.Date(paste(ts_data$ym, "01"), format = "%Y %b %d")
+
+ts_data_ts <- as_tsibble(ts_data, index = ym)
+
+ts_data_ts <- ts_data_ts %>%
+  mutate(log_value = log(value))
+
+window_size <- 12 
+
+ts_data_ts <- ts_data_ts %>%
+  mutate(log_trend_class = slide(log_value, .after = 0, .before = window_size, .step = 1, .f = mean))
+
+ts_data_ts %>%
+  ggplot(aes(x = ym)) +
+  geom_line(aes(y = log_value), color = "blue", linetype = "solid", size = 1, alpha = 0.6) +
+  geom_line(aes(y = log_trend_class), color = "red", linetype = "dashed", size = 1) +
+  labs(x = "Year", y = "Log Value") +
+  ggtitle("Log-Transformed Series with Moving Average") +
+  theme_minimal()
+
+ggsave("log_transformed_series_with_moving_average.png", device = "png", width = 10, height = 10)
+
+```
+
+## 2.2 Using the previously computed moving average, detrend the log-transformed variable.
+
+Store the result in a new column within `ts_data` called `log_detrended`
+
+Then create a timeplot of the `log_detrended`
+
+FEEDBACK: only point given because you know you need to subtract in order to detrend
+
+```{r}
+# YOUR CODE GOES HERE
+# DON NOT CREATE ANY ADDITIONAL CODE SNIPPETS
+# ALL THE CODE SHALL BE CONTAINED HERE.
+
+library(fpp3)
+
+ts_data$log_detrended <- ts_data$log_value - ts_data$log_trend_class
+
+ts_data_ts <- ts_data %>%
+  as_tsibble(index = ym)
+
+ts_data_ts %>%
+  ggplot(aes(x = ym, y = log_detrended)) +
+  geom_line(color = "blue") +
+  labs(x = "Year", y = "Log Detrended Value") +
+  ggtitle("Log-Detrended Series") +
+  theme_minimal()
+
+ggsave("log_detrended_timeplot.png", device = "png", width = 10, height = 6)
+```
+
+## 2.3 Compute the ACF plot of log-transformed time series and of `log_detrended`
+
+Compare both ACF pots (max 50 words) and explain how they differ and why.
+
+FEEDBACK: CODE DOES NOT RUN AND IS NOT THE CODE WE USED IN CLASS. 
+
+```{r}
+# YOUR CODE GOES HERE
+# DO NOT CREATE ADDITIONAL CODE SNIPPETS
+
+acf(log_transformed_series, main = "ACF of Log-Transformed Series")
+
+acf(log_detrended_series, main = "ACF of Log-Detrended Series")
+
+
+```
+
+------------------------------------------------------------------------
+
+**YOUR ANSWER GOES HERE** (50 words MAX)
+
+In the ACF plot of long transofrmed there is strong autocorrelation at various lags showing seasonality while the ACF plot has reduced autocorrelation showing decrease in trend.
+
+------------------------------------------------------------------------
+
+# 3. (3 points)
+
+## 3.1 Perform an STL decomposition and a classical decomposition (using `classical_decomposition()`)
+
+-   store the components of the STL decomposition in `stl_dcmp`
+-   store the components of the classical decomposition in `class_dcmp`
+
+FEEDBACK: CODE DOES NOT RUN
+
+```{r}
+# YOUR CODE GOES HERE
+# DO NOT CREATE ADDITIONAL CODE SNIPPETS
+
+STL_decomposition <- 
+  log_data %>%
+  model(stl = STL(value)) %>%
+  components()
+STL_decomposition
+
+CLASS_decomposition <- 
+  log_data %>% 
+  model(
+    dcmp = classical_decomposition(value, type = "additive")
+  ) %>% 
+  components()
+CLASS_decomposition
+
+```
+
+## 3.2
+
+Create two time plots, one for the seasonal component of `stl_dcmp` and one of the seasonal component of `class_dcmp`.
+
+Then explain how they differ.
+
+FEEDBACK: CODE DOES NOT RUN AND NO EXPLANATIO
+
+```{r}
+# YOUR CODE GOES HERE
+# DO NOT CREATE ADDITIONAL CODE SNIPPETS
+
+STL_decomposition %>% 
+  select(season_year) %>% autoplot()
+CLASS_decomposition %>% 
+  select(seasonal) %>% autoplot()
+
+```
+
+------------------------------------------------------------------------
+
+QUESTION: How do both seasonal components differ?
+
+**YOUR ANSWER GOES HERE (20 WORDS)**
+
+------------------------------------------------------------------------
+
+## 3.3 Compare the `trend_class` you previously computed with the trend returned by classical decomposition. Do they match? (answer this question with a single boolean TRUE or FALSE)
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+
+FALSE
+
+```
+
+# 4. (1.5 points)
+
+Time series data wrangling
+
+# 4.1 Using:
+
+-   `dplyr::last()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the last value of every quarter.
+
+You may use `?dplyr::last()` on the console to get information about how to use last.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+
+library(dplyr)
+
+ts_data <- ts_data %>%
+  mutate(timestamp = as.Date(timestamp))
+
+ts_quarterly <- ts_data %>%00 
+  group_by(quarter = quarter(timestamp)) %>%
+  summarise(last_value = last(value))
+
+ts_quarterly <- ts_quarterly %>%
+  mutate(quarter = as.Date(paste(year(timestamp), quarter, "04-01", sep = "-"))
+
+ts_quarterly <- ts_quarterly %>%
+  as_tsibble(index = quarter)
+
+print(ts_quarterly)
+
+```
+
+## 4.2 Using the functions:
+
+-   `dplyr::last()`
+-   `dplyr::first()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the mean of the first and last value of every quarter.
+
+You may use `?dplyr:first()` and `?dplyr::last()` on the console to get information about how to use last and first
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+
+library(fpp3)
+
+ts_data$ym <- as.Date(paste(ts_data$ym, "01"), format = "%Y %b %d")
+
+ts_data_ts <- as_tsibble(ts_data, index = ym)
+
+ts_quarterly <- ts_data_ts %>%
+  mutate(Quarter = yearquarter(ym)) %>%
+  group_by(Quarter) %>%
+  summarise(mean_first_last = mean(c(first(value), last(value)))
+
+ts_quarterly
+```

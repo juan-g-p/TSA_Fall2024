@@ -1,0 +1,219 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import Data
+
+Run the code below. A pop-up window will appear. Select the file `ts_data.csv` provided along with the exam
+
+```{r}
+ts_data <- 
+  read.csv(file.choose()) %>% 
+    mutate(
+      ym = yearmonth(start_timestamp)
+    ) %>% 
+    as_tsibble(index = ym) %>% 
+    select(ym, value)
+
+ts_data
+```
+
+# 1. (2.5 points)
+
+Create two plots: a plot of the original time series `value` and a plot of the log-transformed time series.
+
+They should have major breaks every year and minor breaks every four years.
+
+Then answer the question.
+
+```{r}
+
+ts_data %>% autoplot() +
+scale_x_yearmonth(breaks = "4 years", 
+                    minor_breaks = "1 year")  
+
+ts_data = ts_data %>% mutate(log_value = log(value))
+
+  
+  ts_data %>% autoplot() +
+scale_x_yearmonth(breaks = "4 years", 
+                    minor_breaks = "1 year")  
+
+```
+
+------------------------------------------------------------------------
+
+QUESTION: What does the log transformation attain?
+
+**YOUR ANSWER GOES HERE (20 WORDS)**
+
+## The log transformation reduces the values in the y-axis.
+
+# 2. (3 points)
+
+## 2.1
+
+Create new column within `ts_data` with a moving average of the log-transformed time series. Use the same moving average as classical decomposition would.
+
+Call that moving average `log_trend_class`.
+
+Then create a new time-plot of the log transformed series with `log_trend_class` superimposed.
+
+FEEDBACK: YOU COMPUTED THE MA OF VALUE, NOT LOG VALUE. STILL, WELL DONE.
+
+```{r}
+
+ts_data = ts_data %>% mutate(
+    `12-MA` = slider::slide_dbl(value, mean, 
+                .before = 5, .after = 6, .complete = TRUE),
+    
+    # Subsequent two MA to make the overall window balanced
+    log_trend_class = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+
+# ts_data %>% select(ym, value, `12-MA`, `2x12-MA`) %>% head(5)
+
+
+ts_data %>%
+  autoplot(value, colour = "gray") +
+  geom_line(aes(y = log_trend_class), colour = "#D55E00") 
+
+
+
+```
+
+## 2.2 Using the previously computed moving average, detrend the log-transformed variable.
+
+Store the result in a new column within `ts_data` called `log_detrended`
+
+Then create a timeplot of the `log_detrended`
+
+```{r}
+
+ts_data_log <- 
+  ts_data %>%
+  mutate(
+      log_detrended = value - log_trend_class,
+    )
+ts_data_log %>% autoplot(log_detrended)
+
+```
+
+## 2.3 Compute the ACF plot of log-transformed time series and of `log_detrended`
+
+Compare both ACF plots (max 50 words) and explain how they differ and why.
+
+```{r}
+ 
+lg = ts_data_log %>%  ACF(log_value) 
+dt = ts_data_log %>% ACF(log_detrended)
+
+autoplot(lg)
+autoplot(dt)
+
+```
+
+------------------------------------------------------------------------
+
+**YOUR ANSWER GOES HERE** (50 words MAX)
+
+## In the log-transformed time series ACF we only see the trend and no season while in the detrended we can finally see that there is seasonality.
+
+# 3. (3 points)
+
+## 3.1 Perform an STL decomposition and a classical decomposition (using `classical_decomposition()`)
+
+-   store the components of the STL decomposition in `stl_dcmp`
+-   store the components of the classical decomposition in `class_dcmp`
+
+```{r}
+
+stl_dcmp =  ts_data_log %>%
+  model(stl = STL(value)) %>% 
+components()
+
+
+class_dcmp= ts_data_log %>%
+  model(
+    classical = classical_decomposition(value, type = "multiplicative")
+  ) %>% 
+  components() 
+  
+
+  
+```
+
+## 3.2
+
+Create two time plots, one for the seasonal component of `stl_dcmp` and one of the seasonal component of `class_dcmp`.
+
+Then explain how they differ.
+
+```{r}
+stl_dcmp %>% autoplot()
+
+class_dcmp %>% autoplot()
+
+
+```
+
+------------------------------------------------------------------------
+
+QUESTION: How do both seasonal components differ?
+
+Seasonal components differ because in the STL decomposition the seasons are not constant , their variance increases by the end while in the classical decomposition, because it assumes the season is constant, the peaks have the same size.
+
+------------------------------------------------------------------------
+
+## 3.3 Compare the `trend_class` you previously computed with the trend returned by classical decomposition. Do they match? (answer this question with a single boolean TRUE or FALSE)
+
+```{r}
+all.equal(ts_data$log_trend_class,class_dcmp$trend)
+```
+
+# 4. (1.5 points)
+
+Time series data wrangling
+
+
+FEEDBACK: CONGRATSSSS!!!! YOU GOT THIS. VERY GOOD :)
+
+# 4.1 Using:
+
+-   `dplyr::last()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the last value of every quarter.
+
+You may use `?dplyr::last()` on the console to get information about how to use last.
+
+```{r}
+
+ts_quarterly = ts_data %>% index_by(ym) %>% summarise(quarterly= last(log_value))
+
+```
+
+## 4.2 Using the functions:
+
+-   `dplyr::last()`
+-   `dplyr::first()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the mean of the first and last value of every quarter.
+
+You may use `?dplyr:first()` and `?dplyr::last()` on the console to get information about how to use last and first
+
+```{r}
+
+ts_quarterly = ts_data %>% index_by(ym) %>% summarise(quarterly = mean(first(log_value),last(log_value)))
+
+
+```
+
+
+FEEDBACK: ONE OF THE BEST EXAMS, KEEP IT UP!!! PAY ATTENTION TO USING TRANSFORMED DATA OR ORIGINAL DATA THOUGH.

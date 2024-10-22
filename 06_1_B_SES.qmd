@@ -116,47 +116,54 @@ Therefore, these forecasts will only be suitable if the **time series has no tre
 
 The **fitted values** on the other hand **will not be constant**. They will be *one-step ahead forecasts* based on all the preceding datapoints.
 
-### Component form
+### Component form of equations
 
 Together, the *forecast equation* and the *smoothing equation* constitute the **component form of simple exponential smoothing**. This form is completely equivalent to the weigthed average form. In fact it is derived form it, as shown in the separate .pdf and accompanying video.
 
 $$
 \begin{align*}
-  \text{Forecast equation}  && \hat{y}_{t+h|t} & = \ell_{t}\\
+  \text{Forecast equation}  && \hat{y}_{T+h|T} & = \ell_{T}\\
   \text{Smoothing equation} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
 \end{align*}
 $$
 where: 
 
-* $\hat{y}_{t+h|t}$ is the forecast at $t+h$ given everything occurred up to $t$.
+* $\hat{y}_{T+h|T}$ is the forecast at $T+h$ given everything occurred up to $T$, with $T$ being the last point in the training data.
 * $\alpha$ is the smoothing parameter of the model.
 * $l_t$ is the level of the time series at time $t$. 
-    * Since fitted values are one-step ahead forecasts on the training data, if we set $h=1$ on the forecast equation we see that $l_t$ is actually $\hat{y}_{t+1|t}$, that is, the fitted value at time $t+1$.
-    * The value of the level at $t=T$ (at the last point where data is available) is therefore $\hat{y}_{T+1|T}$. 
-        * Since SES produces flat forecasts by design, this is equal to $\hat{y}_{T+h|T}$, the flat (constant) forecast of SES.
 
-**IMPORTANT:**
+### Equations for the fitted values
 
-* setting $h=1$ gives the equations for the fitted values (one-step ahead forecasts on the training data).
-* setting $t=T$ (last point for which data is available) gives the true forecasts beyond the trainig data.
+By definition, fitted values are *one step-ahead forecasts on the training data*. That is $\hat{y}_{t|t-1}$.
 
-The component form is more useful from a computational standpoint. For Simple Exponential Smoothing it might seem unnecessary, but it will be most convenient when more components are added in the trended and seasonal forms of exponential smoothing.
-
-For simple exponential smoothing the component equations can be interpreted as follows:
-
--   **The forecast equation** shows that the forecast value at time $t+1$ is the estimated level at time $t$ (simply set $h=1$ in the forecast equation):
+To obtain the equations for the fitted values out of the component form of the equations, we need therefore to set $h=1$. This yields:
 
 $$
 \begin{align*}
-\hat{y}_{t+1|t} = l_{t} && \text{(forecast equation for h=1)}
+  \text{Forecast equation at t=T+1 (with h=1)}  && \hat{y}_{T+1|T} & = \ell_{T}\\
+  \text{Smoothing equation at t=t} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
 \end{align*}
 $$
 
--   **The smoothing equation for the level** (a.k.a level equation) gives the estimated level of the series at time t as a **weighted average between the value of the series at time $t$ (that is, $y_t$) and the level of the time series at $t-1$ (that is, $l_{t-1}$)**. It is a weighted average because the coefficients of $y_t$ and $l_{t-1}$ add up to 1 ($\alpha + (1-\alpha) = 1$):
+In order to be able to apply both the forecast and the smoothing equation at time a generic point in time $t$, we need both equations to be particularized at that point. We therefore do the **change of variable on the forecast equation** $t=T+1 \rightarrow T=t-1$. That is, in the equations above, we will replace $T$ with $t-1$. With this, the equations turn into:
 
 $$
-l_{t} = \alpha y_{t} + (1 - \alpha)l_{t-1}
+\begin{align*}
+  \text{Forecast equation at t=t (with h=1)}  && \hat{y}_{t|t-1} & = \ell_{t-1}\\
+  \text{Smoothing equation at t=t} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
+\end{align*}
 $$
+
+Together, the two equations above can be used to obtain the **fitted values**. That is, given $\alpha$ and $l_0$, those two equaions can be used to compute the fitted values at every point $t=1, 2, \cdots, T$.
+
+$$
+\begin{align*}
+  \text{Equation for fitted value at t=t}  && \hat{y}_{t|t-1} & = \ell_{t-1}\\
+  \text{Smoothing equation at t=t} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
+\end{align*}
+$$
+
+For further details on this, see the associated .pdf and the explanations given in class or in video format..
 
 ### Finding best values for $l_0$ and $\alpha$ (i.e. fitting the model)
 
@@ -182,15 +189,16 @@ $$
 \text{SSE} = \sum_{t=1}^T(y_t - \hat{y}_{t|t-1})^2=\sum_{t=1}^Te_t^2.
 $$
 
-For Simple Exponential Smoothing this is a non-linear minimization problem that has no explicit solution. Therefore, it needs to be solved numerically, typically using iteration to choose the values of $\alpha$ and $l_0$ that minimize the SSE. The process could be summarized as follows:
+For Simple Exponential Smoothing this is an optimization problem that has no explicit solution. Therefore, it needs to be solved numerically, typically using iteration to choose the values of $\alpha$ and $l_0$ that minimize the SSE. The process could be summarized as follows:
 
 ```{r, echo=FALSE, out.width='70%', fig.align="center", fig.cap=""}
+# TODO: replace to produce forecasts
 knitr::include_graphics('./figs/ses_fit.png')
 ```
 
 You may recall that for Linear Regression there are explicit formulas providing the solution the problem of minimizing the SSE. This is not the case in SES.
 
-**Step 2 of the fitting process above** requires **computing the fitted values given $\alpha$ and $\l_0$ using the component equations.** A separate **excel file** is provided to illustrate this process. The video accompanying this lesson shows how to fill this excel file.
+**Step 2 of the fitting process above** requires **computing the fitted values given $\alpha$ and $l_0$ using the component equations.** A separate **excel file** is provided to illustrate this process. The video accompanying this lesson shows how to fill this excel file.
 
 ## Model specification in `fable()` - example
 

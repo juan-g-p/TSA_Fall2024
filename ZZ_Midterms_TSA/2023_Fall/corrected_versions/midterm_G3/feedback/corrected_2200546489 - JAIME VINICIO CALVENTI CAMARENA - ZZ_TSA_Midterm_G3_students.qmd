@@ -1,0 +1,211 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import Data
+
+Run the code below. A pop-up window will appear. Select the file `ts_data.csv` provided along with the exam
+
+```{r}
+ts_data <- 
+  read.csv(file.choose()) %>% 
+    mutate(
+      ym = yearmonth(start_timestamp)
+    ) %>% 
+    as_tsibble(index = ym) %>% 
+    select(ym, value)
+
+view(ts_data)
+```
+
+# 1. (2.5 points)
+
+Create two plots: a plot of the original time series `value` and a plot of the log-transformed time series.
+
+They should have major breaks every year and minor breaks every four years.
+
+Then answer the question.
+
+FEEDBACK: WHERE IS THE LOG TRANSFORMED DATA? BREAKS ARE WRONG....
+
+```{r}
+ts_data %>% autoplot() +
+  
+  scale_x_yearmonth(
+    breaks = "1 years",
+    minor_breaks = "1 year"
+  )
+```
+
+------------------------------------------------------------------------
+
+QUESTION: What does the log transformation attain?
+
+**The log transformation attains a repeating pattern that represents seasonality. Using monthly data, the seasonal period would be m = 12 (month)**
+
+------------------------------------------------------------------------
+
+# 2. (3 points)
+
+## 2.1
+
+Create new column wihin `ts_data` with a moving average of the log-transformed time series. Use the same moving average as classical decomposition would.
+
+Call that moving average `log_trend_class`.
+
+Then create a new time-plot of the log transformed series with `log_trend_class` superimposed.
+
+feedback: computed 3-ma, needed 2x12 MA
+
+```{r}
+ts_data = ts_data %>% mutate('log_trend_class' = slider::slide_dbl(value, mean,
+                               
+                #.complete = TRUE -> function evaluated only on full windows
+                # This means that the MA will not be computed for the first
+                # and last three points of the time series
+                .before = 3, .after = 3, .complete = TRUE)) 
+
+view(ts_data)
+ts_data %>% select(log_trend_class, ym) %>% autoplot() +
+  
+  scale_x_yearmonth(
+    breaks = "1 years",
+    minor_breaks = "1 year"
+  )
+```
+
+## 2.2 Using the previously computed moving average, detrend the log-transformed variable.
+
+Store the result in a new column within `ts_data` called `log_detrended`
+
+Then create a timeplot of the `log_detrended`
+
+```{r}
+ts_data = ts_data %>% mutate('log_detrended' = value/log_trend_class)
+
+view(ts_data)
+
+ts_data %>% select(log_detrended, ym) %>% autoplot() +
+  
+  scale_x_yearmonth(
+    breaks = "1 years",
+    minor_breaks = "1 year"
+  )
+```
+
+## 2.3 Compute the ACF plot of log-transformed time series and of `log_detrended`
+
+Compare both ACF pots (max 50 words) and explain how they differ and why.
+
+feedback: where is the acf of the log transformed data?
+
+feedback: your correlogram clearly shows seasonality. Very wrong interpretation
+
+```{r}
+ts_data %>% select(log_detrended, ym) %>% ACF() %>%
+  autoplot() 
+
+```
+
+------------------------------------------------------------------------
+
+The series exhibits cycles of approximately 6 years with a spike at lag of 12 years of the monthly data. The correlogram shows no seasonality nor any trend within the data.
+
+------------------------------------------------------------------------
+
+# 3. (3 points)
+
+## 3.1 Perform an STL decomposition and a classical decomposition (using `classical_decomposition()`)
+
+-   store the components of the STL decomposition in `stl_dcmp`
+-   store the components of the classical decomposition in `class_dcmp`
+
+```{r}
+stl_dcmp_1 = ts_data %>%
+ model(stl_dcmp = STL(value)) %>%
+ components()
+
+
+class_dcmp_1 =  ts_data %>%
+ model(class_dcmp = classical_decomposition(value)) %>%
+ components()
+
+```
+
+## 3.2
+
+Create two time plots, one for the seasonal component of `stl_dcmp` and one of the seasonal component of `class_dcmp`.
+
+Then explain how they differ.
+
+```{r}
+stl_dcmp_1 %>% autoplot()
+
+class_dcmp_1 %>% autoplot()
+
+```
+
+------------------------------------------------------------------------
+
+QUESTION: How do both seasonal components differ?
+
+FEEDBACK: SEASONAL COMPONENT OF CLASS DCMP IS CONSTANT, THE OTHER IS NOT
+
+**The seasonal components differ with the STL decomposition have a higher variance within all elements compared to the classical decomposition. In terms of similarity both contain the same seasonality and trend.**
+
+------------------------------------------------------------------------
+
+## 3.3 Compare the `trend_class` you previously computed with the trend returned by classical decomposition. Do they match? (answer this question with a single boolean TRUE or FALSE)
+
+FEEDBACK: YOU WHERE SUPPOSSED TO USE ALL EQUAL FOR COMPARISON, AS WE HAD DONE IN CLASS AND IN THE ASSIGNMENTS
+
+```{r}
+class_dcmp_1 =  ts_data %>%
+ model(class_dcmp = classical_decomposition(log_trend_class)) %>%
+ components()
+
+class_dcmp_1 %>% autoplot()
+
+FALSE
+```
+
+# 4. (1.5 points)
+
+Time series data wrangling
+
+# 4.1 Using:
+
+-   `dplyr::last()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the last value of every quarter.
+
+You may use `?dplyr::last()` on the console to get information about how to use last.
+
+```{r}
+ts_quarterly = ts_data %>% yearquarter(ymd("2017-01-31")) %>% last(value, order_by = NULL, default = NULL, na_rm = FALSE)
+
+```
+
+## 4.2 Using the functions:
+
+-   `dplyr::last()`
+-   `dplyr::first()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the mean of the first and last value of every quarter.
+
+You may use `?dplyr:first()` and `?dplyr::last()` on the console to get information about how to use last and first
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+FEEDBACK:
+
+YOU NEED TO PRACTICE MORE AND REACH A DEEPER UNDERSTANDIN OF BOTH THE CODE AND THE CONCEPTS. PAY MORE ATTENTION IN CLASS. THIS WONT CUT IT FOR THE FINAL.

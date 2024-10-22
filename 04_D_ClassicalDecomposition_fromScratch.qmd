@@ -481,6 +481,18 @@ $$
 
 We may check that this correction also fulfills the desired condition:
 
+```{r, eval=FALSE, include=FALSE}
+# TODO: COMPROBAR SI ESTA CORRECTION ES CORRECTA
+df_seasonal <- df_seasonal %>%
+  mutate(
+    seasonal_c = s_unadj / mean(s_unadj, na.rm = TRUE)  # Normalize seasonal component
+  ) %>%
+  select(n_month, seasonal_c) 
+
+#
+```
+
+
 $$
 \begin{align*}
 \sum_{i=1}^{m}S_i = \sum_{i=1}^{m}(S_{unadj\text{ i}} + x_i) = \sum_{i=1}^{m}(S_{unadj\text{ i}}) + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m})) = \\ a  + \sum_{i=1}^{m}(m \cdot \frac{S_{unadj\text{ i}}}{a} \cdot (1-\frac{a}{m}))

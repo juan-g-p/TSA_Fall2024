@@ -1,0 +1,262 @@
+---
+title: "Untitled"
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(fma)
+library(readr)
+```
+
+## 1. Transform data to an appropriate granularity (1.5 points)
+
+The `pedestrian` dataset is loaded along with the fpp3 library
+
+This dataset contains hourly pedestrian counts from 2015-01-01 to 2016-12-31 at 4 sensors in the city of Melbourne.
+
+* **Sensor**: name of the sensor (key of the tsibble).
+* **Date_time**: time when the pedestrian couns are recorded (time index).
+* **Date**: date at which the pedestrian counts are recorded.
+* **Time**: hour associated with **Date_Time**.
+* **Counts**: hourly pedestrian counts.
+
+We want to aggregate this data to compute the **total number of pedestrians measured by each sensor in a day**. More specifically, we want to compute this for: 
+
+1. Only two sensors (filter out the rest of the sensors):
+
+    * "Southern Cross Station"
+    * "Bourke Street Mall (North)"
+    
+2. The time period comprised between "2016-07-01" and "2016-10-25".
+
+**WRITE BELOW THE CODE THAT PERFORMS THIS AGGREGATION**. 
+
+  * Note that the variable `Date` already gives you the day to which each data point corresponds. Use it.
+
+```{r}
+scs_pedestrians %>%
+  
+
+  filter((Sensor >= "Southern Cross Station" & Sensor<= "Bourke Street Mall (North)")) 
+
+ 
+```
+
+**CREATE A SINGLE GRAPH CONTAINING ONE TIME PLOT FOR EACH OF THE TWO SENSORS (single graph with two curves)**
+
+  * Use minor breaks every week and labelled breaks every 5 weeks
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+```
+
+**FOR EACH SENSOR, DETERMINE THE DAY AT WHICH THE GREATEST NUMBER OF PERSONS IS MEASURED**
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+```
+
+## 2. Load the data (0 points)
+
+The snippet below loads the daily aggregated data measuring the number of pedestrians at the `Southern Cross Station` sensor in the city of Melbourne. It also transforms it to a tsibble.
+
+Run the code and a pop-up window will appear. Select the file **scs_daily_pedestrian.csv** that has been provided along with the exam.
+
+```{r, eval=FALSE}
+scs_pedestrians <- 
+  read.csv(file.choose()) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  as_tsibble(index=Date)
+
+scs_pedestrians
+
+autoplot(scs_pedestrians)
+```
+
+## 3. Time plot (2 points)
+
+Create a time plot of the series, set minor breaks every week and major breaks every 5 weeks.
+
+FEEDBACK: CODE DOES NOT RUN. WE HAD DONE THIS EXERCISE IN CLASS TEN TIMES... IT WAS A PRESENT.
+
+```{r}
+
+scs_pedestrians <- 
+  scs_pedestrians %>% 
+  mutate(
+    week = yearweek(Date)
+  )
+
+scs_pedestrians %>% 
+  
+  autoplot(scs_pedestrians) + 
+  
+  scale_x_datetime(
+    breaks = "5 weeks",
+    minor_breaks = "1 week"
+  
+  
+  )
+```
+
+Based on the time-plot, which **length of the seasonal period would you consider from this data and why?. Specify the value you would use for m, what we have called the length of the seasonal period**.
+
+------
+
+YOUR ANSWER GOES HERE (MAX 30 WORDS)
+
+------
+
+## 4. Time Series decomposition (3 points)
+
+First, run the following code to create a new variable within `scs_pedestrians` containing the mean value of the time series:
+
+```{r}
+scs_pedestrians$mean_val = mean(scs_pedestrians$Count, na.rm = TRUE)
+
+scs_pedestrians
+```
+
+### 4.1 Use an appropriate moving average to compute the trend of the time-series as **classical_decomposition** would. Then depict the time series along with this trend estimate and the `mean_val` computed just before. Use a dahsed line for the `mean_val`.
+
+* Store the trend in a column called `trend_class` within `scs_pedestrians`
+
+FEEDBACK: THIS IS NOT WHAT I ASKED YOU TO DO. YOU OBVIOUSLY DID NOT READ THE GROUP ASSIGNMENT AT ALL.
+
+```{r}
+
+dcmp_classic <- 
+  scs_pedestrians %>% 
+  model(
+    classical = classical_decomposition(Count)
+  ) %>% 
+  components(mean_val)
+
+dcmp_classic %>% autoplot()
+
+
+```
+
+### 4.2 Based on the previous grqph, which of the following models would you pick to produce forecasts of up to 1 week ahead?
+
+* Mean model
+* Drift
+* Seasonal Naive model
+
+------
+
+Mean model. It would provide a clear view for the forcasts based on actual data. The random component won't influence the mean to an extent where it would affect a correct forecast
+
+------
+
+## 5. Fitting models (3.5 points)
+
+### 5.1 Fit the following models and store the result in a variable called `fit`.
+
+Use the following names
+
+* `mean`: mean model
+* `drift`: drift model
+* `snaive`: seasonal naive model
+
+**The three models must be included within the same fitted object**.
+
+feedback: why do you fit so many models? stop doing copy-pasting and start to understand the dcode. This wont cut it to pass the subject.
+
+```{r}
+
+fit <-
+  scs_pedestrians %>% 
+  model(
+    snaive = SNAIVE(Count),
+    ses = ETS(Count ~ error("A") + trend ("N") + season("N")),
+    drift = RW(Count ~ drift()),
+    dcmp_ses = decomposition_model(
+                  STL(Count ~ trend(window=4) + season(window=4)),
+                  ETS(season_adjust ~ error("A") + trend ("N") + season("N")),
+                  SNAIVE(seasonal())
+                ),
+    dcmp_drift = decomposition_model(
+                  STL(Count ~ trend(window=4) + season(window=4)),
+                  RW(season_adjust ~ drift()),
+                  SNAIVE(seasonal)
+                )
+  )
+  
+
+```
+
+#### 5.2 Perform forecasts of up to one week ahead. The produce two figures
+
+1. Forecasts of the seasonal naïve model (including prediction intervals)
+2. Forecasts of the mean model (including prediction intervals)
+
+FEEDBACK: see solution. you have no idea what you are doing and are pasting code at random
+
+```{r}
+
+STL_defaults <- 
+  scs_pedestrians %>% 
+    model(
+      stl = STL(Count)
+    ) %>% 
+  components()
+
+STL_defaults %>% autoplot()
+
+STL_adjust <- 
+  scs_pedestrians %>% 
+    model(
+      stl = STL(Count ~ trend(window=5) + season(window=5))
+    ) %>% 
+  components()
+
+STL_adjust %>% autoplot()
+
+scs_pedestrians <- fit %>% forecast(h = 12)
+
+STL_adjust %>% 
+  ACF(remainder) %>% 
+  autoplot()
+
+```
+
+#### 5.3 Residuals of the mean model
+
+Analyze the residuals of the mean model. Specifically do the following
+
+##### 5.3.1. Produce an autocorelation plot (a.k.a correlogram) of:
+
+1. The original time series `Count` in `scs_pedestrians`.
+2. The innovation residuals of the `mean` model.
+
+```{r}0
+
+```
+
+Then compare both ACFs below
+
+------
+
+COMPARE BOTH ACF PLOTS (Max 50 words)
+
+------
+
+##### 5.3.2 Analyze whether the residuals of the mean model are biased or not
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+```
+
+------
+
+YOUR ANSWER GOES HERE (30 words max)
+
+------
+
+FEEDBACK: I think it is clear what you need to do: pay attenetion in class, study everything including the fundamentals of R. Practice. This is insufficient to pass the subject and I wound doubt to fail a person if I have to.

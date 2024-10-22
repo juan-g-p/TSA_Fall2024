@@ -1,0 +1,287 @@
+---
+title: "ZZ_TSA_G1_2023Fall_Midterm"
+editor: source
+params:
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+## INSTRUCTIONS
+
+1. Do not add additional code snippets. You may add more to play around, but in the end only the code snippets created within the exam shall be delivered.
+2. Stick to the word count when providing written answers. Be as clear and brief as possible.
+
+## 0. Load libraries
+
+If you do not load the libraries, subsequent code to load the dataframe will not work.
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+## 1. Import the .csv data and format it as a tsibble (**0 points**)
+
+The file is in the datasets folder: **spain_unemployment_format.csv**
+
+Run the code below and a pop-up window will appear prompting you to select the file.
+
+```{r, eval=FALSE}
+unemp <- readr::read_csv(file.choose())
+
+# Convert column "date" to a yearmonth object
+unemp <- unemp %>% 
+      mutate(date = yearmonth(date)) %>% 
+      as_tsibble()
+
+unemp
+```
+
+## 2. Graphical analysis (3 points)
+
+### 2.1 Generate a timeplot of the data, adjusting its grid adequately to signal at least the end of every year.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+unemp %>% autoplot() + scale_x_yearmonth(breaks = "1 year" , minor_breaks = "1 year") +
+    theme(axis.text.x = element_text(angle = 90))
+# DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+### 2.2 Approximate the trend of the graph using an appropriate moving average. Then depict the timeplot again, with both the original time series and the resulting estimate of the trend. Adjust the x-grid so that the end of every year is clear.
+
+Requirements:
+
+1. **Compute the moving average as a classical decomposition would**.
+2. Store the result in a new variable (column) within `unemp` called `trend_class`.
+3. Plot the time series in one color and the trend in another color.
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+unemp <- unemp %>%
+  mutate(
+    
+    `12-MA` = slider::slide_dbl(unemp, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    trend_class = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+    
+  )
+  
+  
+
+unemp %>%
+  autoplot(unemp) +
+  
+  geom_line(aes(y = trend_class), colour = "#D55E00") +
+  
+  labs(y = "Number of unemployment",
+       title = "Total Spanish unemployment")
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+### 2.3 Remove `trend_class` from the time series, that is, compute the **detrended time series**. Store it in a new variable (column) within `unemp` called `detrended_class`
+
+**NOTE**: if you failed to compute the trend component in the previous question, you may compute the classical decomposition using `classical_decomposition()` and use the trend resulting from it to detrend the time series.
+
+Requirements:
+
+1. Store the result in a new variable (column) called `detrended_class` within `unemp`
+2. Depict the detrended component on a time-plot with a grid that signals the end of every year.
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+unemp <- unemp %>% 
+  mutate(
+    detrended_class = unemp - trend_class
+  )
+
+unemp %>% autoplot(detrended_class) + scale_x_yearmonth(breaks = "1 year" , minor_breaks = "1 year") +
+    theme(axis.text.x = element_text(angle = 90))
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+### 2.4 Compute the ACF plots indicated below. Also answer the question below:
+
+1. ACF plot of the original time series
+2. ACF plot of the detrended time series
+
+Q1: WHICH IS THE LENGTH OF THE SEASONAL PERIOD AND WHERE DO YOU SEE IT?
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+unemp %>% ACF(unemp) %>% autoplot()
+unemp %>% ACF(detrended_class) %>% autoplot()
+
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+------
+
+The length of the seasonal period is yearly so m = 12. We can clearly see that in the acf plot of the detrended time series since we have strong positive spikes for multiples of 12 and in between that strong negative spikes
+------
+
+# 3. STL Decomposition (**2.5 points**)
+
+Perform an STL decomposition. Specifically, create two stl decompositions:
+
+1. STL decomposition with default arguments. Name the dataframe containing the components `stl_default`.
+2. STL decomposition with adjusted parameters. Adjust the parameters you deem necessary to improve the decomposition and name the dataframe containing the components `stl_adjust`.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+stl_default <- 
+  unemp %>%
+  model(stl = STL(unemp)) %>%
+  components()
+
+stl_default %>% autoplot()
+
+stl_adjust <- unemp %>%
+  model(stl = STL(unemp ~ trend(window = 5) + season(window = 5))) %>%
+  components()
+
+stl_adjust %>% autoplot()
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+# 4. Fitting two models (**3 points**)
+
+## 4.1 Fitting the models
+
+Fit the models below to the variable `unemp` (that is, to the original time series):
+
+1. `decomposition_model()` using the **drift model** for the *seasonally adjusted series* and **seasonal naïve model** for the *seasonal component*. Call this model `dcmp_drift`.
+  * For the **stl decomposition, adjust the parameters as you did in exercise 3.**
+2. `decomposition_model()` using a **simple exponential smoothing** model for the *seasonally adjusted series* and a **seasonal naïve model** for the *seasonal component*. Call this model `dcmp_stl`.
+  * For the **stl decomposition, adjust the parameters as you did in exercise 3.**
+  
+Store the result of fitting the models in a variable called `fit`
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+fit <-
+  unemp %>% 
+  model(
+    dcmp_drift = decomposition_model(
+                  STL(unemp ~ trend(window=5) + season(window=5)),
+                  RW(season_adjust ~ drift()),
+                  SNAIVE(season_year)),
+                  
+    dcmp_stl = decomposition_model(
+                  STL(unemp ~ trend(window=5) + season(window=5)),
+                  ETS(season_adjust ~ error("A") + trend ("N") + season("N")),
+                  SNAIVE(season_year)
+                )
+                )
+  
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+## 4.2 Performing forecasts
+
+Perform 12 step ahead forecasts (1 year) using both models. Store the results in a variable called `fc`.
+
+Then depict the forecasts along with the original time series and the corresponding confidence intervals. Create one figure per model.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+fc <- fit %>% forecast(h = 12)
+
+fc %>% 
+  filter(.model == "dcmp_drift") %>% 
+  autoplot(unemp)
+
+fc %>% 
+  filter(.model == "dcmp_stl") %>% 
+  autoplot(unemp)
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+# 4.3 Analyze the residuals of the `dcmp_drift` model.
+
+Analyze **only normality and heteroskedasticity of the residuals** of the model.
+
+**NOTE**: since you have two models in `fit`, to use the `gg_tsresiduals()` command you need to select only one of them first. If you have named them as I indicated, the following code should do the trick. Add additional graphs and tests you deem necessary.
+
+```{r, eval=FALSE}
+fit %>% 
+  select(dcmp_drift) %>% # Select only dcmp_drift
+  gg_tsresiduals()
+
+
+```
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+model_vals <- fit %>% augment()
+#model_vals %>% as_tibble() %>%
+  #filter(.model == "dcmp_drift") %>%
+  #summarise(mean = mean(.innov, na.rm = TRUE))
+
+mean_vals <- filter(model_vals, .model=="dcmp_drift")
+
+# Generate qq_plot
+p1 <- ggplot(mean_vals, aes(sample = .innov))
+p1 <- p1 + stat_qq() + stat_qq_line()
+
+# Generate box-plot
+p2 <- ggplot(data = mean_vals, aes(y = .innov)) +
+      geom_boxplot(fill="light blue", alpha = 0.7) +
+      stat_summary(aes(x=0), fun="mean", colour= "red") # Include the mean
+
+p1 + p2
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+------
+
+Analyzing the residuals: in many intervals of the time series they seem to comply with heteroscedacity, however we can see that there are several points in time where the variance of theresiduals is much higher like in 2006 -2008 or 2019-2021 which can both seen as outliers due to the underling crisises (financial and covid)
+
+Normality of the residuals: The distribution of the residuals is not completely normal, since the distribution has a long riht tail. Which the qq-plot confirms as well as the boclot since the mean and the medium differ quite a bit.
+
+------
+
+# 5. STL decomposition comparison (**1.5 points**)
+
+This points builds on the result of point 3. Consider the two decompositions `stl_default` and `stl_adjust` fitted in point 3.
+
+1. Plot the ACF of the remainder of both decompositions.
+2. Compute a single number that measures the amount of autocorrelation left in the remainder of each decomposition.
+
+  * For `stl_default` call this single number `corr_metric_default`
+  * For `stl_adjust` call this single number `corr_metric_adjust`
+  * Check that `corr_metric_adjust` < `corr_metric_default`.
+  * Compute `corr_metric_default / corr_metric_adjust`. Give a short interpretation of the result
+
+```{r, input=!params$print_sol}
+## YOUR CODE GOES HERE
+stl_default %>% ACF(remainder) %>% autoplot()
+stl_adjust %>% ACF(remainder) %>% autoplot()
+
+#corr_metric_default <- stl_default %>% ACF(remainder)
+#corr_metric_default <- sum(corr_metric_default$acf)
+#corr_metric_adjust <- stl_adjust %>% ACF(remainder)
+#corr_metric_adjust <- sum(corr_metric_adjust$acf)
+
+corr_metric_default <- stl_default %>% features(remainder, feat_acf)
+corr_metric_default <- corr_metric_default$acf1
+
+corr_metric_adjust <- stl_adjust %>% features(remainder, feat_acf)
+corr_metric_adjust <- corr_metric_adjust$acf1
+
+stl_adjust %>% features(remainder, feat_acf)
+
+print(corr_metric_adjust < corr_metric_default)
+
+corr_metric_default / corr_metric_adjust
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+------
+
+The result is the ratio of the 2 autocorrelations and will tell us how much higher the autocorrelation in the default is than in the adjusted
+------

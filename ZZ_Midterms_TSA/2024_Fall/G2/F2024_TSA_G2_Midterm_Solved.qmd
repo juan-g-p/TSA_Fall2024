@@ -1,0 +1,197 @@
+---
+title: "Untitled"
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(readr)
+```
+
+# 0. Import data
+
+```{r}
+demand_hdata <- 
+  read_csv("F2024_TSA_G2_Midterm_Data.csv") %>% 
+  as_tsibble(index=timestamp)
+
+demand_hdata
+```
+
+# 1. Basic plots (3.5 points)
+
+# 1.1 Create a timeplot of the data. Adjust the grid so that we clearly see the end of every week (major breaks) and the end of every day (minor breaks)
+
+```{r}
+demand_hdata %>% 
+  autoplot() +
+  scale_x_datetime(breaks = "1 week",
+                   minor_breaks = "1 day") 
+```
+
+# 1.2 Looking at the previous timeplot, describe if you would expect any seasonal behavior. If so, specify the length of the seasonal period m (the number of timesteps that make up a period).
+
+---------
+
+YOUR ANSWER GOES HERE - 40 words max
+
+---------
+
+# 1.3 Create an ACF plot of the data. Give an interpretation of this plot
+
+```{r}
+demand_hdata %>% 
+  ACF(lag_max=24*6) %>% 
+  autoplot()
+```
+
+---------
+
+YOUR ANSWER GOES HERE - 40 words max
+
+---------
+
+# 2. Decomposition (5 points)
+
+# 2.1 Estimate the trend using the same algorithm as classical decomposition would. DO NOT use the function `classical_decomposition()`, perform the computation manually. Store the resulting trend and any intermediate operations in a dataframe (tsibble) called `manual_dcmp`
+
+
+
+```{r}
+manual_dcmp <- 
+  demand_hdata %>% 
+  mutate(
+    `24-MA` = slider::slide_dbl(total_demand, mean,
+                .before = 11, .after = 12, .complete = TRUE),
+    trend = slider::slide_dbl(`24-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+    
+  )
+
+# Plot the computed trend
+manual_dcmp %>%
+  autoplot(total_demand, colour = "gray") +
+  geom_line(aes(y = trend), colour = "#D55E00")
+  
+```
+
+# 2.2 Now use the function `classical_decomposition()`. Store the resulting components in a variable calles `class_dcmp`. Compare the trend in `class_dcmp` to the trend in `manual_dcmp`. If you did things properly, they should perfectly match.
+
+```{r}
+class_dcmp <- 
+  demand_hdata %>% 
+  model(
+    class_dcmp = classical_decomposition(total_demand, type = "additive")
+  ) %>% 
+  components()
+
+all.equal(class_dcmp$trend, manual_dcmp$trend)
+```
+
+# 2.3 Detrend the time series assuming it is additive and perform any additional necessary steps to obtain the seasonal component that an additive classical decomposition would return. Store that seasonal component in the tsibble `manual_dcmp`. Then compare the seasonal component in `manual_dcmp` to the seasonal component in `class_dcmp`. If you did things properly, both should match.
+
+```{r}
+# 1. Detrend the series
+manual_dcmp <- 
+  manual_dcmp %>% 
+  mutate(
+    detrended = total_demand - trend,
+    hour = hour(timestamp)
+  ) 
+
+df_seasonal <- 
+  
+  manual_dcmp %>% 
+
+  as_tibble() %>% # fdor group_by to work properly 
+  
+  # group by the created identifier
+  group_by(hour) %>%
+  
+  # compute the average seasonal component for every month
+  summarise(
+    s_unadj = mean(detrended, na.rm = TRUE)
+  ) %>%
+  
+  ungroup() %>% 
+  
+  # Turn back into a tsibble
+  as_tsibble(index = hour)
+
+a = sum(df_seasonal$s_unadj)
+
+df_seasonal <- 
+  df_seasonal %>% 
+  mutate(
+    seasonal_c = s_unadj - a / 24
+  )
+
+df_seasonal %>% autoplot()
+
+manual_dcmp <- 
+  left_join(manual_dcmp, 
+            df_seasonal, 
+            by="hour")
+
+all.equal(manual_dcmp$seasonal_c, class_dcmp$seasonal)
+
+```
+
+# 2.4 Obtain the remainder component and check it. Do you think it corresponds to a good decomosition?
+
+```{r}
+manual_dcmp <-  
+  manual_dcmp %>% 
+  mutate(
+    remainder = detrended - seasonal_c
+  )
+
+manual_dcmp %>% 
+  ACF(remainder) %>% 
+  autoplot()
+```
+
+---------
+
+YOUR ANSWER GOES HERE - 40 words max
+
+---------
+
+# 2.5 Use `autoplot()` to depict the decomposition obtained in 2.2, which you stored in `class_dcmp`. Assess the decomposition however you see fit, judging whether it is good or not and why.
+
+```{r}
+class_dcmp %>% 
+  autoplot()
+```
+
+---------
+
+YOUR ANSWER GOES HERE - 50 words max
+
+---------
+
+# 3. Time series data wrangling (1.5 points)
+
+The dataset `vic_elec` contains half hourly electricity demand in the region of Victoria (Australia). It is loaded along with the `fpp3`
+
+# 3.1 Perform any necessary operation to retain only data corresponding to January 2012. Store the result in `vic_elec_201201`
+
+```{r}
+vic_elec_j2012 <-  
+  vic_elec %>% 
+  # mutate(month = yearmonth(Time)) %>% 
+  # filter(month == yearmonth("2012 Jan"))
+  filter(yearmonth(Time) == yearmonth("2012 Jan"))
+```
+
+# 3.2 The command `lubridate::floor_date(Time, "hour")` allows you to truncate the column "Time" to hourly accuracy. Use this to compute the total demand (sum) every hour instead of every half hour.
+
+```{r}
+vic_elec_j2012 %>% 
+  mutate(hour=lubridate::floor_date(Time, "hour")) %>% 
+  select(Time, hour, everything()) %>% 
+  index_by(hour) %>% 
+  summarize(total_demand = sum(Demand)) %>% 
+  autoplot()
+```

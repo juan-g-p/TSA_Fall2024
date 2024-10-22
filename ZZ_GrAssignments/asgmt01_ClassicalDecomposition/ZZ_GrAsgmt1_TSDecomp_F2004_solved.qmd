@@ -36,7 +36,7 @@ autoplot(a10, Cost) +
        title = "Australian antidiabetic drug sales")
 ```
 
-## 1.1 
+## 1.1
 
 Using the function `classical_decomposition`, obtain the components. Store them in an object called class_dcmp1
 
@@ -52,7 +52,7 @@ class_dcmp1 <-
 class_dcmp1 %>% autoplot()
 ```
 
-# 1.2 
+# 1.2
 
 Obtain the same decomposition manually using the algorithm described in notebook 04_D. Store all the results in different columns of a variable called `manual_dcmp1`
 
@@ -102,7 +102,7 @@ df_seasonal <-
   )
 ```
 
-# 1.2.4 
+# 1.2.4
 
 Adjust the seasonal component as indicated in the notebook 04_D_ClassicalDecomposition_fromScratch. Store it within `df_seasonal` in a new column called `seasonal_c`.
 
@@ -123,7 +123,7 @@ df_seasonal <-
 sum(df_seasonal$seasonal_c) == m
 ```
 
-# 1.2.5 
+# 1.2.5
 
 Import the seasonal component from `df_seasonal` into `manual_dcmp1` using a `left_join`
 
@@ -135,7 +135,7 @@ manual_dcmp1 <-
 all.equal(manual_dcmp1$seasonal_c, class_dcmp1$seasonal)
 ```
 
-# 1.2.6 
+# 1.2.6
 
 Compute the remainder component
 
@@ -190,4 +190,3 @@ manual_decomposition_long %>%
   # scales = "free_y" so that each component has an adapted y-axis range
   facet_grid(component ~ ., scales = "free_y")
 ```
-

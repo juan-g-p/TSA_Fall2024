@@ -1,0 +1,279 @@
+---
+title: "Untitled"
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+library(ggplot2)
+library(dplyr)
+```
+
+## 1. Transform data to an appropriate granularity (1.5 points)
+
+The `pedestrian` dataset is loaded along with the fpp3 library
+
+This dataset contains hourly pedestrian counts from 2015-01-01 to 2016-12-31 at 4 sensors in the city of Melbourne.
+
+* **Sensor**: name of the sensor (key of the tsibble).
+* **Date_time**: time when the pedestrian couns are recorded (time index).
+* **Date**: date at which the pedestrian counts are recorded.
+* **Time**: hour associated with **Date_Time**.
+* **Counts**: hourly pedestrian counts.
+
+We want to aggregate this data to compute the **total number of pedestrians measured by each sensor in a day**. More specifically, we want to compute this for: 
+
+1. Only two sensors (filter out the rest of the sensors):
+
+    * "Southern Cross Station"
+    * "Bourke Street Mall (North)"
+    
+2. The time period comprised between "2016-07-01" and "2016-10-25".
+
+**WRITE BELOW THE CODE THAT PERFORMS THIS AGGREGATION**. 
+
+  * Note that the variable `Date` already gives you the day to which each data point corresponds. Use it.
+
+CODE DOES NOT RUN
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+
+filtered_data <- pedestrian %>%
+  filter(Sensor %in% c("Southern Cross Station", "Bourke Street Mall (North)"),
+         Date >= as.Date("2016-07-01") & Date <= as.Date("2016-10-25"))
+
+agg_data <- filtered_data %>%
+  group_by(Sensor, Date) %>%
+  summarise(Total_Pedestrians = sum(Counts))
+print (agg_data)
+```
+
+**CREATE A SINGLE GRAPH CONTAINING ONE TIME PLOT FOR EACH OF THE TWO SENSORS (single graph with two curves)**
+
+  * Use minor breaks every week and labelled breaks every 5 weeks
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+data("pedestrian")
+
+plot <- filtered_data %>%
+  autoplot(Counts, facet = Sensor) +
+  scale_x_date(breaks = date_breaks("1 week"), labels = date_format("%b %d")) +
+  theme_minimal()
+print(plot)
+```
+
+**FOR EACH SENSOR, DETERMINE THE DAY AT WHICH THE GREATEST NUMBER OF PERSONS IS MEASURED**
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+max_counts <- filtered_data %>%
+  group_by(Sensor, Date) %>%
+  summarize(Max_Pedestrians = max(Counts))
+
+max_day <- max_counts %>%
+  group_by(Sensor) %>%
+  filter(Max_Pedestrians == max(Max_Pedestrians))
+print(max_day)
+```
+
+## 2. Load the data (0 points)
+
+The snippet below loads the daily aggregated data measuring the number of pedestrians at the `Southern Cross Station` sensor in the city of Melbourne. It also transforms it to a tsibble.
+
+Run the code and a pop-up window will appear. Select the file **scs_daily_pedestrian.csv** that has been provided along with the exam.
+
+```{r, eval=FALSE}
+scs_pedestrians <- 
+  read.csv(file.choose()) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  as_tsibble(index=Date)
+
+scs_pedestrians
+```
+
+## 3. Time plot (2 points)
+
+Create a time plot of the series, set minor breaks every week and major breaks every 5 weeks.
+
+FEEDBACK: THIS DOES NOT RUN. WE HAVE DONE THIS MORE THAN 10 TIMES IN CLASS. BTW OBVIOUSLY YOU ARE GETTIN CODE FROM THE INTERNET. O
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+plot <- scs_pedestrians %>%
+  autoplot(Count) +
+  scale_x_date(breaks = date_breaks("1 week"), labels = date_format("%b %d"), minor_breaks = date_breaks("1 week"), major_breaks = date_breaks("5 weeks")) +
+  labs(title = "Time Plot of Pedestrian Counts at Southern Cross Station",
+       x = "Date",
+       y = "Pedestrian Count") +
+  theme_minimal()
+print(plot)
+```
+
+Based on the time-plot, which **length of the seasonal period would you consider from this data and why?. Specify the value you would use for m, what we have called the length of the seasonal period**.
+
+------
+
+YOUR ANSWER GOES HERE (MAX 30 WORDS)
+
+------
+
+## 4. Time Series decomposition (3 points)
+
+First, run the following code to create a new variable within `scs_pedestrians` containing the mean value of the time series:
+
+```{r}
+scs_pedestrians$mean_val = mean(scs_pedestrians$Count, na.rm = TRUE)
+
+scs_pedestrians
+```
+
+### 4.1 Use an appropriate moving average to compute the trend of the time-series as **classical_decomposition** would. Then depict the time series along with this trend estimate and the `mean_val` computed just before. Use a dahsed line for the `mean_val`.
+
+* Store the trend in a column called `trend_class` within `scs_pedestrians`
+
+FEEDBACK: I WONT ACCEPT THIS CODE. IT IS OBVIOUSLY COPIED AND WAS NOT USED IN NONE OF THE GROUP ASSIGNMENTS. YOU CANNOT EXPLAIN ME THIS CODE.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+window_size = 7 
+scs_pedestrians$trend_class = stats::filter(scs_pedestrians$Count, rep(1/window_size, window_size), sides = 2)
+
+ggplot(scs_pedestrians, aes(Date, Count)) +
+  geom_line() +
+  geom_line(aes(Date, trend_class), linetype = "dashed", color = "blue") +
+  geom_hline(yintercept = unique(scs_pedestrians$mean_val), linetype = "dashed", color = "red") +
+  labs(title = "Time Series with Trend Estimate and mean_val",
+       x = "Date",
+       y = "Pedestrian Count") +
+  theme_minimal()
+
+```
+
+### 4.2 Based on the previous grqph, which of the following models would you pick to produce forecasts of up to 1 week ahead?
+
+* Mean model
+* Drift
+* Seasonal Naive model
+
+------
+
+YOUR ANSWER GOES HERE (Max. 30 words)
+Based on the previous graph I think that the mean model would be the best choice. This is because there is no specific seasonal trend which already excludes the seasonal naive model. There is also no significant linear trend which excludes the drift model. Due to the fact that the fluctuations in the graph always return to the same spot the mean model is appropriate. 
+
+------
+
+## 5. Fitting models (3.5 points)
+
+### 5.1 Fit the following models and store the result in a variable called `fit`.
+
+Use the following names
+
+* `mean`: mean model
+* `drift`: drift model
+* `snaive`: seasonal naive model
+
+**The three models must be included within the same fitted object**.
+
+feedback: code does not rum. why are you installing packages.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+install.packages("forecast")
+library(forecast)
+
+fit <- list(
+  mean = forecast(scs_pedestrians, model = "mean"),
+  drift = forecast(scs_pedestrians, model = "drift"),
+  snaive = forecast(scs_pedestrians, model = "snaive")
+)
+
+```
+
+#### 5.2 Perform forecasts of up to one week ahead. Then produce two figures
+
+1. Forecasts of the seasonal naïve model (including prediction intervals)
+2. Forecasts of the mean model (including prediction intervals)
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+library(fpp3)
+
+fit1 <- 
+  scs_pedestrians%>%
+  model(
+    mean = MEAN(scs_pedestrians)
+  )
+
+fit2 <-
+  scs_pedestrians%>%
+  model(
+    snaive = SNAIVE(scs_pedestrians ~ lag("week"))
+  )
+
+forecast_mean <- fit1 %>%
+  forecast(h = 7)
+
+forecast_snaive <- fit2 %>%
+  forecast(h = 7)
+
+autoplot(forecast_mean) +
+  labs(title = "Forecasts of the Mean Model with Prediction Intervals",
+       x = "Date",
+       y = "Pedestrian Count") +
+  theme_minimal()
+
+autoplot(forecast_snaive) +
+  labs(title = "Forecasts of the Seasonal Naive Model with Prediction Intervals",
+       x = "Date",
+       y = "Pedestrian Count") +
+  theme_minimal()
+
+```
+
+#### 5.3 Residuals of the mean model
+
+Analyze the residuals of the mean model. Specifically do the following
+
+##### 5.3.1. Produce an autocorelation plot (a.k.a correlogram) of:
+
+1. The original time series `Count` in `scs_pedestrians`.
+2. The innovation residuals of the `mean` model.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+```
+
+Then compare both ACFs below
+
+------
+
+COMPARE BOTH ACF PLOTS (Max 50 words)
+
+------
+
+##### 5.3.2 Analyze whether the residuals of the mean model are biased or not
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+```
+
+------
+
+YOUR ANSWER GOES HERE (30 words max)
+
+------
+
+FEEDBACK:
+You wont pass the subject like this. Study, practice and PAY ATTENTION.

@@ -1,0 +1,242 @@
+---
+title: "Untitled"
+format: html
+editor: source
+---
+
+```{r}
+library(fpp3)
+```
+
+## 1. Transform data to an appropriate granularity (1.5 points)
+
+The `pedestrian` dataset is loaded along with the fpp3 library
+
+This dataset contains hourly pedestrian counts from 2015-01-01 to 2016-12-31 at 4 sensors in the city of Melbourne.
+
+* **Sensor**: name of the sensor (key of the tsibble).
+* **Date_time**: time when the pedestrian couns are recorded (time index).
+* **Date**: date at which the pedestrian counts are recorded.
+* **Time**: hour associated with **Date_Time**.
+* **Counts**: hourly pedestrian counts.
+
+We want to aggregate this data to compute the **total number of pedestrians measured by each sensor in a day**. More specifically, we want to compute this for: 
+
+1. Only two sensors (filter out the rest of the sensors):
+
+    * "Southern Cross Station"
+    * "Bourke Street Mall (North)"
+    
+2. The time period comprised between "2016-07-01" and "2016-10-25".
+
+**WRITE BELOW THE CODE THAT PERFORMS THIS AGGREGATION**. 
+
+  * Note that the variable `Date` already gives you the day to which each data point corresponds. Use it.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+first<- pedestrian %>%
+  filter(Sensor == "Southern Cross Station" | Sensor == "Bourke Street Mall (North)" )
+
+second <- first %>%
+    filter(Date >= ymd("2016-07-01") & Date < ymd("2016-10-25"))
+
+aggregated <- second %>%
+  as_tibble() %>% # cast to tibble
+  group_by(Sensor) %>% # group by month
+  summarise(count = sum(Counts)) # cast to tsibble
+```
+
+**CREATE A SINGLE GRAPH CONTAINING ONE TIME PLOT FOR EACH OF THE TWO SENSORS (single graph with two curves)**
+
+  * Use minor breaks every week and labelled breaks every 5 weeks
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+pedestrian %>%  autoplot(Count) +
+  scale_x_yearweek(date_breaks = "5 weeks",
+                   minor_breaks = "1 week")+
+  theme(axis.text.x = element_text(angle=90))
+```
+
+**FOR EACH SENSOR, DETERMINE THE DAY AT WHICH THE GREATEST NUMBER OF PERSONS IS MEASURED**
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+
+```
+
+## 2. Load the data (0 points)
+
+The snippet below loads the daily aggregated data measuring the number of pedestrians at the `Southern Cross Station` sensor in the city of Melbourne. It also transforms it to a tsibble.
+
+Run the code and a pop-up window will appear. Select the file **scs_daily_pedestrian.csv** that has been provided along with the exam.
+
+```{r, eval=FALSE}
+scs_pedestrians <- 
+  read.csv(file.choose()) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  as_tsibble(index=Date)
+
+scs_pedestrians
+```
+
+## 3. Time plot (2 points)
+
+Create a time plot of the series, set minor breaks every week and major breaks every 5 weeks.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+scs_pedestrians %>%  autoplot() +
+  scale_x_yearweek(date_breaks = "5 weeks",
+                   minor_breaks = "1 week")+
+  theme(axis.text.x = element_text(angle=90))
+
+```
+
+Based on the time-plot, which **length of the seasonal period would you consider from this data and why?. Specify the value you would use for m, what we have called the length of the seasonal period**.
+
+------
+
+YOUR ANSWER GOES HERE (MAX 30 WORDS)
+Based on the graph, the seasonal period is of 7 days (m = 7), or a weekly period in other words, since you can observe a similar pattern in every week.
+
+------
+
+## 4. Time Series decomposition (3 points)
+
+First, run the following code to create a new variable within `scs_pedestrians` containing the mean value of the time series:
+
+```{r}
+scs_pedestrians$mean_val = mean(scs_pedestrians$Count, na.rm = TRUE)
+
+scs_pedestrians
+```
+
+### 4.1 Use an appropriate moving average to compute the trend of the time-series as **classical_decomposition** would. Then depict the time series along with this trend estimate and the `mean_val` computed just before. Use a dahsed line for the `mean_val`.
+
+* Store the trend in a column called `trend_class` within `scs_pedestrians`
+
+FEEDBACK: LINE FOR THE MÁ IS MISSING
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+scs_pedestrians <- scs_pedestrians %>% 
+  mutate(
+    `trend_class` = slider::slide_dbl(mean_val, mean, .before = 3, .after = 3)
+  )
+
+scs_pedestrians %>% 
+  autoplot(Count) + 
+  geom_line(aes(y = trend_class), color = "blue", linetype = 'dashed')
+
+
+```
+
+### 4.2 Based on the previous grqph, which of the following models would you pick to produce forecasts of up to 1 week ahead?
+
+* Mean model
+* Drift
+* Seasonal Naive model
+
+------
+
+YOUR ANSWER GOES HERE (Max. 30 words)
+The seasonal Naive model sine it would take into account the whole seasonal period (the week).
+
+------
+
+## 5. Fitting models (3.5 points)
+
+### 5.1 Fit the following models and store the result in a variable called `fit`.
+
+Use the following names
+
+* `mean`: mean model
+* `drift`: drift model
+* `snaive`: seasonal naive model
+
+**The three models must be included within the same fitted object**.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+fit <- 1
+  scs_pedestrians %>% 
+  model(
+    `mean` = MEAN(Count),
+    `drift` = RW(Count ~ drift()),
+    `snaive` = SNAIVE(Count)
+    )
+```
+
+#### 5.2 Perform forecasts of up to one week ahead. The produce two figures
+
+1. Forecasts of the seasonal naïve model (including prediction intervals)
+2. Forecasts of the mean model (including prediction intervals)
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+forecast <- fit %>% forecast(h=7)
+
+forecast %>% filter(.model == "snaive") %>%
+  autoplot() +
+  labs(title="SNaive")
+
+forecast %>% filter(.model == "mean") %>%
+  autoplot() +1
+  labs(title="mean")
+```
+
+#### 5.3 Residuals of the mean model
+
+Analyze the residuals of the mean model. Specifically do the following
+
+##### 5.3.1. Produce an autocorelation plot (a.k.a correlogram) of:
+
+1. The original time series `Count` in `scs_pedestrians`.
+2. The innovation residuals of the `mean` model.
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+scs_pedestrians %>% ACF(Count , lag_max= 7* 10) %>% autoplot()
+
+fit %>% augment() %>% filter(.model == "mean") %>% ACF(.resid, lag_max= 7* 10) %>% autoplot()
+```
+
+Then compare both ACFs below
+
+------
+
+COMPARE BOTH ACF PLOTS (Max 50 words)
+The two ACF graphs seem to be the same, with both having a clear seasonality every 7 days (weekly). This ones have a positive correlation coeficient every 7 seven days, and a negative one in the middle of every week. It also gets smaller as the time passes since the ACF graph accounts for time passed
+
+FEEDBACK: see solution
+
+------
+
+##### 5.3.2 Analyze whether the residuals of the mean model are biased or not
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+fit %>% 
+  select(mean) %>% # Select only dcmp_drift
+  gg_tsresiduals()
+```
+
+------
+
+YOUR ANSWER GOES HERE (30 words max)
+As we can see there seems to be heteroskedasticity since the data in the innovation residuals graph is not constant. There also seems to be correlation, which is not good seems it should be captured by trend or seasonality.
+
+feedback: I was asking for biasedness. Also your answer is not sensible. See solution
+
+------

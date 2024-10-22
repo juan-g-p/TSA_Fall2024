@@ -1,0 +1,230 @@
+---
+title: "Angel Midterm Time Series"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import Data
+
+Run the code below. A pop-up window will appear. Select the file `ts_data.csv` provided along with the exam
+
+```{r}
+ts_data <- 
+  read.csv(file.choose()) %>% 
+    mutate(
+      ym = yearmonth(start_timestamp)
+    ) %>% 
+    as_tsibble(index = ym) %>% 
+    select(ym, value)
+
+ts_data
+```
+
+# 1. (2.5 points)
+
+Create two plots: a plot of the original time series `value` and a plot of the log-transformed time series.
+
+They should have major breaks every year and minor breaks every four years.
+
+Then answer the question.
+
+```{r}
+# original time plot 
+ts_data %>% autoplot(value) + scale_x_yearmonth(date_breaks = "4 years", minor_breaks = "1 year")
+
+# log-transformation 
+ts_data %>% autoplot(log(value)) + scale_x_yearmonth(date_breaks = "4 years", minor_breaks = "1 year")
+```
+
+------------------------------------------------------------------------
+
+QUESTION: What does the log transformation attain?
+
+The log transformation indicates that an increase of 1 on the log(10) scale corresonds to multiplying by 10 on the original scale. This means that it stabilises the variance and form linearisation between IV (value in this case)
+
+FEEDBACK: EXPLAINED IN CLASS: IT TURNS A MULTIPLICATIVE SCHEME INTO AN ADDITIVE SCHEME... LOOK GOFR IT IN THE NOTES
+
+------------------------------------------------------------------------
+
+# 2. (3 points)
+
+## 2.1
+
+Create new column wihin `ts_data` with a moving average of the log-transformed time series. Use the same moving average as classical decomposition would.
+
+Call that moving average `log_trend_class`.
+
+Then create a new time-plot of the log transformed series with `log_trend_class` superimposed.
+
+```{r}
+value_log <- log(ts_data$value)
+log_trend_class <- ts_data %>% 
+  mutate(
+    `12-MA` = slider::slide_dbl(value_log, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    `2x12-MA` = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+
+log_trend_class 
+
+log_trend_class %>%
+  autoplot(value_log, colour = "gray") +
+  geom_line(aes(y = `2x12-MA`), colour = "#D55E00")
+
+```
+
+## 2.2 Using the previously computed moving average, detrend the log-transformed variable.
+
+Store the result in a new column within `ts_data` called `log_detrended`
+
+Then create a timeplot of the `log_detrended`
+
+feedback: code somewhat correct. Output obviously not detrended. Repeat this until you get it right
+
+```{r}
+log_detrended <- log_trend_class %>% 
+  mutate(detrended = value - `2x12-MA`)
+
+log_detrended
+
+log_detrended %>% autoplot(detrended)
+```
+
+## 2.3 Compute the ACF plot of log-transformed time series and of `log_detrended`
+
+Compare both ACF pots (max 50 words) and explain how they differ and why.
+
+FEEDBACK: good coee wring outut because you did not detrend properly
+
+```{r}
+log_trend_class %>% ACF(value) %>% autoplot()
+log_detrended %>% ACF(detrended) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+**As from both graph we can observe positive autocorrelation at a particular lag, it indicates that the data displays recurring patterns at that specific interval. The ACF of both graphs are highly similar however the magnitude of autocorrection of log_detrended is slightly lower than the log trend class, therefore closer to the white noise.**
+
+------------------------------------------------------------------------
+
+# 3. (3 points)
+
+## 3.1 Perform an STL decomposition and a classical decomposition (using `classical_decomposition()`)
+
+-   store the components of the STL decomposition in `stl_dcmp`
+-   store the components of the classical decomposition in `class_dcmp`
+
+```{r}
+# STL decomposition 
+stl_dcmp <- ts_data %>% model(stl = STL(value)) %>% components()
+stl_dcmp
+
+#classical decomposition
+class_dcmp_add <- ts_data %>% 
+  model(decomp = classical_decomposition(value, type = "additive")) %>% 
+  components()
+class_dcmp_add
+
+class_dcmp_mul <- ts_data %>% 
+  model(decomp = classical_decomposition(value, type = "multiplicative")) %>% 
+  components()
+class_dcmp_mul
+```
+
+## 3.2
+
+Create two time plots, one for the seasonal component of `stl_dcmp` and one of the seasonal component of `class_dcmp`.
+
+Then explain how they differ.
+
+```{r}
+stl_dcmp %>% autoplot()
+class_dcmp_add %>% autoplot()
+class_dcmp_mul %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+QUESTION: How do both seasonal components differ?
+
+**In this case, the variance seasonal component of classical decomposition is larger than the variance of STL decomposition. Furthermore, the variance of remainder of STL decomp is way smaller than classical decomp meaning that it is a better decomp model for this dataset. We can see that the seasonality in this case is every 12 months.**
+
+FEEDBACK: solution done in class
+
+------------------------------------------------------------------------
+
+## 3.3 Compare the `trend_class` you previously computed with the trend returned by classical decomposition. Do they match? (answer this question with a single boolean TRUE or FALSE)
+
+```{r}
+ts_data %>% 
+  model(decomp = classical_decomposition(value_log, type = "additive")) %>% 
+  components() %>% 
+  mutate(
+    `12-MA` = slider::slide_dbl(value_log, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    `2x12-MA` = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  ) %>% 
+  autoplot()
+
+ts_data %>% 
+  model(decomp = classical_decomposition(value_log, type = "multiplicative")) %>% 
+  components() %>% 
+  mutate(
+    `12-MA` = slider::slide_dbl(value_log, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    `2x12-MA` = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  ) %>% 
+  autoplot()
+
+class_dcmp %>% autoplot()
+
+# TRUE,, THEY DO MATCH #
+```
+
+# 4. (1.5 points)
+
+Time series data wrangling
+
+# 4.1 Using:
+
+-   `dplyr::last()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the last value of every quarter.
+
+You may use `?dplyr::last()` on the console to get information about how to use last.
+
+```{r}
+ts_data
+ts_quarterly <- ts_data %>%
+  index_by(yearquarter(ym)) %>%
+  summarise(last_value = last(value))
+
+head(ts_quarterly)
+```
+
+## 4.2 Using the functions:
+
+-   `dplyr::last()`
+-   `dplyr::first()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the mean of the first and last value of every quarter.
+
+You may use `?dplyr:first()` and `?dplyr::last()` on the console to get information about how to use last and first
+
+FEEDBACK: THIS ONE IS NOT CORRECT
+
+```{r}
+ts_quarterly <- ts_data %>%
+  group_by(yearquarter(ym)) %>%
+  summarise(mean_first_last = mean(c(first(value), last(value))))
+
+head(ts_quarterly)
+
+```

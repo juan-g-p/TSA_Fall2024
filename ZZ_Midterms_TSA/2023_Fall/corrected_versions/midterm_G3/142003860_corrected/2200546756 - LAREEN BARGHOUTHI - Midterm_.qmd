@@ -1,0 +1,197 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(fpp3)
+```
+
+# 0. Import Data
+
+Run the code below. A pop-up window will appear. Select the file `ts_data.csv` provided along with the exam
+
+```{r}
+ts_data <- 
+  read.csv(file.choose()) %>% 
+    mutate(
+      ym = yearmonth(start_timestamp)
+    ) %>% 
+    as_tsibble(index = ym) %>% 
+    select(ym, value)
+
+ts_data
+```
+
+# 1. (2.5 points)
+
+Create two plots: a plot of the original time series `value` and a plot of the log-transformed time series.
+
+They should have major breaks every year and minor breaks every four years.
+
+Then answer the question.
+
+```{r}
+library(ggplot2)  
+ts_data$ym <- as.Date(ts_data$ym)
+ts_data$log_value <- log(ts_data$value)
+ggplot(ts_data, aes(x = ym, y = value)) +geom_line() +scale_x_date(breaks = "1 year", minor_breaks = "4 years")+labs(title = "Original Time Series", x = "Year", y = "Value") 
+ggplot(ts_data, aes(x = ym, y = log_value)) +
+  geom_line() +scale_x_date(breaks = "1 year", minor_breaks = "4 years") +labs(title = "Log-Transformed Time Series", x = "Year", y = "Log(Value)") 
+
+```
+
+------------------------------------------------------------------------
+
+QUESTION: What does the log transformation attain?
+
+**YOUR ANSWER GOES HERE (20 WORDS)**
+
+------------------------------------------------------------------------
+
+# 2. (3 points)
+
+## 2.1
+
+Create new column wihin `ts_data` with a moving average of the log-transformed time series. Use the same moving average as classical decomposition would.
+
+Call that moving average `log_trend_class`.
+
+Then create a new time-plot of the log transformed series with `log_trend_class` superimposed.
+
+```{r}
+
+
+
+```
+
+## 2.2 Using the previously computed moving average, detrend the log-transformed variable.
+
+Store the result in a new column within `ts_data` called `log_detrended`
+
+Then create a timeplot of the `log_detrended`
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+ts_data$ym <- as.Date(ts_data$ym)
+# just add the moving average 
+ts_data$log_value <- log(ts_data$value)
+ts_data$log_detrended <- ts_data$log_value - ts_data$log_moving_avg
+ts_data %>%ggplot(aes(x = ym, y = log_detrended)) +geom_line() +
+  labs(title = "Log-Detrended Time Series", x = "Year",y = "Log-Detrended Value") +scale_x_date(date_breaks = "1 year", minor_breaks = "1 year") 
+
+```
+
+## 2.3 Compute the ACF plot of log-transformed time series and of `log_detrended`
+
+Compare both ACF pots (max 50 words) and explain how they differ and why.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+ts_data %>% ACF(log(value)) %>% autoplot()
+```
+
+------------------------------------------------------------------------
+
+**YOUR ANSWER GOES HERE** (50 words MAX)
+
+------------------------------------------------------------------------
+
+# 3. (3 points)
+
+## 3.1 Perform an STL decomposition and a classical decomposition (using `classical_decomposition()`)
+
+-   store the components of the STL decomposition in `stl_dcmp`
+-   store the components of the classical decomposition in `class_dcmp`
+
+```{r}
+stl_dcmp <- 
+  us_retail_employment %>%
+  model(stl = STL(Employed)) %>%
+  components()
+stl_dcmp %>% autoplot()
+
+# Filter the series and select relevant columns
+us_retail_employment <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+
+# Let us compute the classical decomposition using the function in the feasts library:
+classical_dec <- us_retail_employment %>%
+  
+  # Fit the classical decomposition model specifying an additive scheme
+  model(
+    clas_deic = classical_decomposition(Employed, type = "additive")
+  ) %>%
+  
+  # Extract components from the fitted model
+  components()
+
+select(classical_dec, Month, Employed, trend, seasonal, random)
+```
+
+## 3.2
+
+Create two time plots, one for the seasonal component of `stl_dcmp` and one of the seasonal component of `class_dcmp`.
+
+Then explain how they differ.
+
+```{r}
+ggplot(data = stl_dcmp, aes() +geom_line() +labs(title = "Seasonal Component", x = "Year")
+ggplot(data = class_dcmp, aes() +geom_line() +labs(title = "Seasonal Component", x = "Year")
+```
+
+------------------------------------------------------------------------
+
+QUESTION: How do both seasonal components differ?
+
+**YOUR ANSWER GOES HERE (20 WORDS)**
+
+------------------------------------------------------------------------
+
+## 3.3 Compare the `trend_class` you previously computed with the trend returned by classical decomposition. Do they match? (answer this question with a single boolean TRUE or FALSE)
+
+```{r}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+# 4. (1.5 points)
+
+Time series data wrangling
+
+# 4.1 Using:
+
+-   `dplyr::last()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the last value of every quarter.
+
+You may use `?dplyr::last()` on the console to get information about how to use last.
+
+```{r}
+library(dplyr)
+ts_quarterly <- ts_data %>%
+  group_by(quarter = quarter(ym)) %>%
+  summarize(last_value = last(value)) %>%
+  ungroup()
+
+```
+
+## 4.2 Using the functions:
+
+-   `dplyr::last()`
+-   `dplyr::first()`
+
+create a new time series called `ts_quarterly` that is indexed in a quarterly manner and contains the mean of the first and last value of every quarter.
+
+You may use `?dplyr:first()` and `?dplyr::last()` on the console to get information about how to use last and first
+
+```{r}
+library(dplyr)
+ts_quarterly <- ts_data %>%group_by(quarter = quarter(ym)) %>%summarize(mean_first_last = mean(c(first(value), last(value))) %>%ungroup()
+```

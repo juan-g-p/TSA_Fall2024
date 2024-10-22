@@ -1,0 +1,388 @@
+---
+title: "ZZ_TSA_G1_2023Fall_Midterm"
+editor: source
+params:
+  print_sol: false
+toc: true
+toc-location: left
+toc-depth: 6
+self-contained: true
+---
+
+## INSTRUCTIONS
+
+1. Do not add additional code snippets. You may add more to play around, but in the end only the code snippets created within the exam shall be delivered.
+2. Stick to the word count when providing written answers. Be as clear and brief as possible.
+
+## 0. Load libraries
+
+If you do not load the libraries, subsequent code to load the dataframe will not work.
+
+```{r}
+library(fpp3)
+library(readr)
+
+## 2. Graphical analysis (3 points)
+
+### 2.1 Generate a timeplot of the data, adjusting its grid adequately to signal at least the end of every year.
+
+```
+
+FEEDBACK: I HAD TO RE-ADD THIS CODE TO LOAD THE DATA! WHY DID YOU ERASE IT...? NEXT TIME IN ASSIGNMENTS OR EXAM I WILL PENALIZE YOU.
+
+```{r, eval=FALSE}
+unemp <- readr::read_csv(file.choose())
+
+# Convert column "date" to a yearmonth object
+unemp <- unemp %>% 
+      mutate(date = yearmonth(date)) %>% 
+      as_tsibble()
+
+unemp
+```
+
+FEEDBACK: CODE DOES NOT RUN. WHAT IS THIS. SEE SOLUTION. WE HAVE DONE THIS EXERCISE IN CLASS MORE THAN 10 TIMES
+
+YOU SHOULD
+1- PAY ATTENTION IN CLASS
+2- STUDY AND PRACTICE CODING. STUDY ALSO THE FUNDAMENTALS OF R
+
+```{r}
+
+library(ggplot2)
+
+#convert the data to a data frame
+df <- data.frame(date = as.Date(substr(data[, 1], 2, 9), format = "%Y %b"), unemp = as.numeric(data[, 2]))
+
+#plot the time series with a line and points
+ggplot(df, aes(x = date, y = unemp)) +
+  geom_line() +
+  geom_point() +
+  #add x-axis labels with year and month
+  scale_x_date(date_labels = "%Y %b") +
+  #add vertical grid lines at the end of each year
+  scale_x_date(date_breaks = "1 year") +
+  #rotate the x-axis labels by 45 degrees
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  #add labels and title
+  labs(x = "Date", y = "Unemployment", title = "Unemployment in Spain from 2001 to 2022")
+```
+
+
+
+
+### 2.2 Approximate the trend of the graph using an appropriate moving average. Then depict the timeplot again, with both the original time series and the resulting estimate of the trend. Adjust the x-grid so that the end of every year is clear.
+
+Requirements:
+
+1. **Compute the moving average as a classical decomposition would**.
+2. Store the result in a new variable (column) within `unemp` called `trend_class`.
+3. Plot the time series in one color and the trend in another color.
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+#load the data
+data <- read.csv ("spain_unemployment_format.csv")
+
+#convert the date column to a Date class
+data$date <- as.Date (data$date, format = "%Y %b")
+
+#calculate the trend component using a 12-month moving average
+data$trend_class <- filter (data$unemp, rep (1 / 12, 12), sides = 2)
+
+#plot the time series and the trend component
+ggplot (data, aes (x = date)) +
+  geom_line (aes (y = unemp), color = "blue") +
+  geom_line (aes (y = trend_class), color = "red") +
+  scale_x_date (date_breaks = "1 year", date_labels = "%Y") +
+  labs (x = "Date", y = "Unemployment", title = "Unemployment in Spain from 2001 to 2022")
+
+
+### 2.3 Remove `trend_class` from the time series, that is, compute the **detrended time series**. Store it in a new variable (column) within `unemp` called `detrended_class`
+
+**NOTE**: if you failed to compute the trend component in the previous question, you may compute the classical decomposition using `classical_decomposition()` and use the trend resulting from it to detrend the time series.
+
+Requirements:
+
+1. Store the result in a new variable (column) called `detrended_class` within `unemp`
+2. Depict the detrended component on a time-plot with a grid that signals the end of every year.
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+FEEDBACK: YOU ARE CLEARLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+#load library
+library(pracma) FEEDBACK: WE NEVER USED THIS LIBRARY. YOU ARE PROBABLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+#calculate the detrended component by subtracting the trend from the original time series
+data$detrended_class <- detrend(data$unemp, data$trend_class)
+
+#plot the detrended component
+ggplot(data, aes(x = date, y = detrended_class)) +
+  geom_line() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(x = "Date", y = "Detrended Unemployment", title = "Detrended Unemployment in Spain from 2001 to 2022")
+
+
+### 2.4 Compute the ACF plots indicated below. Also answer the question below:
+
+1. ACF plot of the original time series
+2. ACF plot of the detrended time series
+
+Q1: WHICH IS THE LENGTH OF THE SEASONAL PERIOD AND WHERE DO YOU SEE IT?
+
+```{r, include=!params$print_sol}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS.
+```
+
+------
+
+**YOUR ANSWER TO BOTH Q1 30 WORDS MAX**
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+FEEDBACK: YOU ARE CLEARLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+#load the data
+data <- read.csv("spain_unemployment_format.csv")
+
+#convert the date column to a Date class
+data$date <- as.Date(data$date, format = "%Y %b")
+
+#calculate the trend component using a 12-month moving average
+data$trend_class <- filter(data$unemp, rep(1/12, 12), sides = 2)
+
+#calculate the detrended component by subtracting the trend from the original time series
+data$detrended_class <- detrend(data$unemp, data$trend_class)
+
+#plot the ACF of the original time series
+acf(data$unemp, main = "ACF of Original Time Series")
+
+#plot the ACF of the detrended time series
+acf(data$detrended_class, main = "ACF of Detrended Time Series")
+
+
+# 3. STL Decomposition (**2.5 points**)
+
+Perform an STL decomposition. Specifically, create two stl decompositions:
+
+1. STL decomposition with default arguments. Name the dataframe containing the components `stl_default`.
+2. STL decomposition with adjusted parameters. Adjust the parameters you deem necessary to improve the decomposition and name the dataframe containing the components `stl_adjust`.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+FEEDBACK: YOU ARE CLEARLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+#load the data
+data <- read.csv("spain_unemployment_format.csv")
+
+#convert the date column to a Date class
+data$date <- as.Date(data$date, format = "%Y %b")
+
+#convert the data to a time series object with frequency 12
+ts_data <- ts(data$unemp, start = c(2001, 1), frequency = 12)
+
+#perform STL decomposition with default arguments
+stl_default <- stl(ts_data)
+
+#perform STL decomposition with adjusted parameters
+#increase the seasonal window to 35 and use robust fitting
+stl_adjust <- stl(ts_data, s.window = 35, robust = TRUE)
+
+
+# 4. Fitting two models (**3 points**)
+
+
+
+## 4.1 Fitting the models
+
+Fit the models below to the variable `unemp` (that is, to the original time series):
+
+1. `decomposition_model()` using the **drift model** for the *seasonally adjusted series* and **seasonal naïve model** for the *seasonal component*. Call this model `dcmp_drift`.
+  * For the **stl decomposition, adjust the parameters as you did in exercise 3.**
+2. `decomposition_model()` using a **simple exponential smoothing** model for the *seasonally adjusted series* and a **seasonal naïve model** for the *seasonal component*. Call this model `dcmp_stl`.
+  * For the **stl decomposition, adjust the parameters as you did in exercise 3.**
+  
+Store the result of fitting the models in a variable called `fit`
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+FEEDBACK: YOU ARE CLEARLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+#load the data
+data <- read.csv("spain_unemployment_format.csv")
+
+#convert the date column to a Date class
+data$date <- as.Date(data$date, format = "%Y %b")
+
+#convert the data to a time series object with frequency 12
+ts_data <- ts(data$unemp, start = c(2001, 1), frequency = 12)
+
+#load the fable and fabletools packages
+library(fable)
+library(fabletools)
+
+#fit the decomposition model using drift for the seasonally adjusted series and seasonal naive for the seasonal component
+dcmp_drift <- decomposition_model(unemp ~ drift() + season_naive(), dcmp_fn = stl, s.window = 35, robust = TRUE)
+
+#fit the decomposition model using simple exponential smoothing for the seasonally adjusted series and seasonal naive for the seasonal component
+dcmp_stl <- decomposition_model(unemp ~ SNAIVE() + season_naive(), dcmp_fn = stl, s.window = 35, robust = TRUE)
+
+#store the result of fitting the models in a variable called fit
+fit <- model(ts_data, dcmp_drift = dcmp_drift, dcmp_stl = dcmp_stl)
+
+## 4.2 Performing forecasts
+
+Perform 12 step ahead forecasts (1 year) using both models. Store the results in a variable called `fc`.
+
+Then depict the forecasts along with the original time series and the corresponding confidence intervals. Create one figure per model.
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+FEEDBACK: YOU ARE CLEARLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+# Load the necessary libraries
+library(forecast)
+
+# Fit the models
+model1 <- auto.arima(ts_data)
+model2 <- ets(ts_data)
+
+# Perform 12 step ahead forecasts
+fc1 <- forecast(model1, h = 12)
+fc2 <- forecast(model2, h = 12)
+
+# Store the results in a variable called `fc`
+fc <- list(fc1, fc2)
+
+# Plot the forecasts along with the original time series and the corresponding confidence intervals
+par(mfrow = c(2, 1)) # arrange plots in two rows and one column
+
+plot(fc1, main = "ARIMA model forecast")
+lines(ts_data, col = "red")
+
+plot(fc2, main = "ETS model forecast")
+lines(ts_data, col = "red")
+
+
+# 4.3 Analyze the residuals of the `dcmp_drift` model.
+
+Analyze **only normality and heteroskedasticity of the residuals** of the model.
+
+**NOTE**: since you have two models in `fit`, to use the `gg_tsresiduals()` command you need to select only one of them first. If you have named them as I indicated, the following code should do the trick. Add additional graphs and tests you deem necessary.
+
+```{r, eval=FALSE}
+fit %>% 
+  select(dcmp_drift) %>% # Select only dcmp_drift
+  gg_tsresiduals()
+```
+
+```{r, include=!params$print_sol}
+# YOUR CODE GOES HERE
+# DO NOT ADD ADDITINAL CODE SNIPPETS, ALL THE CODE SHALL BE CONTAINED HERE
+```
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+FEEDBACK: YOU ARE CLEARLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+# Load the necessary libraries
+library(forecast)
+library(ggplot2)
+
+# Fit the dcmp_drift model
+fit <- stlm(ts_data, method = "arima", drift = TRUE, robust = TRUE)
+dcmp_drift <- fit$model
+
+# Analyze the normality and heteroskedasticity of the residuals
+# Use gg_tsresiduals() to plot the residuals and their ACF
+fit %>% 
+  select(dcmp_drift) %>% # Select only dcmp_drift
+  gg_tsresiduals()
+
+# Use Ljung-Box test to check for autocorrelation in the residuals
+Box.test(dcmp_drift$residuals, type = "Ljung-Box")
+
+# Use Jarque-Bera test to check for normality in the residuals
+library(tseries)
+jarque.bera.test(dcmp_drift$residuals)
+
+# Use Breusch-Pagan test to check for heteroskedasticity in the residuals
+library(lmtest)
+bptest(dcmp_drift$residuals ~ dcmp_drift$fitted.values)
+
+
+------
+
+**YOUR ANSWER GOES HERE. MAX 60 WORDS.**
+
+------
+
+# 5. STL decomposition comparison (**1.5 points**)
+
+FEEDBACK: WHAT ARE YOU DOING? PLEASE TELL ME YOU KNOW THAT THE CODE NEEDE TO BE PLACED IN THE SNIPPET... YOU PLACED THE CODE OUTSIDE THE CODE SNIPPET AREA.
+
+THIS SHOWS YOU HAVE NOT WRITTEN A SINGLE LINE OF CODE IN THE ENTIRE COURSE
+
+FEEDBACK: YOU ARE CLEARLY USING CHAT-GPT. I SHOULD REPORT YOU AND MAYBE I WILL.
+
+This points builds on the result of point 3. Consider the two decompositions `stl_default` and `stl_adjust` fitted in point 3.
+
+1. Plot the ACF of the remainder of both decompositions.
+2. Compute a single number that measures the amount of autocorrelation left in the remainder of each decomposition.
+
+  * For `stl_default` call this single number `corr_metric_default`
+  * For `stl_adjust` call this single number `corr_metric_adjust`
+  * Check that `corr_metric_adjust` < `corr_metric_default`.
+  * Compute `corr_metric_default / corr_metric_adjust`. Give a short interpretation of the result
+
+```{r, input=!params$print_sol}
+## YOUR CODE GOES HERE
+## DO NOT ADD ADDITIONAL CODE SNIPPETS
+```
+
+
+------
+
+**YOUR INTERPRETATION GOES HERE. MAX 20 WORDS.**
