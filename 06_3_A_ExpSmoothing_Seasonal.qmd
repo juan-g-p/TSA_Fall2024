@@ -465,7 +465,9 @@ $$
 \end{align*}
 $$
 
-## Model specification to fit a Holt-Winters dampled model:
+## Model specification to fit a Holt-Winters damped model:
+
+Holt-Winters' method can be damped in both its additive and multiplicative forms. With multiplicative seasonality it is often a very good model that is computationally simpler than many other models that fail to outperform it.
 
 In the ETS() formula:
 
