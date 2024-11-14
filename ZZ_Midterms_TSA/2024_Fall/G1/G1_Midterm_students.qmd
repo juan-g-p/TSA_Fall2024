@@ -5,6 +5,7 @@ DO NOT IMPORT MORE LIBRARIES. `fpp3` and `readr` are the
 ```{r}
 library(fpp3)
 library(readr)
+library(patchwork)
 ```
 
 ### 1. Import the .csv data and format it as a tsibble (**0 points**)
@@ -26,10 +27,19 @@ head(unemp)
 
 #### 2.1 (1.5 points)
 
-Filter for data before January 2008 and store the result in a new variable dataframe called `unemp_filt`. Create a timeplot of the filtered timeseries, adjusting its grid its grid adequately to signal at least the end of every year. Then answer the questons below the code snippet
+Filter for data before January 2008 and store the result in a new variable dataframe called `unemp_filt`. Create a timeplot of the filtered timeseries, adjusting its grid its grid adequately to signal at least the end of every year. Then answer the questons below the code snippet:
 
 ```{r}
-# YOUR CODE GOES HERE
+unemp_filt <- 
+  unemp %>% 
+  filter(date < yearmonth("2008 Jan") )
+
+unemp_filt %>% 
+  autoplot() +
+  scale_x_yearmonth(
+    breaks = "1 year",
+    minor_breaks = "1 year"
+  )
 ```
 
 Answer the following questions now based on the data and the foregoing graph:
@@ -39,7 +49,9 @@ Answer the following questions now based on the data and the foregoing graph:
 
 --------
 
-Your answers go here (30. words max)
+monthly data - timestep = 1 month
+
+pattern repeats every year - seasonal period of 12 months - 12 timesteps (m = 12)
 
 --------
 
@@ -48,12 +60,16 @@ Your answers go here (30. words max)
 Create an ACF plot of the filtered time series and identify any relevant patterns. Describe the patterns in the space for text allocated below.
 
 ```{r}
-# YOUR CODE GOES HERE
+unemp_filt %>% 
+  ACF(lag_max = 12 * 5) %>% 
+  autoplot()
 ```
 
 --------
 
-Your answer goes here (max 40 words)
+Seasona pattern - local spikes every 12 lags
+
+Mild trend also present - higher autocorrelation at the beginning
 
 --------
 
@@ -65,12 +81,39 @@ Your answer goes here (max 40 words)
 3. Create an ACF plot of the detrended series and compare it against the ACF of question 2.2. Write the comparison in the space allocated below the code snippet.
 
 ```{r}
-# YOUR CODE GOES HERE
+unemp_filt <-  # trend, detrended
+  unemp_filt %>% 
+  mutate(
+        `12-MA` = slider::slide_dbl(unemp, mean,
+                  .before = 5, .after = 6, .complete = TRUE),
+      
+      # Subsequent two MA to make the overall window balanced
+      trend = slider::slide_dbl(`12-MA`, mean,
+                  .before = 1, .after = 0, .complete = TRUE),
+      
+      detrended = unemp - trend
+  )
+
+trend_class_dcmp <- 
+  unemp_filt %>% 
+    model(
+      class = classical_decomposition(unemp, type="additive")
+    ) %>% 
+    components() %>% 
+    pull(trend)
+
+all.equal(unemp_filt$trend, trend_class_dcmp)
+
+unemp_filt %>% 
+  ACF(detrended, lag_max = 12 * 5) %>% 
+  autoplot()
 ```
 
 --------
 
-Compare ACF against ACF of question 2 (max 40 words)
+After removing the trend, the ACF has now turned symmetrical.
+
+The amount for the first lags is now less positive.
 
 --------
 
@@ -84,7 +127,19 @@ Decompose the time series using an STL decomposition and classical decomposition
 - Store the components of the classical decomposition in a dataframe calles `class_dcmp`
 
 ```{r}
-# YOUR CODE GOES HERE
+stl_dcmp <- 
+  unemp_filt %>% 
+  model(
+    stl = STL(unemp)
+  ) %>% 
+  components()
+  
+class_dcmp <- 
+  unemp_filt %>% 
+    model(
+      class = classical_decomposition(unemp, type="additive")
+    ) %>% 
+    components() 
 ```
 
 #### 3.2 (1 points)
@@ -98,7 +153,14 @@ Create a timeplot that contains, on the same graph:
 What is the main difference between both trends? Why does this difference occur? Answer the question in the space allocated below.
 
 ```{r}
-# YOUR CODE GOES HERE
+# Print fitted values along with the original series
+unemp_filt %>% 
+  autoplot(unemp, colour = "gray") +
+  autolayer(stl_dcmp, trend, colour = "blue", linetype = "dashed") +
+  autolayer(class_dcmp, trend, colour = "red", linetype = "dashed")
+
+  #geom_line(data=stl_dcmp,aes(y=trend), colour = "red", linetype = "dashed") + 
+  #geom_line(data=class_dcmp,aes(y=trend), colour = "blue", linetype = "dashed") 
 ```
 
 
@@ -126,7 +188,41 @@ Graph 1: graph of the forecasts along with the training data contained in `unemp
 Graph 2: graph of the forecasts along with all the data contained in `unemp`, not only the data before 2008 contained in `unemp_filt`.
 
 ```{r}
-# YOUR CODE GOES HERE
+  fit <- 
+  unemp_filt %>% 
+  model(
+    decomp = decomposition_model(
+      
+                # 1. Specify the decomposition scheme to be used.
+                #    You may specify the windows of STL or other arguments for
+                #.   the decomposition method of your choice
+                classical_decomposition(unemp, type="additive"),
+                
+                # 2. Specify a model for the seasonally adjusted component 
+                #.   A model with no seasonality is to be used. In this case, a drift.
+                #.   season_adjust is the name of the seasonally adjusted component
+                #.   resulting from appliying the STL deomposition. This name could be
+                #.   slightly different in other methods, so beware.
+                RW(season_adjust ~ drift()),
+                
+                # 3. Specify a model for the seasonal component (SNAIVE is the default).
+                #    A model with seasonality is to be used.
+                #.   season_year is the name of the seasonal component resulting
+                #.   from applying the STL decomposition. This name could be slightly
+                #.   different in other methods, so beware.
+                SNAIVE(seasonal)
+            )
+  )
+
+fc <- 
+  fit %>% 
+  forecast(h=12*2)
+
+fc %>% 
+  autoplot(unemp_filt)
+
+fc %>% 
+  autoplot(unemp)
 ```
 
 ### 5. (1 point)
@@ -138,7 +234,12 @@ Hint: at the end, to update the resulting `tsibble`, you will need to use the fu
 Create a timeplot of the result and answer the question at the end.
 
 ```{r}
-# YOUR CODE GOES HERE
+unemp %>% 
+    mutate(
+    n_month = month(date)
+  ) %>% 
+  filter(n_month == 1) %>% 
+  autoplot()
 ```
 
 What would the seasonal period be in this time series?
@@ -148,3 +249,170 @@ What would the seasonal period be in this time series?
 Your answer goes here (max 15 words)
 
 --------
+
+
+```{r}
+fit_damped_1 <- 
+  aus_economy %>%
+    model(
+      holts = ETS(Pop ~ error("A") + trend("A") + season("N")),
+    
+    # Damping parameter explicitly set to 0.9
+     damped_holts = ETS(Pop ~ error("A") + trend("Ad", phi = 0.8 ) + season("N"))
+  )
+
+fc_damped_1 <-  
+  fit_damped_1 %>% 
+  forecast(h = 15 *5) 
+
+fc_damped_1 %>%
+  autoplot(aus_economy, level = NULL) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+```{r}
+# Filter data
+aus_holidays <- 
+  tourism %>%
+  filter(Purpose == "Holiday") %>%
+  summarise(Trips = sum(Trips)/1e3)
+
+aus_holidays %>% autoplot()
+
+# Fit the models: additive and multiplicative seasonality
+# Pay attention to the error terms! (for numerical stability):
+  # error("A") for the additive model.
+  # error("M") for the multiplicative model.
+fit <- 
+  aus_holidays %>%
+  model(
+    additive = ETS(Trips ~ error("A") + trend("A") + season("A")),
+    multiplicative = ETS(Trips ~ error("M") + trend("A") + season("M"))
+  )
+
+# Generate forecasts
+fc <- fit %>% forecast(h = "3 years")
+
+# Plot the forecasts
+fc %>%
+  autoplot(aus_holidays, level = NULL) +
+  labs(title="Australian domestic tourism",
+       y="Overnight trips (millions)") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+```{r}
+fig_additive <- fit %>% 
+  select("additive") %>% 
+  components() %>%
+  autoplot() +
+  labs(title = "ETS(A, N, A) components")
+
+fig_multiplicative <- fit %>% 
+  select("multiplicative") %>% 
+  components() %>%
+  autoplot() +
+  labs(title = "ETS(M, N, M) components")
+
+# Used patchwork library syntax to organize plots
+fig_additive + fig_multiplicative
+```
+
+```{r}
+sth_cross_ped <- 
+  pedestrian %>%
+  filter(Date >= "2016-07-01",
+         Sensor == "Southern Cross Station") %>%
+  index_by(Date) %>%
+  summarise(Count = sum(Count)/1000)
+
+sth_cross_ped
+```
+
+```{r}
+fit <- sth_cross_ped %>%
+  filter(Date <= "2016-07-31") %>%
+  model(
+    hw = ETS(Count ~ error("M") + trend("Ad") + season("M"))
+  ) 
+
+fc <- fit %>%
+  forecast(h = "2 weeks")
+
+fc %>% 
+  autoplot(sth_cross_ped %>% filter(Date <= "2016-08-14")) +
+  labs(title = "Daily traffic: Southern Cross",
+       y="Pedestrians ('000)")
+```
+
+
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+
+recent_production %>% autoplot(Beer)
+```
+
+```{r}
+# Create training dataset
+beer_train <- recent_production %>%
+  filter(year(Quarter) <= 2007)
+
+beer_fit <- beer_train %>%
+  model(
+    Mean = MEAN(Beer),
+    `Naive` = NAIVE(Beer),
+    `Seasonal naive` = SNAIVE(Beer),
+    Drift = RW(Beer ~ drift())
+  )
+
+beer_fc <- beer_fit %>%
+  forecast(h = 10)
+
+beer_fc %>%
+  autoplot(
+    aus_production %  >% filter(year(Quarter) >= 1992),
+    level = NULL
+  ) +
+  labs(
+    y = "Megalitres",
+    title = "Forecasts for quarterly beer production"
+  ) +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+
+```{r}
+summary_tr <- 
+  beer_fit %>%
+  accuracy() %>% 
+  select(.model, .type, MAE, RMSE, MAPE, MASE, RMSSE) %>% 
+  arrange(MAE) # Order from smallest to highest MASE 
+summary_tr
+```
+
+```{r}
+summary_test <- 
+  beer_fc %>% 
+  accuracy(recent_production) %>% 
+  select(.model, .type, RMSE, MAE, MAPE, MASE, RMSSE) %>%
+  arrange(MAE) # Order from smallest to largest MAE
+summary_test
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

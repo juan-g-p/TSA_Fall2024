@@ -32,8 +32,15 @@ We want to aggregate this data to compute the **total number of pedestrians meas
   * Note that the variable `Date` already gives you the day to which each data point corresponds. Use it.
 
 ```{r}
-## YOUR CODE GOES HERE
-## DO NOT CREATE ADDITIONAL CODE SNIPPETS, KEEP EVERYTHING IN A SINGLE SNIPPET.
+pedestrian %>% 
+  filter(Sensor %in% c("Southern Cross Station", "Bourke Street Mall (North)")) %>% 
+  filter((Date >= "2016-07-01") & (Date <= "2016-10-25")) %>% 
+  group_by(Sensor) %>% 
+  index_by(Date) %>% 
+  summarize(
+    total_pedestrians = sum(Count)
+  ) %>% 
+  arrange(Date)
 ```
 
 **CREATE A SINGLE GRAPH CONTAINING ONE TIME PLOT FOR EACH OF THE TWO SENSORS (single graph with two curves)**
