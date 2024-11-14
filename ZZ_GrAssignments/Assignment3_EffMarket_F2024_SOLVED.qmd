@@ -181,7 +181,7 @@ fc_train_sets <-
 ```{r}
 fc_train_sets <- 
   fit_train_sets %>%
-  forecast(h=8) %>%
+  forecast(h=5) %>%
   group_by(.id, .model) %>%
   mutate(h=row_number()) %>%
   as_fable(response = "close", distribution = close) %>% 
@@ -338,7 +338,8 @@ To do this, use two alternatives:
 error_metrics_accuracy <- 
   fc_train_sets %>% 
   accuracy(tr_data, by=c(".id", ".model")) %>% 
-  arrange(.id, RMSE)
+  arrange(.id, RMSE) %>% 
+  select(.id, .model, .type, RMSE, MAE, MAPE)
 
 error_metrics_accuracy
 ```
@@ -451,7 +452,7 @@ summary_cv_long %>%
     minor_breaks=1:max(summary_cv$h)
                      ) +
   facet_wrap("metric", scales = "free_y") +
-  ggtitle("Cross-validated Mean Absolute Errors") 
+  ggtitle("Cross-validated MAE and MAPE") 
 ```
 
 * What is the difference between these graphs and the ones we generated in question 5.2? Answer briefly below.
