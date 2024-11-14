@@ -1,0 +1,191 @@
+
+```{r}
+library(fpp3)
+```
+
+```{r}
+google_stock <- 
+  gafa_stock %>%
+  filter(Symbol %in% c("GOOG", "AAPL"), year(Date) >= 2015) %>%
+  group_by(Symbol) %>% 
+  arrange(Symbol, Date) %>% 
+  mutate(day = row_number()) %>%
+  ungroup() %>% 
+  update_tsibble(index = day, regular = TRUE)
+
+stocks_2015 <- google_stock %>% filter(year(Date) == 2015)
+```
+
+```{r}
+stocks_2015_tr <- 
+  stocks_2015 %>% 
+    stretch_tsibble(.init = 20, .step = 1) %>% 
+    select(Symbol, .id, everything())
+```
+
+```{r}
+# How many training datasets do we have for each stock asset?
+stocks_2015_tr %>% 
+  as_tibble() %>% 
+  group_by(Symbol) %>% 
+  summarize(
+    n_tr_sets = max(.id)
+  )
+
+# How many observations does each training dataset have?
+stocks_2015_tr %>% 
+  as_tibble() %>% 
+  group_by(Symbol, .id) %>% 
+  summarize(
+    nobs = n()
+  )
+```
+
+```{r}
+stocks_2015_fit_cv <- 
+  stocks_2015_tr %>%
+          model(
+              Drift = RW(Close ~ drift()),
+              Mean = MEAN(Close),
+              SES = ETS(Close ~ error("A") + trend("N") + season("N"))
+          )
+```
+
+```{r}
+# Number of forecasts:
+
+# Number of tseries = 466
+# Nmodels = 3
+# Nforecasts per model = 8
+466 * 3 * 8
+```
+
+```{r}
+stocks_2015_fc <- 
+stocks_2015_fit_cv %>% 
+  forecast(h=8)
+
+stocks_2015_fc
+```
+```{r}
+stocks_2015
+```
+
+```{r}
+cv_accuracy <- 
+stocks_2015_fc %>% 
+  accuracy(stocks_2015) %>% 
+  arrange(Symbol, RMSE)
+
+cv_accuracy
+```
+
+```{r}
+stocks_2015
+```
+
+```{r}
+# Step 1. Compute forecasts - Done
+stocks_2015_fc
+
+# Step 2 - Bring the test data information to the table containing the forecasts
+# LEFT JOIN
+stocks_2015_close <- 
+  stocks_2015 %>% 
+  select(Symbol, day, Close) %>% 
+  rename(Close_data = Close)
+
+errors_manual <- 
+  stocks_2015_fc %>% 
+    left_join(stocks_2015_close, by=c("Symbol", "day"))
+
+# Step 3 - Compute the error at each point in time, for each training dataset
+errors_manual <- 
+  errors_manual %>% 
+    mutate(
+      fc_error = Close_data - .mean,
+      fc_error_pc = fc_error / Close_data
+    )
+
+# Step 4 - Average depending on the desired output
+cv_errors_manual <- 
+  errors_manual %>% 
+  as_tibble() %>% # Cast it as a normal dataframe to have group_by work normally
+  group_by(Symbol, .model) %>% 
+  summarize(
+    MAE = mean(abs(fc_error), na.rm=TRUE),
+    RMSE = sqrt(mean(fc_error^2, na.rm=TRUE)),
+    MAPE = mean(abs(fc_error_pc), na.rm=TRUE)
+  ) %>% 
+  arrange(Symbol, RMSE)
+
+all.equal(cv_errors_manual$RMSE, cv_accuracy$RMSE)
+```
+
+```{r}
+# Create the column h and render back to a fable
+stocks_2015_fc_fable <- 
+  stocks_2015_fc %>% 
+    group_by(.id, Symbol, .model) %>% 
+    mutate(
+      h = row_number()
+    ) %>% 
+  select(.id, Symbol, .model, h, day, everything()) %>% 
+  ungroup() %>% 
+  as_fable(response = "Close", distribution = Close)
+```
+
+```{r}
+cv_accuracy_h <- 
+stocks_2015_fc_fable %>% 
+  accuracy(stocks_2015, by=c("Symbol", ".model", "h")) %>% 
+  arrange(Symbol, h, RMSE)
+
+cv_accuracy_h %>% 
+  filter(h==4)
+```
+
+```{r}
+# Step 1. Compute forecasts and add the column h
+stocks_2015_fc_fable
+
+# Step 2 - Bring the test data information to the table containing the forecasts
+# LEFT JOIN
+stocks_2015_close <- 
+  stocks_2015 %>% 
+  select(Symbol, day, Close) %>% 
+  rename(Close_data = Close)
+
+errors_manual <- 
+  stocks_2015_fc_fable %>% 
+    left_join(stocks_2015_close, by=c("Symbol", "day"))
+
+# Step 3 - Compute the error at each point in time, for each training dataset
+errors_manual <- 
+  errors_manual %>% 
+    mutate(
+      fc_error = Close_data - .mean,
+      fc_error_pc = ((Close_data - .mean) / Close_data)*100
+    )
+
+# Step 4 - Average depending on the desired output
+cv_errors_manual_h <- 
+  errors_manual %>% 
+  as_tibble() %>% # Cast it as a normal dataframe to have group_by work normally
+  group_by(Symbol, .model, h) %>% 
+  summarize(
+    MAE = mean(abs(fc_error), na.rm=TRUE),
+    RMSE = sqrt(mean(fc_error^2, na.rm=TRUE)),
+    MAPE = mean(abs(fc_error_pc), na.rm=TRUE)
+  ) %>% 
+  arrange(Symbol, h, RMSE)
+
+all.equal(cv_errors_manual_h$MAPE, cv_accuracy_h$MAPE)
+```
+
+
+
+
+
+
+

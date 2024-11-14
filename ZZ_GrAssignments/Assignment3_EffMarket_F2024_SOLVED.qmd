@@ -53,7 +53,7 @@ If we set h=1 in the equation above and then make the change of variable t=T+1 (
 $$
 \hat{y}_{t|t-1} = y_{t-1} \ \ \ \ \ \text{(fitted values of the Naive model)}
 $$
-The residuals are, by definition, the value of the time series minus the fitedd values. Therefore, replacing the formula obtained above, for the naive model the value of the residuals at a generic point in time t is:
+The residuals are, by definition, the value of the time series minus the fited values. Therefore, replacing the formula obtained above, for the naive model the value of the residuals at a generic point in time t is:
 
 $$
 y_t - \hat{y}_{t|t-1} = y_t - y_{t-1}
@@ -415,6 +415,8 @@ summary_cv <-
     accuracy(tr_data, by = c("h", ".model")) %>% 
     select(h, .model, MAE, MAPE)
 ```
+
+#### 6.2 Obtain the cross-validated accuracy metrics manually (layout)
 
 ### **7. Produce the following graphs and answer the questions** (2.5 points) 
 
