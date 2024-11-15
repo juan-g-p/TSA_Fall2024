@@ -1,16 +1,3 @@
----
-title: "Efficient Market Hypothesis (Group assignment)"
-self-contained: true
-self-contained-math: true
-format: html
-editor: source
-params:
-  solutions: false
-  print_sol: false
-toc: true
-toc-location: left
-toc-depth: 6
----
 
 ```{r}
 library(fpp3)
@@ -91,11 +78,16 @@ YOUR ANSWER GOES HERE. MAX 50 WORDS.
 
 ------
 
-### **2. Create two training datasets containing 80% and 60% of your data** (0 points)
+yaml
 
 For this, complete the code below. In the end you will have a single tsibble where each training dataset is identified by `.id`.
 
 NOTE: we do not use stretch-tsibble in this case because we only want to produce two trading datasets.
+
+```{r}
+nrow(df)
+```
+
 
 ```{r}
 n_obs_80 <- # Your code goes here. Compute the integer number corresponding 80% of the observations in the data
@@ -168,7 +160,7 @@ aux1 <-
   tr_data %>% 
   ...
 
-# 1. Use a left_join() between fc_train_sets (left table) and tr_data (right table)
+# 1. Use a left_join() between fc_train_sets (left table) and aux1 (right table)
 # to incorporate the actual value of the variable "close" to fc_train_sets. 
 # Store the result in a new variable called "df_errors".
 df_errors <- 
@@ -209,7 +201,7 @@ df_errors %>%
   # YOUR CODE GOES HERE
 ```
 
-##### TWO GRAPHS FOR THE ABSOLUTE ERRORS. ONE GRAPH FOR EACH TRAINING DATASET.
+##### TWO GRAPHS FOR THE ABSOLUTE PERCENT ERRORS. ONE GRAPH FOR EACH TRAINING DATASET.
 
 The graphs shall be generated using the library `ggplot`.
 
@@ -313,6 +305,21 @@ summary_cv <-
 ```
 
 #### 6.2 Obtain the cross-validated accuracy metrics manually (layout)
+
+Obtain the same table you got in 6.1, but this time computing the errors yourself using their formulas. Store the result in `summary_cv_manual`
+
+```{r}
+# YOUR CODE GOES HERE
+```
+
+At the end, check that both calculations match:
+
+```{r}
+# Check (should evaluate to TRUE)
+all.equal(summary_cv$MAE, summary_cv_manual$MAE)
+all.equal(summary_cv$RMSE, summary_cv_manual$RMSE)
+all.equal(summary_cv$MAPE, summary_cv_manual$MAPE)
+```
 
 ### **7. Produce the following graphs and answer the questions** (2.5 points) 
 
