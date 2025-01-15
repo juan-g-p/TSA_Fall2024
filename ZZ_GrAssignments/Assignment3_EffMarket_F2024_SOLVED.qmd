@@ -77,8 +77,7 @@ tr_data <- tr_data %>%
 ### **1.1 Create a time-plot of your data and briefly describe it (max 75 words)** (1 points)
 
 ```{r}
-# YOUR CODE GOES HERE
-# DO NOT CREATE ADDITIONAL CODE SNIPPETS
+autoplot(tr_data)
 ```
 
 ------
@@ -258,17 +257,17 @@ df_errors
 
 Yo are tasked with generating the following graphs: 
 
-TWO GRAPHS FOR THE ABSOLUTE ERRORS.
+##### TWO GRAPHS FOR THE ABSOLUTE ERRORS. ONE GRAPH FOR EACH TRAINING DATASET.
 
 The graphs shall be generated using the library `ggplot`.
 
-These graphs shall fulfil the following:
+These graphs shall fulfill the following:
 
-- x-axis corresponds to the forecast horizon and its grid shows only integer values
-- y-axis corresponds to the values of the absolute error or the percent error. **The y-axis on both graphs shall have the same scale to be able to compare results**.
-- In summary, each graph shall have 4 lines, one line for each of the four models fitted depicting the absolute errors.
+- x-axis corresponds to the forecast horizon and its grid shows only integer values (the values of h).
+- y-axis corresponds to the values of the absolute error. **The y-axis on both graphs shall have the same scale to be able to compare among them**.
+- In summary, each graph shall have 4 lines, one line for each of the four models fitted.
 
-I recommend using `facet_wrap(".id")` to produce the two desired graphs, but you are free to proceed otherwise if you reach the same result.
+I recommend using `facet_wrap(".id")` as the last ggplot command to produce one graph for each trading dataset, but you are free to proceed otherwise if you reach the same result.
 
 ```{r}
 df_errors %>% 
@@ -284,13 +283,15 @@ df_errors %>%
    ggtitle("absolute errors")
 ```
 
-TWO GRAPHS FOR THE ABSOLUTE PERCENTAGE ERRORS.
+##### TWO GRAPHS FOR THE ABSOLUTE PERCENT ERRORS. ONE GRAPH FOR EACH TRAINING DATASET.
 
-These graphs shall fulfil the following:
+The graphs shall be generated using the library `ggplot`.
 
-- x-axis corresponds to the forecast horizon and its grid shows only integer values
-- y-axis corresponds to the values of the absolute percent error. **The y-axis on both graphs shall have the same scale to be able to compare results**.
-- In summary, each graph shall have 4 lines, one line for each of the four models fitted depicting the absolute errors.
+These graphs shall fulfill the following:
+
+- x-axis corresponds to the forecast horizon and its grid shows only integer values (the values of h).
+- y-axis corresponds to the values of the absolute percent error. **The y-axis on both graphs shall have the same scale to be able to compare among them**.
+- In summary, each graph shall have 4 lines, one line for each of the four models fitted.
 
 I recommend using `facet_wrap(".id")` as the last ggplot command to produce one graph for each trading dataset, but you are free to proceed otherwise if you reach the same result.
 
@@ -314,8 +315,7 @@ QUESTIONS ABOUT GRAPHS:
 
 ------
 
-**YOUR ANSWER GOES HERE**
-MAX 30 WORDS
+Yes, obviously for this particular case, due to the random walk nature of the process, the training dataset has a much bigger effect than the model.
 
 ------
 
@@ -323,8 +323,7 @@ MAX 30 WORDS
 
 ------
 
-**YOUR ANSWER GOES HERE**
-MAX 30 WORDS
+Given a training dataset, all the models perform suprisingly similar. This is also due to the random walk nature of the process.
 
 ------
 
@@ -461,7 +460,9 @@ summary_cv_long %>%
 
 ------
 
-YOUR ANSWER GOES HERE: MAX 30 WORDS
+These graphs provide values averaged over multiple training datasets, wheras the previous graphs matched each a different training dataset. In otherwords, these graphs are the average of a lot of the previous graphs.
+
+These process results in a much more robust estimation of the error metrics. One way to convince ouselves of this is to notice that the error now systematically grows with the forecast horizon for each model, which is what you would expect generally when you forecast a process (even more so if that process is a random walk, as in the case at hand).
 
 ------
 
@@ -469,7 +470,7 @@ YOUR ANSWER GOES HERE: MAX 30 WORDS
 
 ------
 
-YOUR ANSWER GOES HERE: MAX 30 WORDS
+No, the error metrics of all the models are really close both in absolute (MAE) and relative terms (MAPE). Notably, the autoarima model seems to perform worse. This is because it is overfitting the random walk process.
 
 ------
 

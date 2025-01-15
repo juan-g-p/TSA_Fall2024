@@ -1,0 +1,1448 @@
+---
+title: "07_02_A_ARIMA_Stationarity_Differencing"
+self-contained: true
+format: html
+editor: source
+params:
+  print_sol: false
+  hidden_notes: false
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+```{r}
+#| echo: false
+#| warning: false
+library(fpp3)
+```
+
+```{r, include=FALSE, message=FALSE, warning=FALSE}
+library(GGally)
+# library(latex2exp)
+library(patchwork)
+library(readr)
+```
+
+# References
+
+1. Hyndman, R., & Athanasopoulos, G. (n.d.). *Forecasting Principles and Practice*. [Link](https://otexts.com/fpp3/).
+2. Shumway, R. H., & Stoffer, D. S. (n.d.). *Time Series - A Data Analysis Approach Using R*. [Link to IE library](#).
+3. Shumway, R. H., & Stoffer, D. S. (n.d.). *Time Series Analysis and its Applications* (4th ed.).
+4. Shin, K., & Hammond, J. K. (n.d.). *Fundamentals of Signal Processing for Vibration and Acoustic Engineers*. Wiley.
+   - Chapter 8 covers *Stochastic Processes*. TODO: complete this reference
+5. Box, G. E. P., & Jenkins, G. M. (n.d.). *Time Series Analysis: Forecasting and Control* (5th ed.).
+
+# Stationarity
+
+A **stationary time series** is one **whose statistical properties do not depend on the time at which the series is observed**.
+
+**Consider the image below:** if we study the time series at two different time periods of the same length $s$ (see time windows in the figure), we would find that the statistical properties of the time series in this two process remain constant.
+
+-   To put it in the most simple terms (although some more rigor is needed), if you build a histogram of the values of $y_t$ in those two windows, those histograms would look the same. The underlying distribution describing the statistical properties of the time series would be the same.
+
+![](./figs/stat_properties.png)
+
+## Phyisics side note
+
+If you ever delve a bit more into physics,
+
+-   *stationary* refers also to processes that do not change over time and
+-   *cuasi-stationary* refers to processes that change so slowly that the change is negligible compared to the time scale of the analysis being conducted.
+    -   *For example:* the radiation emitted by some radioactive material decays over time. But it decays so slowly that you will not consider this effect if you were to compute the total radiation emmited by the material in the following week.
+
+## Practical identification of stationarity
+
+There are different levels of stationarity. Specifically we will talk about **strict stationarity** and **weak stationarity** (see section *a formal definition* in this notebook). For the intent and purposes of this course we will consider a series stationary if it is **weakly stationary**. From now on, wherever we say **stationary**, we mean **weakly stationary**.
+
+### Features to check for stationarity (very exam relevant)
+
+We will identify **stationary** (weakly stationary) series examining the following three features (these are **very exam relevant**):
+
+1. They have a **constant mean over time**. Regardless of the time window we chose to compute the mean, it remains the same: $\mu(t) = \mu = const$. This means that the series is **roughly horizontal**.
+2. They have a **constant variance**. Regardless of the time window we chose to compute the variance, it remains the same: $\sigma(t) = \sigma = const$. 
+    * This means that **multiplicative time series are NOT stationary**, because for regions on which the level is higher, the variance is different than on regions on which the level is lower.
+3. It **does not have predictable patterns in the long-term**. 
+    * This means that **seasonal time series are NOT stationary**
+
+The above features translate in specific characteristics of a stationary time series:
+
+1.  They are roughly horizontal, with **no trend.**
+2.  Their **variance remains constant** over time (homoskedastic).
+3.  They present **no predictable patterns in the long-term**
+    -   **Seasonal time series are NOT stationary**. Seasonality is a very regular pattern that introduces a level of predictability and determinism in the time series.
+    -   **Cycles will NOT be considered a source of non-stationarity**. Cycles are not as predictable as seasonality, they do not obey calendar variations.
+
+Bear in mind that, in a strict sense, all processes are non-stationary to some degree. Thus **the assumption of stationarity is only an assumption**. However, in many situations, **this assumption gives a sufficiently close approximation**.
+
+## Determinstic and Statistical time Series
+
+Staying in the topic of cycles, seasonality and their effect on stationarity, reference 5 gives a good definition of the distinction between **deterministic** and **non-deterministic (a.k.a statistical)** time series. The text below is reproduced exactly from that reference:
+
+* *If future values of a time series are exactly determined by some mathematical function such as $y_t=cos(2\pi ft)$, the time series is said to be **deterministic***.
+* *If future values can be described only in terms of a probability distribution, the time series is said to be **non-deterministic** or simply a **statistical time series***.
+
+In the ARIMA framework **we will consider a time series to be stationary if all the deterministic patterns of the time series have been removed and hence were a left with a non-deterministic or statistical time series.**
+
+## Seasonality, cycles and stationarity
+
+It is because of the distinction between deterministic and non-deterministic time series that **we require that the seasonal component be removed, but we accept cycles when judging if a time series is stationary in the ARIMA framework.**
+
+Due to the somewhat deterministic nature of seasonality (very regular patterns), we require seasonality be removed to consider the time series stationary. In other words, we want the stationary time series to be a **statistical time series**, that is, a **non-deterministic time series**.
+
+**Cycles** are **non-deterministic**, which is why **we will let them remain in the time series without compromising the stationarity assumption.**
+
+## Visually recognising stationary data
+
+-   **Time plot of stationary series:** will show the series to be roughly horizontal, although some cyclic behavior is possible, with constant variance.
+-   **ACF plot**
+    -   **Stationary time series** have an ACF that drops to 0 relatively quickly
+    -   **Non-stationary time series:** the ACF decreases slowly.
+    -   **r1 value (first autocorrelation):** for non-stationary time series r1 is often large and positive (first values of the series are close). This is however not a formal test.
+
+# Examples of stationarity
+
+## Example 1
+
+Let us start with an example given in reference \[2\]. 
+
+The image below shows an example of a stationary vs a non-stationary process. 
+
+* The series on the left has no trend and the time series behaves the same between the first 50 points and the rest of the points. Some cyclic behavior may be identified, but again cycles are not considered a source of non-stationarity.
+* The right one has a trend and it also behaves differently between observations 1-50 and 150 to 200. Observations 1-50 have a different mean and variance than observations 150-200 (the end being more variable).
+
+![](figs/stationary-2.png)
+
+## Example 2
+
+Continuing with more examples, we saw a clear example of a non-stationary time series when dealing with stock data. For example, for google stock data. The series exhibits periods of changing variance, as well as a trend.
+
+```{r}
+gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) == 2018) %>%
+  autoplot(Close) +
+  labs(y = "Google closing stock price", x = "Day")
+```
+
+```{r}
+gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) == 2018) %>%
+  ACF() %>%
+  autoplot()
+```
+
+We can remove the trend from this time-series simply by differencing (we will study this later in the session):
+
+```{r}
+gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) == 2018) %>%
+  autoplot(difference(Close)) +
+  labs(y = "Google closing stock price", x = "Day")
+```
+
+```{r}
+gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) == 2018) %>%
+  ACF(difference(Close)) %>%
+  autoplot()
+```
+
+We see that the above operations have rendered the series to be white noise.
+
+## White noise and stationarity
+
+**Important note**: a white noise series is stationary, but a series that is stationary is not necessarily white noise
+
+-   white noise $\Rightarrow$ stationarity
+-   stationarity $\nRightarrow$ white noise
+
+For further details on this (not necessary to understand beyond this for the subject), see the section *a formal definition of stationarity* at the end of the notebook.
+
+## Example 3
+
+Another example:
+
+```{r}
+algeria <- global_economy %>%
+            filter(Country == "Algeria")
+
+algeria %>%
+  autoplot(Exports) +
+  labs(y = "% of GDP", title = "Algerian Exports")
+```
+
+```{r}
+algeria %>% ACF(Exports) %>% autoplot()
+```
+
+The series exhibits a slowly decaying ACF resulting from the trend-cycle component. We can see that this goes away with first order differencing:
+
+```{r}
+algeria <- 
+  algeria %>% 
+    mutate(
+      exports_1d = difference(Exports, 1)
+    )
+
+algeria %>% autoplot(exports_1d)
+```
+
+```{r}
+algeria %>% 
+  ACF(exports_1d) %>% 
+  autoplot()
+```
+
+## Example 4
+
+```{r}
+aus_production %>%
+  autoplot(Bricks) +
+  labs(title = "Clay brick production in Australia")
+```
+
+This series presents trend, seasonality and also changes in its variance over time. The steps we would apply here would be:
+
+1.  Box-Cox transformation to even out variance (prior to differencing)
+2.  Differencing (we will explain this later):
+    -   Seasonal differencing to remove seasonality (explained later in the notebook).
+    -   Ordinary differences to remove trend.
+
+## Example 5
+
+Let us now examine how the time period considered can play a role:
+
+```{r}
+aus_livestock %>%
+  filter(Animal == "Pigs", State == "Victoria") %>%
+  autoplot(Count/1e3) +
+  labs( y = "thousands", title = "total pigs slaughtered in Victoria")
+```
+
+Over the entire time period the series is clearly not stationary, we can see that it has trend, some increase of the variance with the level of the seies as well as seasonality.
+
+```{r}
+aus_livestock %>%
+  filter(Animal == "Pigs", State == "Victoria") %>%
+  ACF(Count/1e3) %>% autoplot()
+```
+
+Clearly this series exhibits a very strong trend as well as seasonality. Not stationary.
+
+Now lets consider 2010 onwards:
+
+```{r}
+aus_livestock %>%
+  filter(Animal == "Pigs", State == "Victoria", year(Month) >= 2010) %>%
+  autoplot(Count/1e3) +
+  labs( y = "thousands", title = "total pigs slaughtered in Victoria")
+```
+
+```{r}
+aus_livestock %>%
+  filter(Animal == "Pigs", State == "Victoria", year(Month) >= 2010) %>%
+  ACF(Count/1e3) %>% autoplot()
+```
+
+The strength of the ACF coefficients is smaller, but the series also has very clearly seasonality and trend.
+
+Now if we consider observations from 2015 onwards:
+
+```{r}
+aus_livestock %>%
+  filter(Animal == "Pigs", State == "Victoria", year(Month) >= 2015) %>%
+  autoplot(Count/1e3) +
+  labs( y = "thousands", title = "total pigs slaughtered in Victoria")
+```
+
+```{r}
+aus_livestock %>%
+  filter(Animal == "Pigs", State == "Victoria", year(Month) >= 2015) %>%
+  ACF(Count/1e3, lag_max=60) %>% autoplot()
+```
+
+Now this series looks much more stationary, despite some seasonality remaining as evidenced by the spike of the ACF graph at lag 12. Perhaps seasonal differencing would have been more adequate in this case (see later parts of this notebook).
+
+Beware that **a non-stationary time series can look stationary if only a certain region of time is considered.*
+
+This is important because you may not want to consider the entirety of the time series for your analysis.
+
+## Examply 6: cycles and stationarity
+
+```{r}
+pelt %>%
+  autoplot(Lynx) +
+  labs(y = "Number trapped", title = "Annual Canadian Lynx Trappings")
+```
+
+**A time series with cyclic behavior (but no trend or seasonality) will be considered sufficiently stationary for the intents and purposes of this course**. That is, **for the intents and purposes of the ARIMA framework**. This is because **cycles are not of fixed length** and, as such, **are not deterministic**, unlike seasonality. 
+
+* If we look at it from a stochastic process standpoint, before the series realizes we cannot be sure where the peaks will be and we cannot be sure how long the cycles will be.
+
+Although the strong cycles might appear to make it non-stationary, these are aperiodic (caused when the lynx population becomes too large for the available feed). In the long term, **the timing of these cycles is not predictable**.
+
+Truth be told, **this particular kind of cycles, since they are related to nature (population fluctuations of the species), are much more predictable than business cycles**, so this is perhaps not the best example to illustrate that cycles are non-determinisic.
+
+Let us compute the ACF of this TS. We can see that there is barely a trend contributor and that cycles are of approximately length 10 years.
+
+```{r}
+pelt %>% 
+  ACF() %>% 
+  autoplot()
+```
+
+## Example 7: cycles and stationarity
+
+To better illustrate cycles that are not deterministic, we include this last example. 
+
+This is an example of monthly sales of households in the US. The data is imported from file `monthly_sales_households_US_stationary.csv`, which is in the folder `ZZ_Datasets`.
+
+```{r}
+households <- 
+read_csv("figs/monthly_sales_households_US_stationary.csv") %>% 
+  mutate(
+    ym = yearmonth(DATE)
+  ) %>% 
+  as_tsibble(index=ym) %>% 
+  select(ym, HSN1F)
+
+households %>% autoplot()
+```
+
+In this case, we can clearly see that the cycles are non-deterministic and as such are not considered regular patterns to be removed. 
+
+However, remember we talk about the **trend-cycle** component, and in this particular time series, the trend introduces non-stationary behavior because it causes fluctuations in the mean (in the previous example with the `pelt` series, the trend did not behave in this manner). 
+
+We can see that the trend results in lack of stationarity in the ACF plot:
+
+```{r}
+households %>% ACF(HSN1F) %>% autoplot()
+```
+
+Therefore, differencing is required to remove the trend. The resulting time-series may be considered stationary, although spikes at lag 12 and 24 indicate some remaining seasonality that we could perhaps furter remove with seasonal differencing (later on this notebook).
+
+```{r}
+households <- 
+  households %>% 
+    mutate(
+      diff = difference(HSN1F, 1)
+    ) 
+
+households %>% autoplot(diff)
+households %>% ACF(diff, lag_max=60) %>% autoplot()
+```
+
+The resulting differenced series is **also a good example of a series that is not white noise, yet is considered sufficiently stationary**.
+
+## Some more examples
+
+Some more examples (some are repatead):
+
+![](figs/stationary-1.png)
+
+\(a\) Google closing stock price in 2015;
+
+\(b\) Daily change in the Google stock price in 2015; (c) Annual number of strikes in the US;
+
+\(d\) Monthly sales of new one-family houses sold in the US;
+
+\(e\) Annual price of a dozen eggs in the US (constant dollars);
+
+\(f\) Monthly total of pigs slaughtered in Victoria, Australia;
+
+\(g\) Annual total of Canadian Lynx furs traded by the Hudson Bay Company;
+
+\(h\) Quarterly Australian beer production; (i) Monthly Australian gas production.
+
+```{r, eval=FALSE, include=params$hidden_notes}
+From ref. 1:
+
+* Obvious seasonality rules out series (d), (h) and (i).*
+
+* Trends and changing levels rules out series (a), (c), (e), (f) and (i). 
+  Increasing variance also rules out (i).*
+
+* That leaves only (b) and (g) as stationary series. Even in the case of (b) 
+  we would have to be careful since there could be increasing or changing 
+  variance, which is itself a form of non-stationarity.*
+
+* At first glance, the strong cycles in series (g) might appear to make it 
+  non-stationary. But these cycles are aperiodic --- they are caused when the 
+  lynx population becomes too large for the available feed, so that they stop 
+  breeding and the population falls to low numbers, then the regeneration of 
+  their food sources allows the population to grow again, and so on. 
+  In the long-term, the timing of these cycles is not predictable. 
+  Hence the series is stationary.
+```
+
+# The importance of stationarity
+
+## In ARIMA
+
+We will see that ARIMA stands for Autoregressive Integrated Moving Average models. We will be able to separate an ARIMA model into these three components.
+
+Together, the Autoregressive (AR) and Moving Average (MA) models will constitute an ARMA model. The **time series modelled by an ARMA process needs to be stationary**, **ARMA models reproduce the dynamics of stationary time series**.
+
+The mathematical underpinning of this fact is complex and can be found in reference 2. In short:
+
+-   The Wold decomposition shows that any stationary time series may be represented as a linear combination of white noise (ref 2).
+-   On the other hand it can be proven that any ARMA model can be expressed in a form that is a linear combination of white noise (ref 2).
+
+Thus ARMA models are very well suited for stationary time series. We will not go into the formal demonstration of this (reference 2), but it is important that you keep this fact in mind.
+
+## In general in time series
+
+See section *a formal definition* at the end of the notebook. This section is **completely optional and not necessary to pass the subject**.
+
+# Differencing
+
+In the ARIMA framework, we will use differencing to remove non-stationarities caused by the presenced of trend and seasonalities.
+
+The google stock prices example showed that, while the stock price was not stationary, the daily changes in the price were stationary (although we should perhaps have a better look at the variance).
+
+**Differencing** (computing the difference between consecutive observations) is one way to make a non-stationary time series stationary.
+
+Specifically, differencing **removes changes in the level of a time series and therefore can reduce (or eliminate) trend and seasonality (we discuss later seasonal differences).**
+
+We will **distinguish two types of differences**
+
+1. **First-differencing, a.k.a lag1-differencing, a.k.a ordinary differences** (differencing between consecutive lags) **can be helpful in removing trend non-stationarity but it will not help much in removing seasonal non-stationarity.**
+2. **Seasonal-differencing** (differences between observations in consecutive seasons) can be **helpful in removing seasonal non-stationarity as well as trend non-stationarity to some extent.**
+
+## First order differences (first order lag-1 differencing)
+
+### Lag-1 differencing
+
+The differenced series can be written as:
+
+```{=tex}
+\begin{align*}
+  y'_t = y_t - y_{t-1}.
+\end{align*}
+```
+-   If the original series $y_t$ has $T$ values, the differenced series has $T-1$ values, since it is not possible to compute a difference for the first observation.
+
+### Random walk model
+
+**If the series resulting from first-order differencing differencing is white noise**, the model for the original series can be written as ($\varepsilon_t$ denotes white noise):
+
+```{=tex}
+\begin{align*}
+  y_t - y_{t-1} = \varepsilon_t,
+\end{align*}
+```
+
+Rearranging we arrive at the **random walk model**: the value at $t$ is given by the value at $t-1$ (previous time-step) plus some random shock $\varepsilon_t$ that renders the process non-deterministic. Hence the term **random walk**.
+
+```{=tex}
+\begin{align*}
+  y_t = y_{t-1} + \varepsilon_t
+\end{align*}
+```
+
+This model is widely **used for non-stationary data**, particularly **financial** and **economic** data. These typically have:
+
+-   long periods of apparent trends up or down
+-   sudden and unpredictable changes in direction
+
+#### Random walk model - non-stationarity
+
+Please, bear this in mind: **a random walk is NOT a stationary process**. 
+
+* A simple way to convince yourself of this is to run some simulations of the random walk process. 
+* This is done separately in the additional materials on random walk simulation. 
+* The black line in the image below corresponds to one run of that simulation. We can see that the random walk process may result in a time series with trend, which is not stationary. This is sufficient to prove that, in general, the random walk model is not stationary.
+* A more rigorous proof of this is given in the additional materials, where we show that the random walk process has increasing variance over time. But let us stick to the matter of this session.
+
+![](figs/rwalk_singlerun.png)
+
+**Optional materials on the random walk process along with explanatory are provided but are not part of the exam**.
+
+#### Random walk and the naïve method
+
+The **random walk model** is the **reason for the naïve forecast method**. Since future movements are unpredictable (equally likely up or down), we disregard them and end up with naïve forecasts, equal to the last observation.
+
+$$
+\require{cancel}
+\begin{align*}
+  y_t = y_{t-1} + \cancel{\varepsilon_t}
+\end{align*}
+$$
+
+### Random walk with drift
+
+Extension of the random walk model to **allow the differences to have a non-zero mean $c$.** Then:
+
+$$
+y_t - y_{t-1} = c + \varepsilon_t\quad\text{or}\quad {y_t = c + y_{t-1} + \varepsilon_t}
+$$
+
+-   $c$ is the average of the changes between consecutive observations. For $c > 0$ the value if $y_t$ increases on average with each step. Conversely for $c < 0$ $y_t$ decreases on average with each step.
+
+    -   If $c>0 \rightarrow$ drift upwards (and vice-versa).
+
+#### Random walk with drift and the drift method
+
+In the random walk with drift, $y_t$ is equal to:
+
+* The previous observation $y_{t-1}$
+* Plus the average increment per unit time $c$
+* Plus a random shock $\varepsilon_t$ that is equally likely to be upwards or downwards. This renders the process non-deterministic.
+
+Since we cannot predict $\varepsilon_t$, the most straightforward forecast in this case consists in disregarding the random part of the process, which is equivalent to the drift method, which used the average change in the time series to compute the forecasts (given here by $c$).
+
+$$
+\require{cancel}
+\begin{align*}
+  y_t = c + y_{t-1} + \cancel{\varepsilon_t}
+\end{align*}
+$$
+
+If you remember how we clarified the drift method in the corresponding session, it would be equivalent to obtaining an estimate of the average change over time $c=tan(\alpha)$:
+
+![](figs/drift_method_1.jpeg)
+
+![](figs/drift_method_2.jpeg)
+
+Below the same simulation we showed before but this time, adding a drift:
+
+![](figs/rwalk_drift_1sim.png)
+
+## Second order differencing (second order lag-1 differences)
+
+Sometimes, if differencing once is not sufficient to remove the trend, second order differencing can help achieve a stationary time-series:
+
+```{=tex}
+\begin{align*}
+  y''_{t}  &=  y'_{t}  - y'_{t - 1} \\
+           &= (y_t - y_{t-1}) - (y_{t-1}-y_{t-2})\\
+           &= y_t - 2y_{t-1} +y_{t-2}.
+\end{align*}
+```
+
+In the context of financial / economic data, it is very rarely necessary to go beyond second-order differences to remove the trend.
+
+If second order differencing does not help remove the trend, then **detrending the time series using the estimate of the trend generated by a decomposition model is an alternative.** Another possibility would be to fit a spline or other regression method to model the trend.
+
+### Note
+
+We will see later that ARIMA models deal with trend by differencing. If differencing does not help remove the trend and detrending is required, ARIMA models would not be able to deal with the trend automatically.
+
+Separate models could be built for the detrended process and the trend:
+
+-   The trend could be modelled separately using some suitable method. For example, damped ETS.
+-   The remaining stationary process could be modelled using an ARMA process.
+
+## Seasonal differences
+
+Seasonal differences are defined as the **difference between an observation and the corresponding observation in the foregoing season.**
+
+If $m$ is the **length of the seasonal period**:
+
+```{=tex}
+\begin{align*}
+  y'_t = y_t - y_{t-m}
+\end{align*}
+```
+-   $y_{t-m}$ are called **lag-**$m$ differences, we subtract the observation at a point $t-m$ (whereas ordinary lags subtact $y_{t-1}$).
+
+### Seasonal naive method
+
+If the seasonally differenced series appears to be white noise, a proper model for the original data would be:
+
+```{=tex}
+\begin{align*}
+  y_t = y_{t-m}+\varepsilon_t
+\end{align*}
+```
+
+The observation at time $t$ is equal to the corresponding observation in the previous season $y_{t-m}$ plus a random shock $\varepsilon_t$ that is equally likely to be upwards or downwards and renders the process non-deterministic.
+
+Since $\varepsilon_t$ is non-deterministic, the most straightforward deterministic forecast in this case consists in disregarding $\varepsilon_t$, which results in the seasonal naive model:
+
+$$
+\require{cancel}
+\begin{align*}
+  y_t = y_{t-m} + \cancel{\varepsilon_t}
+\end{align*}
+$$
+
+Forecasts of this model are equal to the **last observation from the last season**, which is what the **seasonal naïve method** does.
+
+## Example 1: transformning and differencing
+
+```{r}
+a10 <- PBS %>%
+  filter(ATC2 == "A10") %>%
+  select(Month, Concession, Type, Cost) %>%
+  summarise(Cost = sum(Cost)/1e6)
+
+a10 %>% autoplot(
+  Cost
+)
+```
+
+**IMPORTANT POINT: if transformations to even out variance are required, they shall be applied prior to taking differences**
+
+Taking a log transformation removes the increasing variance, which is itself a contributor to the non-stationarity.
+
+```{r}
+a10 %>% autoplot(
+  log(Cost)
+)
+```
+
+There are multiple options for differencing. 
+
+* The most usual in time-series books is to first take lag-1 differences to remove the trend and then take lag-1 differences. 
+
+* However taking seasonal differences alone might be sufficient to render the series stationary, since it also has an effect on the trend. 
+
+Let us check both options.
+
+### Option 1: lag-1 differences followed by seasonal differences
+
+```{r}
+a10 <- a10 %>% mutate(
+  log_cost = log(Cost),
+  log_cost_1d = log_cost %>% difference(1)
+) 
+
+autoplot(a10, log_cost_1d)
+```
+
+We can see that lag-1 differences are good at removing the trend, but the seasonal pattern still remains. Let us
+
+```{r}
+a10 <- a10 %>% mutate(
+            log_cost_1d_12d = log_cost_1d %>% difference(12)
+          ) 
+
+a10
+```
+
+```{r}
+autoplot(a10, log_cost_1d_12d)
+```
+
+We can see that now both the trend and the seasonality have been removed.
+
+```{r}
+a10 %>% 
+  ACF(log_cost_1d_12d) %>% 
+  autoplot()
+```
+
+Note that the series is not white noise, but it is stationary according to our criteria
+
+### Option 2: seasonal differences first
+
+This option is worth trying because seasonal differences also have an effect of the trend. Therefore sometimes seasonal differencing is enough to remove both the trend and the seasonal component.
+
+```{r}
+a10 <- a10 %>% mutate(
+  log_cost_12d = log_cost %>% difference(12)
+)
+
+autoplot(a10, log_cost_12d)
+```
+
+After seasonal differencing the series is relatively stationary (formal tests seen later). As observed, seasonal differencing also has an effect at removing the trend **so it can be interesting to apply seasonal differencing prior to lag-1 differencing to see if this is already sufficient to render the time series stationary**
+
+Let us perform a unit root test to check if the time series is stationary. The specifics of this test can be found at the end of the notebook
+
+```{r}
+a10 %>%
+  features(log_cost_12d, unitroot_kpss)
+```
+
+As it is now, the test fails to reject hte null hypothesis that the data is stationary. In other words, it asseses the series `log_cost_12d` as stationary.
+
+**Importantly, note that, if we decided to subsequently apply lag-1 differences, we would reach the same result as in option 1** (where we took first lag 1 differences and subsequently seasonal differences). In other words, the order in which we apply differences does not alter the end result. Let us check this:
+
+```{r}
+a10 <- a10 %>% mutate(
+  log_cost_12d_1d = log_cost_12d %>% difference(1)
+)
+
+autoplot(a10, log_cost_12d_1d)
+```
+
+```{r}
+sum(!(a10$log_cost_12d_1d == a10$log_cost_1d_12d), na.rm = TRUE)
+
+# Alternative way of checking
+all.equal(a10$log_cost_12d_1d, a10$log_cost_1d_12d)
+```
+
+## Example 2 - Transformation + differencing
+
+```{r}
+h02 <- PBS %>%
+  filter(ATC2 == "H02") %>%
+  summarise(Cost = sum(Cost)/1e6)
+```
+
+**IMPORTANT POINT: if transformations to even out variance are required, they shall be applied prior to taking differences**
+
+First the log transformation helps remove the increasing variance, which is itself a contributor to non-stationarity. Remember that **the transformation shall be applied prior to differencing**.
+
+```{r}
+h02 %>% autoplot(log(Cost))
+```
+
+Taking seasonal differences:
+
+$$
+y'_t = y_t - y_{t-12}
+$$
+
+```{r}
+h02 %>% autoplot(
+  log(Cost) %>% difference(12)
+)
+```
+
+In this case it looks as though the series could benefit from additional first order differencing, as the remaining trend shows.
+
+```{r}
+h02 %>% autoplot(
+  log(Cost) %>% difference(12) %>% difference(1)
+)
+```
+
+Since we have applied subsequently seasonal and first order differencing, the resulting twice-differenced series is:
+
+```{=tex}
+\begin{align*}
+y^*_t = y'_t - y'_{t-1} = (y_t - y_{t-12}) - (y_{t-1}-y_{t-13}) = y_t-y_{t-1}-y_{t-12}+y_{t-13}
+\end{align*}
+```
+
+## Note regarding the order of seasonal differencing vs 1st order differencing:
+
+* If seasonal differencing is going to be used to remove the seasonality, then it is often best to apply it prior to first order differences. Seasonal differencing already contributes to removing non-stationary effects different from seasonality and thus it might be sufficient to render the time series stationary. If it is not, then subsequent differencing can help.
+
+* If both steps are applied, it makes no difference which is applied first, the end result is the same. We have seen this when we compared *option 1* and *option 2* in *Example 1*. Let us now show this in general:
+
+* **Option 1:** seasonal differences followed by first order differences:
+    * Seas. differenced series: $y't = y_t - y_{t-12}$
+    * Seas. differenced series followed by first order differences: $y^*_t = y'_t - y'_{t-1} = (y_t - y_{t-12}) - (y_{t-1}-y_{t-13}) = y_t-y_{t-1}-y_{t-12}+y_{t-13}$
+
+* **Option 2:** first order differences followed by seasonal differences:
+    * First differenced series: $y't = y_t - y_{t-1}$
+    * First differenced series followed by seas. differences: $y^*_t = y'_t - y'_{t-12} = (y_t - y_{t-1}) - (y_{t-12}-y_{t-13}) = y_t-y_{t-1}-y_{t-12}+y_{t-13}$
+    
+As you can see, the same result is obtained on both cases.
+        
+# Interpretability of differencing
+
+It is important that differencing, if used, remains interpretable.
+
+-   **First differences**: change from one observation to the next.
+-   **Seasonal differences**: change between one year and the next.
+-   **Other lags**: unlikely to make much interpretable sense.
+
+# Unit root tests
+
+*Unit root tests* are statistical hypothesis tests for stationarity.
+
+-   **Augmented Dickey-Fuller test:** null hypothesis is that the data are
+    -   **non-stationarity** and
+    -   **non-seasonal**
+-   **Kwiatkowski-Phillips-Schmidt-Shin** (KPSS) test: null hypothesis is that the data are
+    -   **stationary** and
+    -   **non-seasonal**.
+-   Other tests available for seasonal data
+
+Depending on the test used, we might obtain different answers.
+
+## KPSS test (Kwiatkowski-Phillips-Schmidt-Shin)
+
+### KPSS to determine if a time series is stationary.
+
+Can be computed using `unitroot_kpss` feature:
+
+-   **Null hypothesis** data are stationary.
+-   **Small p-values** suggest that differencing is required.
+
+```{r}
+google_2015 <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) == 2015) 
+
+google_2015 %>%
+  features(Close, unitroot_kpss)
+```
+
+When interpreting the output of the feature above in the `fable` library consider:
+
+-   The p-value is reported as 0.01 if it is less than 0.01
+-   The p-value is reported as 0.1 if it is greater than 0.1
+
+Given the p-value, we can reject the null hypothesis and affirm that the data is not stationary.
+
+Let us difference and re-compute the test:
+
+```{r}
+google_2015 %>%
+  mutate(diff_close = difference(Close)) %>%
+  features(diff_close, unitroot_kpss)
+```
+
+This time the statistic is small and the actual p-value would be greater than 0.1. We therefore would fail to reject the null and conclude that this time-series is stationary.
+
+### KPSS to determine the appropriate number of first differences:
+
+The feautre `unitrott_ndiffs` can be used for this:
+
+#### Example 3 - unitroot_ndiffs
+
+```{r}
+google_2015 %>%
+  features(Close, unitroot_ndiffs)
+```
+
+The above tells us that it is necessary to perform one first order difference to renderr the google stock data stationary, which we already checked.
+
+### KPSS to determine if seasonal differencing is required:
+
+Using `unitroot_nsdiffs` this can be done. It uses a measure of the **seasonal strength** to determine the appropriate number of seasonal differences required.
+
+#### Seasonal strength
+
+Recall that a time series decomposition can be written as: $y_t = T_t + S_{t} + R_t$
+
+-   $T_t$ is the smoothed trend component
+-   $S_t$ is the seasonal component
+-   $R_t$ is the remainder component
+
+For **strongly seasonal data**, the **seasonal component should have much more variation than the remainder component**. Therefore the quotient $Var(R_t)/Var(S_t+R_t)$ should be relatively small. Conversely, for a ts with weak seasonality, the two variances should be approximately the same. We can therefore define the strength of trend as the maximum between 0 and the following quotients:
+
+```{=tex}
+\begin{align*}
+  F_S = \max\left(0, 1 - \frac{\text{Var}(R_t)}{\text{Var}(S_{t}+R_t)}\right)
+\end{align*}
+```
+The function `unitroot_nsdiffs()` suggest no seasonal differences if $F_s < 0.64$. Otherwise one seasonal difference is suggested.
+
+#### Example 4 - unitroot_nsdiffs
+
+```{r}
+aus_total_retail <- aus_retail %>%
+  summarise(Turnover = sum(Turnover))
+
+aus_total_retail %>% autoplot(Turnover)
+```
+
+```{r}
+aus_total_retail %>%
+  mutate(log_turnover = log(Turnover)) %>%
+  features(log_turnover, unitroot_nsdiffs) 
+```
+
+This suggest we should apply one seasonal difference
+
+We do this and then apply `unitroot_ndiffs` to see if further differencing is suggested.
+
+```{r}
+aus_total_retail_sdfiff <- aus_total_retail %>%
+  mutate(log_turnover = difference(log(Turnover), 12))
+
+aus_total_retail_sdfiff %>% autoplot(log_turnover)
+```
+
+We can see there remains a certain amount of trend. Lets see if a lag-1 difference is suggested
+
+```{r}
+aus_total_retail_sdfiff %>%
+  features(log_turnover, unitroot_ndiffs)
+```
+
+As we can see, a 1-lag difference is still suggested. Lets perform it and inspect the result:
+
+```{r}
+aus_total_retail_sdfiff %>%
+  mutate(log_turnover_1lag = difference(log_turnover, 1)) %>% autoplot(log_turnover_1lag)
+```
+
+Now the series has a much more stationary aspect.
+
+```{r}
+aus_total_retail_sdfiff %>%
+  mutate(log_turnover_1lag = difference(log_turnover, 1)) %>% 
+   features(log_turnover_1lag, unitroot_kpss)
+```
+
+Indeed, we are able to reject the null and may conclude that the ts is stationary.
+
+## Important word of caution about statistical tests for stationarity
+
+**Do not base your judgement of whether a series is stationary or not based solely on these tests**. The test can lead to wrong results, particularly if the time series has seasonality.
+
+Instead **use these tests as a complementary judgement tool**, but do not base your conclusions on them. To analyze stationarity use the features we have signaled of time plots and ACF plots.
+
+# Backshift notation
+
+The backwards shift operator $B$ is useful when working with lags. Some references use $L$ for "lags" instead of B:
+
+```{=tex}
+\begin{align*}
+  B y_{t} = y_{t - 1}
+\end{align*}
+```
+Two consecutive applications shift the data back two periods. Notice the definition of the **power** of the backshift operator. This definition will be useful when handling more complex differences in ARIMA:
+
+```{=tex}
+\begin{align*}
+  B(By_{t}) = B^{2}y_{t} = y_{t-2}
+\end{align*}
+```
+
+It can be used to signal seasonal differences as well, using $m$ to indicate thenumber of times the backshift notation is applied. **Example**: monthly data and *same month last year*:
+
+```{=tex}
+\begin{align*}
+  B^{12}y_{t} = y_{t-12}
+\end{align*}
+```
+To describe the process of differencing, the backshift notation is quite convenient. Let us see the expression for the first, second order differences and, more generallt $d$th-order difference:
+
+$$
+\begin{align*}
+  y'_{t} &= y_{t} - y_{t-1} = y_t - By_{t} = (1 - B)y_{t} \\
+    y''_{t} &= y'_t - y'_{t-1} = \\
+            &= (y_{t} - y_{t-1}) - (y_{t-1} - y_{t-2}) = \\
+            &= y_{t} - 2y_{t-1} + y_{t-2} =\\
+            &= (1-2B+B^2)y_t =\\
+            &= (1 - B)^{2} y_{t}
+            \\
+  \text{d-th order difference } &= \dots =(1 - B)^{d} y_{t}
+\end{align*}
+$$
+
+In **much the same maner, a seasonal difference of order D** and **seasonal period $m$** can be expressed as:
+
+$$
+\begin{align*}
+\text{D-th order seasonal difference difference of period m} &= \dots =(1 - B^m)^{D} y_{t}
+\end{align*}
+$$
+
+**The backshift operator is convenient because the terms can be multiplied together to compute their combined effect**.
+
+**Example**: Seasonal difference of period $m$ and order $D=1$ followed by a first difference of order $d=1$ (same result we obtained earler):
+
+$$
+\begin{align*}
+(1-B)^d(1-B^m)^Dy_t \underset{\underset{\text{d=1 ; D =1}}{\uparrow}}{=} (1 - B - B^m + B^{m+1})y_t =\\
+= y_t-y_{t-1}-y_{t-m}+y_{t-m-1},
+\end{align*}
+$$
+
+Substituting $m=12$ yields: 
+
+$$
+(1-B)(1-B^m)y_t = y_t-y_{t-1}-y_{t-12}+y_{t-13}
+$$
+
+This is exactly what we obtained before in this notebook when we subsequently applied seasonal differences and first order differences. See section *Note regarding the order of seasonal differencing vs 1st order differencing:*
+
+```{=tex}
+\begin{align*}
+y^*_t = y'_t - y'_{t-1} = (y_t - y_{t-12}) - (y_{t-1}-y_{t-13}) = y_t-y_{t-1}-y_{t-12}+y_{t-13}
+\end{align*}
+```
+
+# A formal definition of stationarity
+
+**This section is by no means necessary for the course**. It is only **meant for students who wish to understand how the condition of stationarity is expressed in a formal manner from a mathematical standpoint**.
+
+To delve further in the formal definition of stationarity I recommend references 2 and 3, as well as chapter 8 of reference 4.
+
+Specifically, sections 1.3 and 1.4 of 3 and chapter 8 of reference 4. Beware that these are more math-intensive references than the book we are using for the rest of the subject. The sections below are heavily based on the references above.
+
+## Strict stationarity
+
+Recall that time series can be understood as a **collection of random variables indexed over time.** This is a form of **stachostic process**.
+
+-   **The observations available** would be realizations of the random variable.
+-   **Future values of the time series** may be thought of as a collection of random variables that are yet to be realized, that have yet to collapse to a specific value.
+
+As such, a time series studied at points ${t_1, \dots, t_n}$ is described in a probabilistic manner by a **joint probability function**. In its cumulative form, it is expressed as follows:
+
+$$
+F_{t_1,t_2,\dots,t_n}(y_1, y_2, \dots, y_n) = P(Y_{1} \leq y_1, Y_2 \leq y_2, \dots, Y_n \leq y_n)
+$$
+
+If the stochastic process (the time series) ${Y_t}$ is stationary, then its **probabilistic behavior remains constant over time**. That is, the probabilistic behavior of **every collection of** $k$ of random variables of the time series at $k$ arbitrary points in time $t_1, t_2, \dots, t_k$:
+
+$$
+\{Y_{1}, Y_{2}, \dots, Y_{k}\}
+$$
+
+remains **constant if the set is shifted a distance** $h$ in time
+
+$$
+\{Y_{1+h}, Y_{2+h}, \dots, Y_{k+h}\}
+$$
+
+That is:
+
+$$
+P(Y_{1} \leq y_1, Y_2 \leq y_2, \dots, Y_k \leq y_k) = P(Y_{1+h} \leq y_1, Y_{2+h} \leq y_2, \dots, Y_{k+h} \leq y_k)
+$$
+
+-   $\forall \,\, k = 1, 2, \dots$ (for all values of $k$, that is, for sets of random variables $\{Y_{1}, Y_{2}, \dots, Y_{k}\}$ of arbitrary size),
+-   $\forall \, \, t_1, t_2, \dots, t_k$ (for arbitrary associated points in time).
+-   $\forall \, \, y_1, y_2, \dots, y_k$ (for all values of these k constants, specific values/realizations of the random variables)
+-   $\forall \, \, h = 0, \pm1, \pm2, \dots$ (for all arbitrary time shifts)
+
+The formal manner to express this is to say that **the probability distribution of the stochastic process (the joint probability density function of the random variables that make up the stochastic process) remains invariant under a shift in time**.
+
+```{r, include=FALSE, eval=FALSE}
+TODO: añadir dibujo quizás... pero habría que hacerlo a través de un ensemble o pintando distribuciones en cada punto temporal
+```
+
+However, this condition:
+
+1.  Is **too strict for for most applications**.
+2.  Is **difficult to assess from a single data set, that is, from a single realization of the time series** (see reference 4, chapter 8 for a clarification of *ensemble averaging*, which is essentially averaging over multiple realizations of a time series). Nonetheless, in most business scenarios we will only have a single realization of the time series, meaning that this definition will be unwieldy in your day-to-day forecasting practice.
+
+## Weak stationarity
+
+Because of this, instead of imposing conditions on all possible joint distributions of the time series (on every possible value of $k$), we use a milder version of stationarity that is referred to as **weak stationarity** and is made up of essentially three conditions (condition 0 being a pre-condition):
+
+0.  The time series at hand is a finite mean and finite variance process.
+
+1.  The mean value function $\mu_t$ is constant and does not depend on time.
+
+    -   **NOTE:** in the expression below, $p(y,t)$ is the probability density function of the random variable $Y_t$.
+    -   **NOTE:** this does NOT mean that all the random variables of the time series are identically distributed, it means they have the same mean.
+
+$$
+E[Y_t] = \mu(t) = \int_{-\infty}^{+\infty} y \, p(y,t) \, dy  = \mu \\
+$$
+
+2.  The autocovariance function $\gamma(s,t)$ depends only on $s$ and $t$ through their difference $|s-t|$. That is, if $Y_t$ is the random variable at a point in time $t$ and $Y_s$ is the random variable at a point in time $s$.
+
+$$
+Cov(Y_t, Y_s) = E[(Y_t-\mu)(Y_s-\mu)] \underset{\substack{\uparrow \\ \text{{notation}}}}{=} \gamma(s,t) = \gamma(s-t)
+$$ 
+
+Note that for $s = t$, the above covariance turns into $Cov(Y_t, Y_t) = Var(Y_t)$. That is, this condition also implies **constant variance of the time series** $\sigma_t$.
+
+A formal way to put the above conditions in words is to say that **the mean and the autocovariance of the stochastic process are finite and invariant under a shift in time**.
+
+From now on, whenever we say *stationary* we actually mean it in the *weak stationarity sense*, meaning that the two conditions above are satisfied.
+
+**For practical purposes**, when given a sample in the context of business forecasting, we will check for the three previously identified conditions:
+
+1.  It is roughly horizontal, with **no trend.**
+2.  Its **variance remains constant** over time
+3.  Presents **no predictable patterns in the long-term**
+    -   **Seasonal time series are NOT stationary**.
+
+### Comment about condition 1: mean stationarity
+
+$$
+E[Y_t] = \mu(t) = \int_{-\infty}^{+\infty} y \, p(y,t) \, dy  = \mu \\
+$$
+
+This does NOT mean that all the random variables of the time series (which is a stochastic process) are identically distributed. $p(y,t)$ need not be time independent for the mean to be constant.)
+
+It means that all the random variables of the time series have the same mean. 
+
+For example, imagine a stochastic process in which variables at even points in time followed a normal distribution of mean 0 and variables at uneven points in time followed a student distribution with certain degrees of freedom and mean still 0. 
+* This process would satisfy mean stationarity without requiring that the variables are identically distributed.
+
+```{r, include=FALSE, eval=FALSE}
+Of course, if the variables are identically distributed is a specific case in 
+which their mean is constant. This condition does however not determine the 
+probability density function of the stochastic process is un That is, a 
+collection of random variables may be identically distributed at the 
+marginal level (they share the same marginal distributions) but at the joint 
+level they may have a different distribution.
+
+Example 1: X and Y identically distributed and Y = X
+- The equation introduces a dependency between both.
+- Imagine a case with two uniforms and compute their joint pdf and cdf. They
+  wil be very different from two uniforms that were independent.
+
+
+Example 2: let X be one flip if a flip of a fair coin is tails and 0 otherwise.
+Both are identically distributed, yet they are not independent. Compute their
+joint pdf and cdf and you will get a much different result than for the
+independent case.
+```
+
+## Importance of the stationarity assumption
+
+Most of the analyses must be performed using sampled data. In particular, **if we only have a single realization**, it is paramount to have stationary data. We will not have multiple realizations of the time series to estimate using ensemble averaging of the different realization.
+
+The conditions of **weak stationarity** ensure **regularity in the mean and autocorrelation function** **so that these quantities (at least) may be estimated by averaging the points of a single realization instead of using ensemble averaging.**
+
+-   Given $(x_1, ..., x_n)$, if the mean is constant we can estimate it simply by averaging.
+-   Pairs of points can be used to estimate the correlation of the different lags:
+    -   $(x1, x2)$ - $(x2, x3)$ - $(x3, x4) \text{ ... }$ and so on for lag 1
+    -   $(x1, x3)$ - $(x2, x4)$ - $(x3, x5) \text{ ... }$ and so on for lag 2
+    -   ...
+
+Chapter 8 of reference 4 discusses *ensemble averaging*, which would be averaging over multiple occurrence of the time series if we had more than one realization of the time series. This is more common in experimental setups rather than in situations where data is simply observed. We will not follow that approach here since it is uncommon to encounter this situation in business forecasting (perhaps in some A/B experimental setups).
+
+## Stationarity of white noise
+
+A white noise process is formally a process that satisfies that:
+
+1.  It is uncorrelated
+2.  Has 0 mean
+3.  Has finite variance
+
+**White noise that satisfies this definition, satisfies the weak stationarity conditions.** It need not be independent and identically distributed.
+
+If in addition to this the white noise is independent and gaussian, the series would also be strictly stationary. This is not so relevant for this course and is proved in reference 2 and in reference 5.
+
+What is relevant in the context of this course is what was already mentioned:
+
+-   white noise $\Rightarrow$ stationarity
+-   stationarity $\nRightarrow$ white noise
+
+## Determinstic and Statistical time Series
+
+Staying in the topic of cycles, seasonality and their effect on stationarity, reference 5 gives a good definition of the distinction between **deterministic** and **non-deterministic (a.k.a statistical)** time series. The text below is reproduced exactly from that reference:
+
+* *If future values of a time series are exactly determined by some mathematical function such as $y_t=cos(2\pi ft)$, the time series is said to be **deterministic***
+* *If future values can be described only in terms of a probability distribution, the time series is said to be **non-deterministic** or simply a **statistical time series***.
+
+In the ARIMA framework we want the stationary time series to be a **statistical time series**.
+
+## Seasonality, cycles and stationarity
+
+It is because of the distinction between deterministic and non-deterministic time series that we require that the seasonal component be removed, but we accept cycles when judging if a time series is stationary in the ARIMA framework.
+
+Due to the somewhat deterministic nature of seasonality (very regular patterns), we require seasonality be removed to consider the time series stationary. In other words, we want the stationary time series to be a **statistical time series**, that is, a **non-deterministic time series**.
+
+**Cycles** are **non-deterministic**, which is why **we will let them remain in the time series without compromising the stationarity assumption.**
+
+# Exercises
+
+## Ex 1. For the following series, find an appropriate Box-Cox transformation and order of differencing in order to obtain stationary data.
+
+### 1.a Turkish GDP from `global_economy`
+
+```{r}
+turkey <- global_economy %>% filter(Country == "Turkey")
+turkey %>% autoplot(GDP)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+The trend is slightly non-linear. Also, the variance at higher levels
+seems to increase:
+  
+1. Perform higher order differences. Since the trend is non-linear one difference
+  would probably not remove the trend and we would have to take further differences
+  
+2. Lineariza with a box-cox transformation and then take differences. Since we
+have linearized a first order difference would probably suffice to remove the
+trend.
+```
+
+```{r, include=params$print_sol}
+lambda_turkey <- turkey %>% features(GDP, guerrero) %>% pull(lambda_guerrero)
+lambda_turkey
+```
+
+```{r, include=params$print_sol}
+turkey <- turkey %>%  
+            mutate(
+              diff_GDP = difference(GDP, 1),
+              log_GDP = log(GDP),
+              bc_GDP = box_cox(GDP, lambda_turkey),
+              diff_logGDP = difference(log_GDP, 1),
+              diff_bc_GDP = difference(bc_GDP, 1)
+              )
+```
+
+```{r, include=params$print_sol}
+turkey %>% autoplot(GDP)
+turkey %>% autoplot(diff_GDP)
+turkey %>% autoplot(log_GDP)
+turkey %>% autoplot(bc_GDP)
+turkey %>% autoplot(diff_logGDP)
+turkey %>% autoplot(diff_bc_GDP)
+```
+
+```{r, include=params$print_sol}
+turkey %>% 
+  features(diff_GDP, unitroot_kpss)
+
+turkey %>%
+  features(diff_logGDP, unitroot_kpss)
+
+turkey %>%
+  features(diff_bc_GDP, unitroot_kpss)
+```
+
+```{r, include=params$print_sol}
+turkey %>% 
+  ACF(diff_logGDP) %>% 
+  autoplot()
+
+turkey %>% 
+  ACF(diff_bc_GDP) %>% 
+  autoplot()
+```
+
+```{r, eval= FALSE, include=params$print_sol}
+For the differences taken directly on the un-transformed data, we see that the
+difference time series has roughly 0 mean but is clearly heteroskedastic. This
+indicates that we should have used a transformation first. This differenced
+series fails the stationarity test.
+
+Once a transformation is performed, both the box-cox and log transformation 
+result after differencing in a test with a p-value that fails to
+reject the null. We fail to reject H0, assessing the series as stationary
+```
+
+### 1.b. Acommodation takings in the state of Tasmania from `aus_accommodation`
+
+```{r}
+tas <- aus_accommodation %>% filter(State == "Tasmania")
+tas %>% autoplot(Takings)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+The series exhibits am increasing variance with the level, indicating a
+transformation is appropriate.
+```
+
+```{r, include=params$print_sol}
+lambda_tas <- tas %>% features(Takings, guerrero) %>% pull(lambda_guerrero)
+lambda_tas
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+Lambda very close to 0! Moving to a log transformation.
+```
+
+```{r, include=params$print_sol}
+tas <- tas %>% 
+  mutate(
+        log_takings = log(Takings),
+        log_s_diff = difference(Takings, 4),
+        log_s_diff_diff = difference(log_s_diff, 1)
+      )
+```
+
+```{r, include=params$print_sol}
+tas %>% autoplot(log_takings)
+tas %>% autoplot(log_s_diff)
+tas %>% autoplot(log_s_diff_diff)
+```
+
+```{r, include=params$print_sol}
+tas %>%
+  features(log_s_diff, unitroot_kpss)
+```
+
+```{r, include=params$print_sol}
+tas %>% ACF(log_s_diff) %>% autoplot()
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+The unitroot tests the first differenced series as stationary. 
+We see however some remaining trend both on the timeplot as well as on the
+first auto-correlations of the ACF.
+
+This time series might be well fitted by an ARIMA model but we could further 
+differentiate it without incurring in overdifferencing.
+```
+
+```{r, include=params$print_sol}
+tas %>%
+  features(log_s_diff_diff, unitroot_kpss)
+```
+
+```{r, include=params$print_sol}
+tas %>% ACF(log_s_diff_diff) %>% autoplot()
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+The unit root test confirms stationarity.
+```
+
+### 1.c. Monthly sales from `souvenirs` - EXAMINATION OF OVERDIFFERENCING
+
+```{r}
+souvenirs %>% autoplot(Sales)
+```
+
+```{r, include=params$print_sol}
+lambda_souvenirs <- 
+  souvenirs %>% 
+  features(Sales, guerrero) %>% 
+  pull(lambda_guerrero)
+
+lambda_souvenirs
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+Lambda very close to 0. Move to a log transformation
+```
+
+```{r, include=params$print_sol}
+souvenirs <-souvenirs %>% 
+  mutate(
+    log_sales = log(Sales),
+    log_sdiff = difference(log_sales, 12),
+    log_sdiff_diff = difference(log_sdiff, 1),
+    # This last difference is done only for the sake of examining it
+    log_sdiff_diff_diff = difference(log_sdiff_diff, 1)
+  )
+```
+
+```{r, include=params$print_sol}
+souvenirs %>% autoplot(log_sales)
+souvenirs %>% autoplot(log_sdiff)
+souvenirs %>% autoplot(log_sdiff_diff)
+souvenirs %>% autoplot(log_sdiff_diff_diff)
+```
+
+```{r, include=params$print_sol}
+souvenirs %>%
+  features(log_sales, unitroot_kpss)
+souvenirs %>%
+  features(log_sdiff, unitroot_kpss)
+souvenirs %>%
+  features(log_sdiff_diff, unitroot_kpss)
+souvenirs %>%
+  features(log_sdiff_diff_diff, unitroot_kpss)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+All the differenced series we have computed pass the stationarity test...
+
+Which one should we pick?
+  
+The problem is that there is such thing as overdifferencing. Sometimes further
+differencing starts generating patterns instead of removing them. We can spot this
+using the ACF
+```
+
+```{r, include=params$print_sol}
+souvenirs %>% ACF(log_sales, lag_max=36) %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+souvenirs %>% ACF(log_sdiff) %>% autoplot()
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+We can spot both on the timeplot and the ACF that seasonal differencing removed
+- Seasonality (biggest lags are no longer at lag 12)
+- Trend
+
+The test judges the sdiff series as stationary. Nonetheless, the first two ACF 
+coefficients are high.
+
+This suggests further differencing could help, but we could already try an
+ARIMA model here.
+```
+
+```{r, include=params$print_sol}
+souvenirs %>% ACF(log_sdiff_diff) %>% autoplot()
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+Adding one ordinary difference reduced the autocorrelation of the first lag and
+rendered the second lag negligible.
+
+The first autocorrelation is still relevant but much weaker. One might think that
+this suggest the need for further differencing. But lets see what happens.
+```
+
+```{r, include=params$print_sol}
+souvenirs %>% ACF(log_sdiff_diff_diff) %>% autoplot()
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+Note that further odinary differences 
+- Increased the value of the first AC coefficient
+- Rendered the second AC coefficient relevant again!
+  
+This is clearly an indication that we are overdifferencing. The constant
+change of sign in the timeplot of this sdiff_diff_diff series also signals this.
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+In this case I would try a model on both the series with a single seasonal diff
+as well as on the series with a seasonal diff and an ordinary diff.
+```
+
+## 2. For the following retail series, find the appropriate order of differencing (and transformation if necessary) to obtain stationary data.
+
+```{r}
+set.seed(12345678)
+
+retail <- aus_retail %>%
+  filter(
+    `Series ID` == sample(aus_retail$`Series ID`, 1),
+    Month < yearmonth("2018 Jan")
+  )
+
+retail %>% autoplot(Turnover)
+```
+
+```{r, include=params$print_sol}
+lambda_retail <- 
+  retail %>% 
+  features(Turnover, guerrero) %>% 
+  pull(lambda_guerrero)
+
+lambda_retail
+```
+
+```{r, include=params$print_sol}
+# Lambda close to 0, move to a log.
+```
+
+```{r, include=params$print_sol}
+retail <- 
+  retail %>% 
+  mutate(
+    log_turn = log(Turnover),
+    log_sdiff = difference(log_turn, 12),
+    log_sdiff_diff = difference(log_sdiff, 1)
+  )
+```
+
+```{r, include=params$print_sol}
+retail %>% autoplot(log_turn)
+retail %>% autoplot(log_sdiff)
+retail %>% autoplot(log_sdiff_diff)
+```
+
+```{r, include=params$print_sol}
+retail %>% ACF(log_turn) %>% autoplot()
+retail %>% ACF(log_sdiff) %>% autoplot()
+retail %>% ACF(log_sdiff_diff) %>% autoplot()
+```
+
+```{r, include=params$print_sol}
+retail %>% 
+  features(log_turn, unitroot_kpss)
+retail %>%
+  features(log_sdiff, unitroot_kpss)
+retail %>%
+  features(log_sdiff_diff, unitroot_kpss)
+```
+
+```{r, eval=FALSE, include=params$print_sol}
+Seasonal differencing removes seasonality, but a substantial amount of trend
+remains, as hinted by the ACF. This suggest further differencing required.
+
+We do this and now the series seems to have lost the trend pattern and looks
+stationary both on the timeplot and the ACF. There is a spike at lag 12 but
+not at lag 24 (it is therefore not a matter of seasonality).
+
+The test also indicates stationarity has been reached.
+```

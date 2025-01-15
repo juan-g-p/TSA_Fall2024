@@ -156,6 +156,8 @@ manual_dcmp %>%
 
 YOUR ANSWER GOES HERE - 40 words max
 
+FEEDBACK: no answer
+
 ---------
 
 # 2.5 Use `autoplot()` to depict the decomposition obtained in 2.2, which you stored in `class_dcmp`. Assess the decomposition however you see fit, judging whether it is good or not and why.
@@ -168,6 +170,8 @@ class_dcmp %>%
 ---------
 
 YOUR ANSWER GOES HERE - 50 words max
+
+FEEDBACK: no answer
 
 ---------
 

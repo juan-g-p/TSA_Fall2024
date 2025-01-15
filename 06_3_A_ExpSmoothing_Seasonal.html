@@ -4167,6 +4167,10 @@ Removed 4 rows containing missing values (`geom_line()`).</code></pre>
 <section id="fit-models-to-a-training-dataset" class="level2">
 <h2 class="anchored" data-anchor-id="fit-models-to-a-training-dataset">2. Fit models to a training dataset</h2>
 <p>The code below creates a sub-slice of <code>nz_arrivals</code> that leaves out the last 8 observations. That is, it creates a <strong>training dataset</strong> <code>nz_tr</code></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>nz_tr <span class="ot">&lt;-</span> nz_arrivals <span class="sc">%&gt;%</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice</span>(<span class="dv">1</span><span class="sc">:</span>(<span class="fu">n</span>() <span class="sc">-</span> <span class="dv">8</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
 <p>Fit the following models to <code>nz_tr</code>:</p>
 <ol type="1">
 <li>A Holt-Winter’s model with additive seasonality. Call it <code>hw_additive</code></li>

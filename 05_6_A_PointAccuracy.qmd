@@ -3,7 +3,7 @@ title: "05_6_A_Point_Forecast_Accuracy"
 format: html
 editor: source
 params:
-  print_sol: true
+  print_sol: false
   print_examples: true
 toc: true
 toc-location: left

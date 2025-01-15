@@ -36,10 +36,6 @@ Using the ETS state space model statistical framework has the added value that t
 -   **For an additive error model**: it can be proved that maximizing the likelihood (assuming normally distributed errors) gives the same results as minimizing the sum of squared errors (at least asymptotically).
 -   **For multiplicative models**: different results will be obtained.
 
-### Ranges of values taken by the parameters.
-
-TODO: complete from section 8.6
-
 ## Information criteria vs Maximising likelihood.
 
 **Information criteria** use both the likelihood of the model as well as some other metric of the model complexity. The idea is to **penalize the likelihood to compensate for potential overfitting of the data that might arise if we focus solely on maximizing the likelihood of the model**.

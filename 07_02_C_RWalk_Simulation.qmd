@@ -1,0 +1,651 @@
+---
+title: "07_02_C_RWalk_Simulation"
+self-contained: true
+format: html
+editor: visual
+params:
+  print_sol: false
+  hidden: false
+toc: true
+toc-location: left
+toc-depth: 6
+---
+
+```{r}
+library(fpp3)
+library(nortest) # Used for normality tests
+```
+
+# The equation of a random walk process:
+
+In the theory video and associated pdf, it has been shown that the equation of a random walk is:
+
+$$
+x_t = \delta + x_{t-1} + w_t
+$$
+
+Where:
+
+-   $\delta \in \mathbb{R}$ is the constant delta added at each time step that results in an overall drift in the project.
+-   $x_{t-1}$ is the value of the process at the previous time step
+-   $w_t$ is a white noise process with 0 mean and constant variance $\sigma_w^2$
+
+In the theory part of this session we have also proved by recursive substitution that this is equivalent to
+
+$$
+x_t = x_0 + \delta t + \sum_{j=1}^{t}w_t \underset{\substack{\uparrow \\ \text{set} \\ x_0 = 0}}{=} \delta t + \sum_{j=1}^{t}w_t
+$$ where in the last step we have set $x_0$, the initial value of the random walk, to be 0. This has been done for simplicity and can always be attained by shifting the coordinate system. Thus, there is no loss of generality in this formulation.
+
+# Define simulating function
+
+The function below simulates a random walk process. This function takes the following arguments:
+
+-   `n`: number of timesteps to be simulated
+-   `delta`: $\delta \in \mathbb{R}$ added at each timestep that results in the overall drift in the random walk.
+-   `x_0 \in \mathbb{R}`: initial value for the random walk process, in case we want it to start at a value different from 0.
+-   `noise_var`: this is $\sigma_w^2$, the variance of the white noise process governing the random walk.
+
+```{r}
+# Define the function
+simulate_Rwalk <- function(n, delta, x_0, noise_var) {
+
+  # Simulate white noise
+  w_t = rnorm(n, sd=sqrt(noise_var))
+  
+  # Calculate the comulative effect of the
+  # white noise process at each time step
+  w_cumsum = cumsum(w_t)
+  
+  # Calculate cumulative drift at each time step
+  drift = delta * 1:n
+  
+  # Calculate x_t at each time step
+  xt = x_0 + w_cumsum + drift
+  
+  # Create dataframe to return the results
+  df <- data.frame(
+    t = 1:n,
+    w_t = w_t,
+    delta = rep(delta, n),
+    drift = drift,
+    w_cumsum = w_cumsum,
+    x_t = xt
+  )
+  
+  return(df)
+}
+```
+
+# Single-run simulation: Random Walk (without drift)
+
+## Running the simulation
+
+The code below runs a single simulation where we have set the parameters as indicated below
+
+```{r}
+# Set seed for reproducibility
+set.seed(160)
+  
+# Simulate data using the function
+n <- 200 # 200 timesteps
+delta <- 0 # 0 drift (pure Random walk)
+x_0 <- 0
+noise_var <- 1
+
+df_rw <- simulate_Rwalk(n = n, delta = delta, x_0 = x_0, noise_var = noise_var)
+```
+
+To that code we now add the **moving standard deviation** applied using centered windows of 7 points.
+
+-   Much like we could compute the average of the points in a window to obtain the moving average, we can compute the moving standard deviation.
+-   The resulting moving standard deviation is local measure of the variability of the data locally.
+-   We choose a window of 7 points as an example. If we think of this simulated data as closing prices of a stock market asset at the end of the day, this would correspond to the average of the prices in a one-week window (not necessarily a calendar week, because trading days do not match calendar days).
+
+```{r}
+# Compute 7-point centered moving standard deviation
+df_rw$rolling_sd <- 
+  slider::slide_dbl(.x = df_rw$x_t, .f = sd, 
+                    .before = 3, .after = 3, .complete = TRUE)
+```
+
+## Visualization
+
+Now the code below depicts the generated random walk along with:
+
+-   a blue dashed line indicating the overall drift. In this case we set $\delta=0$, so there is no drift. As a result this line is horizontal
+-   a red dashed line corresponding to the moving standard deviation. As you can see, it remains fairly constant. This indicates that, locally, the variance of this process is constant. In stock-market jargon these measures of local variance are sometimes referred to as *volatility*. There are much more elaborate indicators of volatility. Here we have purposefully used this simple one.
+
+```{r}
+# Plotting
+p <- 
+  
+  # Specify global aesthetics
+  ggplot(df_rw, aes(x = t)) +
+  
+  # Plot x_t with line and points
+  geom_line(aes(y = x_t), color = "black") +
+  geom_point(aes(y = x_t), color = "black") +
+  
+  # Plot drift (cumulative delta over time)
+  geom_line(aes(y = x_0 + drift), linetype = "dashed", color = "blue") +
+  
+  # geom_line(aes(y = w_avg), color = "purple", linetype = "dashed") +
+  
+  # Plot rolling standard deviation
+  geom_line(aes(y = rolling_sd), color = "red", linetype = "dotted") +
+  
+  labs(title = "Simulated Random Walk with Drift and Rolling Std Dev", 
+       x = "Time", y =  "Value")
+
+p
+```
+
+## Conclusions
+
+1.  As we had shown in the theory, **a random walk process is not stationary**. We see that this random walk, **even though it has no drift, it has a trend**. The fact that this specific instance of a random walk has this trend is an example that shows that, in general, a random walk process is **not stationary**.
+    -   We had proved this in a stronger manner in the theory lesson by computing directly the autocovariance of the random walk process.
+2.  Even though the local standard deviation remains fairly constant for each single run of the random walk, for the overall process the variance (the total range of values) grows with time, as we had shown in the theory, where we proved that $Var(x_t)=t\,\sigma_w^2$.
+    -   Remember one way in which we had proven it was through the following formula: $x_t = \sum_{j=1}^{t}w_t$ (case without drift). This means that $x_t$ is the sum of uncorrelated normal distributions, which is itself also normal. Its variance is $t \, \sigma_w^2$ because the formula for the variance of the *sum uncorrelated independent random variables* indicates so (see theory part, where we applied this formula and also proved it).
+
+# Single-run simulation: Random Walk with drift
+
+## Running the simulation
+
+The code below runs a single simulation where we have set the parameters as indicated below
+
+```{r}
+# Set seed for reproducibility
+set.seed(160)
+  
+# Simulate data using the function
+n <- 200 # 200 timesteps
+delta <- 0.35 # 0 drift (pure Random walk)
+x_0 <- 0
+noise_var <- 1
+
+df_rw_drift <- simulate_Rwalk(n = n, delta = delta, x_0 = x_0, noise_var = noise_var)
+
+# Compute 7-point centered moving standard deviation
+df_rw_drift$rolling_sd <- 
+  slider::slide_dbl(.x = df_rw_drift$x_t, .f = sd, 
+                    .before = 3, .after = 3, .complete = TRUE)
+```
+
+## Visualization
+
+See the corresponding section for the Random Walk without drift
+
+```{r}
+# Plotting
+p_drift <- 
+  
+  # Specify global aesthetics
+  ggplot(df_rw_drift, aes(x = t)) +
+  
+  # Plot x_t with line and points
+  geom_line(aes(y = x_t), color = "black") +
+  geom_point(aes(y = x_t), color = "black") +
+  
+  # Plot drift (cumulative delta over time)
+  geom_line(aes(y = x_0 + drift), linetype = "dashed", color = "blue") +
+  
+  # geom_line(aes(y = w_avg), color = "purple", linetype = "dashed") +
+  
+  # Plot rolling standard deviation
+  geom_line(aes(y = rolling_sd), color = "red", linetype = "dotted") +
+  
+  labs(title = "Simulated Random Walk with Drift and Rolling Std Dev", 
+       x = "Time", y =  "Value")
+
+p_drift
+```
+
+## Conclusions
+
+Since we have used an identical seed, the only difference between both processes is the presence of a constant drift, as the blue dashed line indicates. At each point in time, a constant $\delta$ is added as indicated by the governing equation:
+
+$$
+x_t = \delta t + \sum_{j=1}^{t}w_t
+$$
+
+# Multi-run simulation - Random walk (withot drift)
+
+The code defines the function `simulate_n_Rwalks`. This function simply uses repeatedly `simulate_Rwalk` to produce a multi-run simulation of random walks. It returns a dataframe containing an identifier for each simulation and the results of each simulation.
+
+```{r}
+simulate_n_Rwalks <- function(n_sims, n, delta, x_0, noise_var) {
+  
+  all_sims <- list() # list object to hold all dataframes
+  
+  for (i in 1:n_sims) {
+    sim_data <- simulate_Rwalk(n, delta, x_0, noise_var)
+    sim_data$sim_ID <- i
+    all_sims[[i]] <- sim_data
+  }
+  
+  # Combine all simulations into one data frame
+  all_data <- bind_rows(all_sims)
+  
+  all_data <- select(all_data, sim_ID, everything())
+  
+  return(all_data)
+}
+```
+
+## 10 runs
+
+Let us use the previous function to produce 10 runs.
+
+This would be like **getting 10 realizations of the time series**, something we very rarely get in real-world applications unless we are conducting a statistical experiment.
+
+```{r}
+# Set seed for reproducibility
+set.seed(160)
+
+# Number of simulations
+n_sims = 10
+
+# Example for 10 simulations
+n <- 200
+delta <- 0
+x_0_<- 0
+noise_var <- 1
+
+run_10_nodrift <- 
+  simulate_n_Rwalks(n_sims, n, delta, x_0, noise_var)
+
+# Exctract drift (same drift for every sim)
+drift <- 
+  run_10_nodrift %>% 
+  filter(sim_ID == 1) %>% 
+  pull(drift)
+```
+
+The graph below depits the result of each simulation. For clarity, each simulation has been assigned a specific color:
+
+```{r}
+# Plotting
+p_10sims <- 
+  ggplot(run_10_nodrift, aes(x = t, y = x_t, group = sim_ID, 
+                             color = as.factor(sim_ID))) +
+  
+  # Plot all simulations
+  geom_line(aes(group = sim_ID), alpha = 0.85) +
+  
+  # Plot drift (cumulative delta over time)
+  geom_line(aes(y = x_0 + drift), linetype = "dashed", color = "blue") +
+
+  # Adjust color scale to have distinguishable colors
+  scale_color_brewer(palette = "Paired") +
+
+  theme(
+      legend.title = element_blank(),
+      legend.position = "none"  
+      ) +
+  
+  labs(title = "Random Walk with 0 drift - 10 simulations") # Add title
+
+p_10sims
+```
+
+## 100 runs
+
+We may grow the number of simulations we compute. Let us run 100 simulations and depict the results. Now all simulations will be depicted using the same color, since there are no paletters with 100 different clearly distinguishable colors and the point is simply to show to what extent the range of values change and if there are areas with higher concentration of values than others.
+
+We can see that at the beginning of the process there is a higher density of interesecting curves, since all random walks start at $x_0=0$. As t increases, the variance of the process grows linearly, as shown by the equation $\sigma_{RWalk}^2 = t \, \sigma_w^2$
+
+```{r}
+# Set seed for reproducibility
+set.seed(160)
+
+# Number of simulations
+n_sims = 100
+
+# Example for 10 simulations
+n <- 200
+delta <- 0
+x_0_<- 0
+noise_var <- 1
+
+run_100_nodrift <- 
+  simulate_n_Rwalks(n_sims, n, delta, x_0, noise_var)
+
+# Exctract drift (same drift for every sim)
+drift <- 
+  run_100_nodrift %>% 
+  filter(sim_ID == 1) %>% 
+  pull(drift)
+```
+
+```{r}
+# Plotting
+p_100sims <- 
+  
+  ggplot(run_100_nodrift, aes(x = t, y = x_t, group = sim_ID)) +
+  
+  # Plot all simulations
+  geom_line(aes(group = sim_ID), alpha = 0.1) +
+  
+  # Plot drift (cumulative delta over time)
+  geom_line(aes(y = x_0 + drift), linetype = "dashed", color = "blue") +
+
+  # Adjust color scale to have distinguishable colors
+  scale_color_brewer(palette = "Paired") +
+
+  theme(
+      legend.title = element_blank(),
+      legend.position = "none"  
+      ) +
+  
+  labs(title = "Random Walk with 0 drift - 100 simulations") # Add title
+
+p_100sims
+```
+
+## 10000 runs
+
+To wrap-up, let us increase the number of simulations to 10000. This yields an ensemble of simulations sufficient that it assymptotically matches the values predicted in the theory part of the session:
+
+```{r}
+# Set seed for reproducibility
+set.seed(160)
+
+# Number of simulations
+n_sims = 10000
+
+# Example for 10 simulations
+n <- 200
+delta <- 0
+x_0_<- 0
+noise_var <- 1
+
+run_10000_nodrift <- 
+  simulate_n_Rwalks(n_sims, n, delta, x_0, noise_var)
+
+# Exctract drift (same drift for every sim)
+drift <- 
+  run_10000_nodrift %>% 
+  filter(sim_ID == 1) %>% 
+  pull(drift)
+```
+
+```{r}
+# Plotting
+p_10000sims <- 
+  
+  ggplot(run_10000_nodrift, aes(x = t, y = x_t, group = sim_ID)) +
+  
+  # Plot all simulations
+  geom_line(aes(group = sim_ID), alpha = 0.1) +
+  
+  # Plot drift (cumulative delta over time)
+  geom_line(aes(y = x_0 + drift), linetype = "dashed", color = "blue") +
+
+  theme(
+      legend.title = element_blank(),
+      legend.position = "none"  
+      ) +
+  
+  labs(title = "Random Walk with 0 drift - 10000 simulations") # Add title
+
+p_10000sims
+```
+
+```{r}
+
+```
+
+Ok, as expected the variance of the process increases over time. Let us check that, indeed, the random varable corresponding to each point in time is a normally distributed random variable. For that, let us produce cross sections of the data at the following points:
+
+-   t = {25, 50, 75, 100, 125, 150, 175, 200}
+
+The code below produces cross-sections of the simulation data at these time steps and stores each in a position of the list `cross_data`. It also uses the same for loop to add the points of each cross-section to the graph. \* As you can see, each red point is the interesection of a simulated random walk with the lines $t = constant$ chosen for the cross section.
+
+```{r, eval=FALSE, include=FALSE}
+# DO NOT DELETE THIS CODE. I LIKE IT. KEEP IT HIDDEN AND DONT RUN IT.
+# IT COULD COME IN HANDY
+
+# This code creates for variables, corresponding to each of the cross-sections
+# df_cross_50, #df_cross_150...
+
+# Example: the resulting df_cross_50 is the same as if we did
+# df_cross50 <- run_10000_nodrift %>% filter(t == 50)
+
+# Points in time at which we want the cross-sections
+t_cross <- seq(25, 200, by=25)
+
+for (i in t_cross) {
+  
+  # Name we want for the resulting dataframe
+  df_name <- paste0("df_cross_", i)
+  
+  # Value that will be assigned to df_name
+  df_value <- run_10000_nodrift %>% filter(t == i)
+  
+  # Assign in the Global Environment
+  assign(df_name, df_value, envir = .GlobalEnv)
+}
+```
+
+```{r}
+# Points in time at which we want the cross-sections
+t_cross <- seq(25, 200, by=25)
+cross_data <- list() # list object to hold all subset dataframes
+  
+for (i in seq_along(t_cross)) {
+    
+    # Subset data
+    df_cross <- run_10000_nodrift %>% filter(t == t_cross[[i]])
+    cross_data[[i]] <- df_cross
+    
+    # Add cross section to the previous graph
+    p_10000sims <- p_10000sims + 
+                   geom_point(data = cross_data[[i]], 
+                              aes(x = t, y = x_t), color = "red", alpha = 0.25)
+}
+
+p_10000sims
+```
+
+To make the figure more clear, we are going to:
+
+1.  Do away with the random walk lines and retain only the data corresponding to each cross-section.
+2.  Compute the density curve corresponding to each cross-section and plot it on the graph.
+
+Do not worry if you do not understand every detail of the code below, just focus on the graph.
+
+```{r}
+scale_fac <- 200
+
+p_sections_densities <- ggplot(run_10000_nodrift, 
+                               aes(x = t, y = x_t, group = sim_ID))
+
+# Loop through each of the dataframes contained in the list "cross_data"
+for (i in seq_along(t_cross)) {
+  
+  df_cross <- cross_data[[i]]
+  t_i <- t_cross[[i]]
+  
+  density_data <- density(df_cross$x_t)
+  
+  # Convert density data to a dataframe for plotting
+  # The scaling factor can be adjusted for visual clarity
+  df_density <- data.frame(x = density_data$x,
+                           y = density_data$y * scale_fac + t_i)
+  
+  p_sections_densities <- 
+    p_sections_densities +  
+    
+    # Add cross section
+    geom_point(data = df_cross, aes(x = t, y = x_t), 
+               color = "red", alpha = 0.25) +
+  
+    # Add density graph
+    geom_path(data = df_density, aes(x = y, y = x, group = 1), color = "blue") +
+    
+    # Shade density curve
+    # Use aes_string to avoid lazy evaluation issues
+    geom_ribbon(data = df_density,
+                aes_string(x = NULL, y = "x", xmin = t_i, xmax = "y", group = "1"),
+                fill = "blue", alpha = 0.3)
+  
+}
+
+p_sections_densities
+```
+
+```{r}
+
+```
+
+## Conclusion
+
+The cross-sections above result in normal density graphs. To inspect this accurately, we may compute the qq-plot. The perfect match should be sufficient to convince you that the distribution is normal. Let us check for t = 200 as an example:
+
+```{r}
+df_cross_200 <- cross_data[[8]]
+
+# Adjusted QQ-plot
+qq_plot_adjusted <- ggplot(df_cross_200, aes(sample = x_t)) +
+  geom_qq(alpha = 0.5, size = 0.5) +  # Added transparency and reduced dot size
+  geom_qq_line(color = "red") +       # Made the theoretical line red
+  labs(title = "Q-Q plot of x_t values at t=200")
+
+qq_plot_adjusted
+```
+
+We may even compute the variance of the points at this cross-section. From the theory, we expect the variance at $t=200$:
+
+$$
+\begin{equation*}
+\begin{aligned}
+&\sigma_{RW}^2 = t \, \sigma_w = t \,\cdot1 = t\\
+&\sigma_{RW}^2|_{t=200}  = 200
+\end{aligned}
+\end{equation*}
+$$ Now let us compute the variance of our sample:
+
+```{r}
+var(df_cross_200$x_t)
+```
+
+You can see that it matches the theory really well.
+
+# Multi-run simulation - Random walk (with drift)
+
+Now let us do the same but we will add a drift term. We will go directly to the 10000 runs case.
+
+## 10000 runs
+
+Due to the similarity with the previous case, the code here is provided with no further comment.
+
+**Just one comment about the last graph.** The variances are now still normally distributed, with the exact same variances as before, since we set the exact same seed and this guarantees repeatibility. What now changes is the mean of these distributions, which is given by the drift. **As we proved in the theory, the expected value of a random walk process with drift and** $x_0=0$ is indeed $\delta t$, due to the linearity of the expectation, the fact that $\delta t$ is deterministic (that is, $E[\delta t] = \delta t$) and the fact that white noise has expectation equal to 0.
+
+$$
+E[x_t] = E[\delta t + \sum_{j=1}^{t}w_t] = \delta t
+$$
+
+```{r}
+# Set seed for reproducibility
+set.seed(160)
+
+# Number of simulations
+n_sims = 10000
+
+# Example for 10 simulations
+n <- 200
+delta <- 0.36 # Add drift
+x_0_<- 0
+noise_var <- 1
+
+run_10000_drift <- 
+  simulate_n_Rwalks(n_sims, n, delta, x_0, noise_var)
+
+# Exctract drift (same drift for every sim)
+drift <- 
+  run_10000_drift %>% 
+  filter(sim_ID == 1) %>% 
+  pull(drift)
+```
+
+```{r}
+# Plotting
+p_10000sims <- 
+  
+  ggplot(run_10000_drift, aes(x = t, y = x_t, group = sim_ID)) +
+  
+  # Plot all simulations
+  geom_line(aes(group = sim_ID), alpha = 0.1) +
+  
+  # Plot drift (cumulative delta over time)
+  geom_line(aes(y = x_0 + drift), linetype = "dashed", color = "blue") +
+
+  theme(
+      legend.title = element_blank(),
+      legend.position = "none"  
+      ) +
+  
+  labs(title = "Random Walk with 0 drift - 10000 simulations") # Add title
+```
+
+```{r}
+# Points in time at which we want the cross-sections
+t_cross <- seq(25, 200, by=25)
+cross_data <- list() # list object to hold all subset dataframes
+  
+for (i in seq_along(t_cross)) {
+    
+    # Subset data
+    df_cross <- run_10000_drift %>% filter(t == t_cross[[i]])
+    cross_data[[i]] <- df_cross
+    
+    # Add cross section to the previous graph
+    p_10000sims <- p_10000sims + 
+                   geom_point(data = cross_data[[i]], 
+                              aes(x = t, y = x_t), color = "red", alpha = 0.25)
+}
+
+p_10000sims
+```
+
+```{r}
+scale_fac <- 200
+
+p_sections_densities <- ggplot(run_10000_drift, 
+                               aes(x = t, y = x_t, group = sim_ID))
+
+# Loop through each of the dataframes contained in the list "cross_data"
+for (i in seq_along(t_cross)) {
+  
+  df_cross <- cross_data[[i]]
+  t_i <- t_cross[[i]]
+  
+  density_data <- density(df_cross$x_t)
+  
+  # Convert density data to a dataframe for plotting
+  # The scaling factor can be adjusted for visual clarity
+  df_density <- data.frame(x = density_data$x,
+                           y = density_data$y * scale_fac + t_i)
+  
+  p_sections_densities <- 
+    p_sections_densities +  
+    
+    # Add cross section
+    geom_point(data = df_cross, aes(x = t, y = x_t), 
+               color = "red", alpha = 0.25) +
+  
+    # Add density graph
+    geom_path(data = df_density, aes(x = y, y = x, group = 1), color = "blue") +
+    
+    # Shade density curve
+    # Use aes_string to avoid lazy evaluation issues
+    geom_ribbon(data = df_density,
+                aes_string(x = NULL, y = "x", xmin = t_i, xmax = "y", group = "1"),
+                fill = "blue", alpha = 0.3)
+  
+}
+
+p_sections_densities + 
+  # Plot drift (cumulative delta over time)
+  geom_line(aes(y = x_0 + drift), linetype = "dashed", color = "blue")
+```

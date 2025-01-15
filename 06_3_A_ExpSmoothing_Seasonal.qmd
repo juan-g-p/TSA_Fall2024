@@ -545,7 +545,7 @@ pattern increases in size proportionally to the level of the trend
 
 The code below creates a sub-slice of `nz_arrivals` that leaves out the last 8 observations. That is, it creates a **training dataset** `nz_tr`
 
-```{r, include=params$print_sol}
+```{r}
 nz_tr <- nz_arrivals %>%
   slice(1:(n() - 8))
 ```
