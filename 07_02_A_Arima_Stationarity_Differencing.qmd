@@ -131,23 +131,29 @@ gafa_stock %>%
   autoplot()
 ```
 
-We can remove the trend from this time-series simply by differencing (we will study this later in the session):
+We can remove the trend from this time-series simply by differencing. The particular differencing that we are using here is *first order differencing*, which consists from subtracting the first lag of the time series from the time series:
+
+$$
+y'_t = y_t - y_{t-1}
+$$
+
+We may attain this with the command `difference(Variable_Name, 1)`:
 
 ```{r}
 gafa_stock %>%
   filter(Symbol == "GOOG", year(Date) == 2018) %>%
-  autoplot(difference(Close)) +
+  autoplot(difference(Close, 1)) +
   labs(y = "Google closing stock price", x = "Day")
 ```
 
 ```{r}
 gafa_stock %>%
   filter(Symbol == "GOOG", year(Date) == 2018) %>%
-  ACF(difference(Close)) %>%
+  ACF(difference(Close, 1)) %>%
   autoplot()
 ```
 
-We see that the above operations have rendered the series to be white noise.
+We see that differencing has rendered the series to be white noise.
 
 ## White noise and stationarity
 
@@ -175,7 +181,7 @@ algeria %>%
 algeria %>% ACF(Exports) %>% autoplot()
 ```
 
-The series exhibits a slowly decaying ACF resulting from the trend-cycle component. We can see that this goes away with first order differencing:
+The series exhibits a slowly decaying ACF resulting from the trend-cycle component. We can see that first-order differencing (see google stock example) removes the trend in this case as well:
 
 ```{r}
 algeria <- 
@@ -396,18 +402,39 @@ See section *a formal definition* at the end of the notebook. This section is **
 
 # Differencing
 
-In the ARIMA framework, we will use differencing to remove non-stationarities caused by the presenced of trend and seasonalities.
+## Differencing vs deriving
 
-The google stock prices example showed that, while the stock price was not stationary, the daily changes in the price were stationary (although we should perhaps have a better look at the variance).
+Computing differences is the discrete counterpart of deriving. To understand this, let us focus on first order differences:
 
-**Differencing** (computing the difference between consecutive observations) is one way to make a non-stationary time series stationary.
+$$
+y'_t = y_t - y_{t-1}
+$$
+
+The image below summarizes why this can be interpreted as the discrete counterpart of the derivative:
+
+![](figs/deriving_differencing.png)
+
+## Differencing in the ARIMA framework.
+
+In the ARIMA framework, **differencing** (computing the difference between consecutive observations) is the tool used to render a non-stationary time series stationary by removing the deterministic parts of the trend and seasonality.
 
 Specifically, differencing **removes changes in the level of a time series and therefore can reduce (or eliminate) trend and seasonality (we discuss later seasonal differences).**
+
+The google stock prices example showed that, while the stock price was non-stationary, the daily changes in the price were stationary (although we should perhaps have had a better look at the variance, which changed to some extent due to the changing market volatility).
 
 We will **distinguish two types of differences**
 
 1. **First-differencing, a.k.a lag1-differencing, a.k.a ordinary differences** (differencing between consecutive lags) **can be helpful in removing trend non-stationarity but it will not help much in removing seasonal non-stationarity.**
-2. **Seasonal-differencing** (differences between observations in consecutive seasons) can be **helpful in removing seasonal non-stationarity as well as trend non-stationarity to some extent.**
+
+$$
+y'_t = y_t - y_{t-1}
+$$
+
+2. **Seasonal-differencing** (differences between observations in consecutive seasons) can be **helpful in removing seasonal non-stationarity as well as trend non-stationarity to some extent.** If $m$ is the length of the sesasonal period:
+
+$$
+y'_t = y_t - y_{t-m}
+$$
 
 ## First order differences (first order lag-1 differencing)
 
@@ -424,11 +451,11 @@ The differenced series can be written as:
 
 ### Random walk model
 
-**If the series resulting from first-order differencing differencing is white noise**, the model for the original series can be written as ($\varepsilon_t$ denotes white noise):
+**If the series resulting from first-order differencing differencing is white noise**, then the difference series satisfies:
 
 ```{=tex}
 \begin{align*}
-  y_t - y_{t-1} = \varepsilon_t,
+  y'_t = y_t - y_{t-1} = \varepsilon_t,
 \end{align*}
 ```
 
@@ -440,7 +467,7 @@ Rearranging we arrive at the **random walk model**: the value at $t$ is given by
 \end{align*}
 ```
 
-This model is widely **used for non-stationary data**, particularly **financial** and **economic** data. These typically have:
+This model is widely **used for non-stationary data**, particularly for **stock market data**. These typically have:
 
 -   long periods of apparent trends up or down
 -   sudden and unpredictable changes in direction
@@ -451,8 +478,8 @@ Please, bear this in mind: **a random walk is NOT a stationary process**.
 
 * A simple way to convince yourself of this is to run some simulations of the random walk process. 
 * This is done separately in the additional materials on random walk simulation. 
-* The black line in the image below corresponds to one run of that simulation. We can see that the random walk process may result in a time series with trend, which is not stationary. This is sufficient to prove that, in general, the random walk model is not stationary.
-* A more rigorous proof of this is given in the additional materials, where we show that the random walk process has increasing variance over time. But let us stick to the matter of this session.
+* The black line in the image below corresponds to one run of that simulation. We can see that the random walk process may result in a time series with trend, which is not stationary. This is sufficient to prove informally that, in general, the random walk model is not stationary.
+* A more rigorous proof of this is given in the additional materials, where we show that the stochastic process of the random walk has increasing variance over time.
 
 ![](figs/rwalk_singlerun.png)
 
@@ -468,6 +495,8 @@ $$
   y_t = y_{t-1} + \cancel{\varepsilon_t}
 \end{align*}
 $$
+
+So if the differenced $y'_t$ series is a white noise series, the most reasonable benchmark model for the original series $y_t$ is the naïve model.
 
 ### Random walk with drift
 
@@ -498,13 +527,13 @@ $$
 \end{align*}
 $$
 
-If you remember how we clarified the drift method in the corresponding session, it would be equivalent to obtaining an estimate of the average change over time $c=tan(\alpha)$:
+Remember how we clarified the drift method in the corresponding session, it would be equivalent to obtaining an estimate of the average change over time $c=tan(\alpha)$:
 
 ![](figs/drift_method_1.jpeg)
 
 ![](figs/drift_method_2.jpeg)
 
-Below the same simulation we showed before but this time, adding a drift:
+Below the same simulation we showed before but this time adding a drift:
 
 ![](figs/rwalk_drift_1sim.png)
 
@@ -544,11 +573,12 @@ If $m$ is the **length of the seasonal period**:
   y'_t = y_t - y_{t-m}
 \end{align*}
 ```
--   $y_{t-m}$ are called **lag-**$m$ differences, we subtract the observation at a point $t-m$ (whereas ordinary lags subtact $y_{t-1}$).
+
+-   $y'_{t-m}$ are called **lag-**$m$ differences. We subtract the observation at a point $t-m$ ($y_{t-m}$) (whereas ordinary lags subtact $y_{t-1}$).
 
 ### Seasonal naive method
 
-If the seasonally differenced series appears to be white noise, a proper model for the original data would be:
+If the seasonally differenced series appears to be white noise, a proper model for the original data $y_t$ would be:
 
 ```{=tex}
 \begin{align*}
